@@ -146,6 +146,7 @@ Refusés, sans date prévue :
 - Événement privé : l'invitation est gratuite pour l'invité ; elle porte son nom, son nombre d'accompagnants et un QR code ; une invitation transférée à quelqu'un d'autre reste au nom du premier invité.
 - Réponses des invités : trois états visibles (confirmé, refusé, sans réponse) ; relance possible au plus une fois par jour pour un même invité.
 - Modèle économique : abonnement mensuel par organisation et commission sur chaque billet payant vendu ; les billets gratuits ne génèrent pas de commission.
+- Tarif des particuliers : prix fixe par événement privé, selon le nombre d'invités (paliers jusqu'à 100, 300 et 800 invités), payé en mobile money ou par carte avant l'envoi des invitations ; pas d'abonnement.
 
 ## Notes complémentaires
 
