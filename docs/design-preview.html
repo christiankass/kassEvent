@@ -1,0 +1,366 @@
+<title>kassEvent Design</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,600..900,100&family=Instrument+Sans:wght@400;500;600;700&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout : sections empilées, grille disciplinée pour l'app ; le billet jaune perforé est l'objet signature */
+:root{
+  --fleuve:#0B3B3C;      /* encre principale : boutons, titres, nav */
+  --fleuve-2:#145C5C;
+  --billet:#FFC83D;      /* jaune billet : signature, surlignage, talon */
+  --billet-ink:#2A2100;
+  --bg:#F3F6F5; --surface:#FFFFFF; --line:#D5DEDC; --muted:#5B6E6C; --fg:#0E1B1C;
+  --ok:#1E8E4E; --ok-bg:#E3F4EA; --warn:#B87300; --warn-bg:#FFF2D9; --err:#C62828; --err-bg:#FDE7E7; --info:#1F6FB2; --info-bg:#E4EFF9;
+  --f-display:"Fraunces",Georgia,serif; --f-body:"Instrument Sans","Segoe UI",sans-serif; --f-data:"Geist","Instrument Sans",sans-serif; --f-code:"JetBrains Mono",ui-monospace,monospace;
+  --r-sm:6px; --r-md:10px; --r-lg:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --fleuve:#5FC4BC; --fleuve-2:#8ED8D1; --billet:#FFC83D; --billet-ink:#2A2100;
+  --bg:#0B1414; --surface:#122020; --line:#24393A; --muted:#93A9A7; --fg:#E7F0EF;
+  --ok:#4CC27D; --ok-bg:#12301F; --warn:#F2B24C; --warn-bg:#33270F; --err:#F06A6A; --err-bg:#3A1616; --info:#6AAFEA; --info-bg:#132A3D; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --fleuve:#5FC4BC; --fleuve-2:#8ED8D1; --billet:#FFC83D; --billet-ink:#2A2100;
+  --bg:#0B1414; --surface:#122020; --line:#24393A; --muted:#93A9A7; --fg:#E7F0EF;
+  --ok:#4CC27D; --ok-bg:#12301F; --warn:#F2B24C; --warn-bg:#33270F; --err:#F06A6A; --err-bg:#3A1616; --info:#6AAFEA; --info-bg:#132A3D; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--f-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--f-display);font-variation-settings:"SOFT" 100;text-wrap:balance;margin:0;line-height:1.05}
+.eyebrow{font:600 12px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:20px}
+.sec-head{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:20px}
+.sec-head h2{font-size:28px;font-weight:700}
+.lede{color:var(--muted);max-width:62ch;margin:0}
+/* Hero */
+.hero{display:grid;grid-template-columns:1.3fr 1fr;gap:32px;align-items:center}
+.hero h1{font-size:clamp(44px,8vw,88px);font-weight:900;color:var(--fleuve);letter-spacing:-.02em}
+.hero h1 mark{background:var(--billet);color:var(--billet-ink);padding:0 .12em;border-radius:4px}
+.hero p{max-width:52ch;margin:16px 0 0;color:var(--muted)}
+/* Billet signature */
+.ticket{display:grid;grid-template-columns:1fr 112px;background:var(--billet);color:var(--billet-ink);border-radius:var(--r-lg);position:relative;min-width:0}
+.ticket .main{padding:20px 20px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.ticket .stub{border-left:2px dashed rgba(42,33,0,.35);display:grid;place-items:center;padding:14px}
+.ticket::before,.ticket::after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:var(--bg);right:101px}
+.ticket::before{top:-11px}.ticket::after{bottom:-11px}
+.ticket h3{font-size:24px;font-weight:800}
+.ticket .meta{display:flex;flex-wrap:wrap;gap:6px 16px;font:500 13px/1.3 var(--f-data)}
+.ticket .code{font:500 12px var(--f-code);letter-spacing:.06em}
+.qr{width:80px;height:80px;background:
+  conic-gradient(from 90deg at 30% 30%,var(--billet-ink) 25%,transparent 0) 0 0/16px 16px,
+  linear-gradient(var(--billet-ink),var(--billet-ink)) 4px 4px/20px 20px no-repeat;border:4px solid var(--billet-ink);border-radius:4px}
+/* Type specimen */
+.specimen{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.spec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.spec .role{display:flex;justify-content:space-between;gap:8px}
+.spec .name{font:600 13px var(--f-body);color:var(--fleuve)}
+.d-sample{font-family:var(--f-display);font-weight:800;font-size:40px;line-height:1;font-variation-settings:"SOFT" 100}
+.b-sample{margin:0;max-width:62ch}
+table{border-collapse:collapse;width:100%;font-family:var(--f-data);font-variant-numeric:tabular-nums;font-size:14px}
+th{font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line)}
+td.num,th.num{text-align:right}
+pre{margin:0;font:13px/1.6 var(--f-code);background:var(--bg);border-radius:var(--r-sm);padding:12px;overflow-x:auto}
+.scroll{overflow-x:auto}
+/* Palette */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.sw{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--surface)}
+.sw .chip{height:64px}
+.sw .lbl{padding:10px 12px;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.sw code{font:12px var(--f-code);color:var(--muted)}
+.components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:600 15px var(--f-body);border-radius:var(--r-sm);padding:12px 18px;border:1px solid transparent;cursor:pointer}
+.btn:focus-visible,input:focus-visible{outline:3px solid var(--billet);outline-offset:2px}
+.btn-primary{background:var(--fleuve);color:var(--surface)}
+.btn-secondary{background:var(--surface);color:var(--fleuve);border-color:var(--fleuve)}
+.btn-ghost{background:transparent;color:var(--fleuve)}
+.btn-pay{background:var(--billet);color:var(--billet-ink)}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 200px}
+.field label{font:600 13px var(--f-body)}
+.field input{font:16px var(--f-body);padding:11px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--fg)}
+.field input.is-focus{border-color:var(--fleuve);box-shadow:0 0 0 3px color-mix(in srgb,var(--fleuve) 25%,transparent)}
+.field input.is-error{border-color:var(--err)}
+.field .hint{font-size:13px;color:var(--muted)}.field .hint.err{color:var(--err)}
+.alert{border-radius:var(--r-sm);padding:12px 14px;font-size:14px;border-left:4px solid}
+.a-ok{background:var(--ok-bg);border-color:var(--ok)}.a-warn{background:var(--warn-bg);border-color:var(--warn)}.a-err{background:var(--err-bg);border-color:var(--err)}.a-info{background:var(--info-bg);border-color:var(--info)}
+.stack{display:flex;flex-direction:column;gap:10px}
+/* Scan */
+.scans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.scan{border-radius:var(--r-lg);padding:20px 16px;color:#fff;display:flex;flex-direction:column;gap:6px;min-height:150px;justify-content:flex-end}
+.scan b{font:800 26px/1 var(--f-display);font-variation-settings:"SOFT" 100}
+.scan span{font-size:14px;opacity:.95}
+.s-ok{background:var(--ok)}.s-warn{background:var(--warn)}.s-err{background:var(--err)}
+/* Dashboard */
+.app{display:grid;grid-template-columns:220px 1fr;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--surface)}
+.side{background:var(--fleuve);color:var(--surface);padding:20px 14px;display:flex;flex-direction:column;gap:6px}
+:root[data-theme="dark"] .side{color:var(--bg)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .side{color:var(--bg)}}
+.brand{font:900 22px var(--f-display);font-variation-settings:"SOFT" 100;padding:0 8px 14px}
+.brand i{font-style:normal;background:var(--billet);color:var(--billet-ink);border-radius:4px;padding:0 4px}
+.org{font-size:12px;opacity:.8;padding:0 8px 12px}
+.nav a{display:block;padding:9px 10px;border-radius:var(--r-sm);color:inherit;text-decoration:none;font-weight:500;font-size:15px}
+.nav a.on{background:color-mix(in srgb,var(--surface) 16%,transparent)}
+.main{padding:20px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.topbar h3{font-size:26px;font-weight:800}
+.who{display:flex;align-items:center;gap:10px;font-size:14px}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--billet);color:var(--billet-ink);display:grid;place-items:center;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stat{border:1px solid var(--line);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .k{font-size:13px;color:var(--muted)}
+.stat .v{font:600 26px/1.1 var(--f-data);font-variant-numeric:tabular-nums}
+.stat .d{font-size:12px;color:var(--muted)}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:var(--fleuve)}
+.pill{display:inline-block;font:600 12px var(--f-body);padding:3px 8px;border-radius:999px}
+.p-ok{background:var(--ok-bg);color:var(--ok)}.p-warn{background:var(--warn-bg);color:var(--warn)}.p-err{background:var(--err-bg);color:var(--err)}
+.mm{font:500 12px var(--f-code);color:var(--muted)}
+.note{font-size:13px;color:var(--muted)}
+/* Modèle de billet */
+.tickets{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:24px;align-items:start}
+.tk-label{font:600 13px var(--f-body);color:var(--muted);margin-bottom:8px}
+.mt{background:#FFFFFF;color:#0E1B1C;border-radius:20px;overflow:hidden;box-shadow:0 1px 0 var(--line),0 12px 32px rgba(11,59,60,.14);border:1px solid var(--line)}
+.mt-top{background:#0B3B3C;color:#FFFFFF;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mt-org{display:flex;align-items:center;gap:10px;font:600 13px var(--f-body)}
+.mt-logo{width:32px;height:32px;border-radius:8px;background:#FFC83D;color:#2A2100;display:grid;place-items:center;font:800 14px var(--f-display)}
+.mt-brand{font:900 15px var(--f-display);font-variation-settings:"SOFT" 100;opacity:.9}
+.mt-brand i{font-style:normal;color:#FFC83D}
+.mt-body{padding:20px;display:flex;flex-direction:column;gap:16px}
+.mt-type{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mt-badge{font:700 12px var(--f-body);letter-spacing:.1em;text-transform:uppercase;background:#FFC83D;color:#2A2100;padding:5px 10px;border-radius:999px}
+.mt-price{font:600 15px var(--f-data);font-variant-numeric:tabular-nums}
+.mt-title{font:800 30px/1.05 var(--f-display);font-variation-settings:"SOFT" 100;color:#0B3B3C;margin:0}
+.mt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.mt-k{font:600 11px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:#5B6E6C}
+.mt-v{font:600 15px/1.3 var(--f-data)}
+.mt-v small{display:block;font:400 13px var(--f-body);color:#5B6E6C}
+.mt-perf{position:relative;height:0;border-top:2px dashed #D5DEDC;margin:0 20px}
+.mt-perf::before,.mt-perf::after{content:"";position:absolute;top:-12px;width:24px;height:24px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+.mt-perf::before{left:-33px}.mt-perf::after{right:-33px}
+.mt-qr{padding:20px;display:flex;flex-direction:column;align-items:center;gap:10px;background:linear-gradient(#FFFFFF,#FFF8E1)}
+.mt-qr canvas{width:184px;height:184px;image-rendering:pixelated;background:#fff;padding:8px;border-radius:10px;border:1px solid #D5DEDC}
+.mt-code{font:500 15px var(--f-code);letter-spacing:.14em}
+.mt-holder{font:600 15px var(--f-body);text-align:center}
+.mt-holder small{display:block;font:400 12px var(--f-body);color:#5B6E6C}
+.micro{font:500 7px/1 var(--f-code);letter-spacing:.08em;color:#0B3B3C;opacity:.45;white-space:nowrap;overflow:hidden;padding:6px 0;border-top:1px solid #D5DEDC;border-bottom:1px solid #D5DEDC;width:100%;text-align:center}
+.mt-foot{padding:12px 20px 16px;font:400 11.5px/1.5 var(--f-body);color:#5B6E6C;display:flex;flex-direction:column;gap:4px}
+/* Version imprimable */
+.pt{display:grid;grid-template-columns:minmax(0,1fr) 190px;background:#FFFFFF;color:#0E1B1C;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 12px 32px rgba(11,59,60,.12)}
+.pt-main{display:grid;grid-template-columns:10px minmax(0,1fr);min-width:0}
+.pt-rail{background:repeating-linear-gradient(180deg,#0B3B3C 0 14px,#FFC83D 14px 20px)}
+.pt-in{padding:20px 22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.pt-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.pt-title{font:800 32px/1.02 var(--f-display);font-variation-settings:"SOFT" 100;color:#0B3B3C;margin:0}
+.pt-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px}
+.pt-terms{font:400 10.5px/1.45 var(--f-body);color:#5B6E6C;border-top:1px solid #D5DEDC;padding-top:10px}
+.pt-stub{background:#FFC83D;color:#2A2100;border-left:2px dashed rgba(42,33,0,.4);padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative}
+.pt-stub canvas{width:132px;height:132px;image-rendering:pixelated;background:#fff;padding:6px;border-radius:8px}
+.pt-stub .mt-code{font-size:12.5px}
+.pt-stub .mt-k{color:#2A2100;opacity:.7}
+.why{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px;margin:0;padding:0;list-style:none}
+.why li{font-size:14px;color:var(--muted)}
+.why b{color:var(--fg)}
+@media (max-width:820px){
+  .tickets,.why{grid-template-columns:1fr}
+  .pt{grid-template-columns:1fr}.pt-stub{border-left:0;border-top:2px dashed rgba(42,33,0,.4);flex-direction:row;flex-wrap:wrap}
+  .pt-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:820px){
+  .hero,.specimen,.components{grid-template-columns:1fr}
+  .app{grid-template-columns:1fr}.side{flex-direction:row;flex-wrap:wrap;align-items:center}.nav{display:flex;flex-wrap:wrap;gap:4px}.org{padding-bottom:0}.brand{padding-bottom:0}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .scans{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:no-preference){.btn{transition:transform .12s ease-out}.btn:active{transform:translateY(1px)}}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <span class="eyebrow">Proposition de design · v0.1</span>
+      <h1>kass<mark>Event</mark></h1>
+      <p>Vendez vos billets en mobile money, contrôlez chaque entrée, même sans réseau. Fiable comme une banque, vivant comme un concert.</p>
+    </div>
+    <div class="ticket" aria-label="Exemple de billet">
+      <div class="main">
+        <span class="eyebrow" style="color:inherit;opacity:.7">Billet VIP · 1 personne</span>
+        <h3>Nuit de la Rumba</h3>
+        <div class="meta"><span>Sam. 13 déc. 2025</span><span>20:00</span><span>Salle Show Buzz, Gombe</span></div>
+        <div class="meta"><span>Grâce Mbuyi</span><span>45,00 USD</span></div>
+        <span class="code">KE-7Q4M-92XD</span>
+      </div>
+      <div class="stub"><div class="qr" role="img" aria-label="QR code"></div></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head"><span class="eyebrow">1 · Typographie</span><h2>Trois voix, un rôle chacune</h2></div>
+    <div class="specimen">
+      <div class="spec"><div class="role"><span class="eyebrow">Titres et billets</span><span class="name">Fraunces Soft</span></div>
+        <div class="d-sample">Festival Amani, Goma</div>
+        <span class="note">Chaleureux, presque affiche de concert. Réservé aux titres et au nom d'événement.</span></div>
+      <div class="spec"><div class="role"><span class="eyebrow">Texte courant</span><span class="name">Instrument Sans</span></div>
+        <p class="b-sample">Votre paiement Orange Money est en attente. Validez la demande sur votre téléphone en tapant votre code secret. Votre billet arrive par WhatsApp dès la confirmation.</p></div>
+      <div class="spec"><div class="role"><span class="eyebrow">Chiffres et tableaux</span><span class="name">Geist · chiffres alignés</span></div>
+        <div class="scroll"><table><thead><tr><th>Billet</th><th class="num">Vendus</th><th class="num">Encaissé</th></tr></thead>
+        <tbody><tr><td>Standard</td><td class="num">1 184</td><td class="num">17 760 USD</td></tr><tr><td>VIP</td><td class="num">212</td><td class="num">9 540 USD</td></tr><tr><td>Table carré or</td><td class="num">18</td><td class="num">10 800 USD</td></tr></tbody></table></div></div>
+      <div class="spec"><div class="role"><span class="eyebrow">Codes et références</span><span class="name">JetBrains Mono</span></div>
+        <pre>Réf. paiement  MP251213.4471.K9
+Billet         KE-7Q4M-92XD
+Scanné         20:14:07 · Porte B</pre></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="eyebrow">2 · Couleurs et composants</span><h2>Le vert du fleuve, le jaune du billet</h2>
+      <p class="lede">Le vert profond porte l'interface et inspire confiance. Le jaune est rare : il signale le billet, le paiement et ce qui compte.</p></div>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:var(--fleuve)"></div><div class="lbl"><b>Fleuve</b><code>#0B3B3C</code></div></div>
+      <div class="sw"><div class="chip" style="background:var(--billet)"></div><div class="lbl"><b>Billet</b><code>#FFC83D</code></div></div>
+      <div class="sw"><div class="chip" style="background:var(--bg)"></div><div class="lbl"><b>Fond</b><code>#F3F6F5</code></div></div>
+      <div class="sw"><div class="chip" style="background:var(--muted)"></div><div class="lbl"><b>Texte discret</b><code>#5B6E6C</code></div></div>
+      <div class="sw"><div class="chip" style="background:var(--ok)"></div><div class="lbl"><b>Valide</b><code>#1E8E4E</code></div></div>
+      <div class="sw"><div class="chip" style="background:var(--warn)"></div><div class="lbl"><b>Attention</b><code>#B87300</code></div></div>
+      <div class="sw"><div class="chip" style="background:var(--err)"></div><div class="lbl"><b>Erreur</b><code>#C62828</code></div></div>
+      <div class="sw"><div class="chip" style="background:var(--info)"></div><div class="lbl"><b>Info</b><code>#1F6FB2</code></div></div>
+    </div>
+    <div class="components">
+      <div class="spec"><span class="eyebrow">Boutons</span>
+        <div class="row"><button class="btn btn-primary">Publier l'événement</button><button class="btn btn-secondary">Prévisualiser</button><button class="btn btn-ghost">Annuler</button></div>
+        <div class="row"><button class="btn btn-pay">Payer 45,00 USD</button><span class="note">Le jaune est réservé au paiement.</span></div></div>
+      <div class="spec"><span class="eyebrow">Champs</span>
+        <div class="row">
+          <div class="field"><label for="f1">Nom de l'événement</label><input id="f1" value="Nuit de la Rumba"></div>
+          <div class="field"><label for="f2">Numéro mobile money</label><input id="f2" class="is-focus" value="+243 81 234 56"><span class="hint">M-Pesa, Orange Money ou Airtel Money</span></div>
+          <div class="field"><label for="f3">Capacité</label><input id="f3" class="is-error" value="0"><span class="hint err">Indiquez au moins 1 place.</span></div>
+        </div></div>
+      <div class="spec"><span class="eyebrow">Messages</span><div class="stack">
+        <div class="alert a-ok">Paiement confirmé. Le billet a été envoyé par e-mail et WhatsApp.</div>
+        <div class="alert a-warn">En attente : validez le paiement sur votre téléphone. Places réservées encore 12 min.</div>
+        <div class="alert a-err">Paiement refusé par l'opérateur. Vérifiez votre solde, puis réessayez.</div>
+        <div class="alert a-info">Mode hors ligne : 37 scans seront synchronisés au retour du réseau.</div></div></div>
+      <div class="spec"><span class="eyebrow">Écran de scan, plein écran le jour J</span>
+        <div class="scans">
+          <div class="scan s-ok"><b>Valide</b><span>Grâce Mbuyi · VIP</span></div>
+          <div class="scan s-warn"><b>Déjà utilisé</b><span>Scanné à 20:14, porte B</span></div>
+          <div class="scan s-err"><b>Invalide</b><span>Billet d'un autre événement</span></div>
+        </div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="eyebrow">3 · Écran organisateur</span><h2>Tableau de bord d'un événement</h2>
+      <p class="lede">Exemple fictif. Sur téléphone, le menu passe en haut et les chiffres en deux colonnes.</p></div>
+    <div class="app">
+      <aside class="side">
+        <div class="brand">kass<i>Event</i></div>
+        <div class="org">Agence Mboka Events ▾</div>
+        <nav class="nav"><a href="#" class="on">Événements</a><a href="#">Participants</a><a href="#">Commandes</a><a href="#">Accueil et scan</a><a href="#">Équipe</a><a href="#">Paramètres</a></nav>
+      </aside>
+      <div class="main">
+        <div class="topbar">
+          <div><span class="eyebrow">Sam. 13 déc. · Salle Show Buzz</span><h3>Nuit de la Rumba</h3></div>
+          <div class="who"><span class="pill p-ok">En vente</span><div class="avatar">PK</div></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="k">Billets vendus</span><span class="v">1 414</span><div class="bar"><i style="width:71%"></i></div><span class="d">sur 2 000 places</span></div>
+          <div class="stat"><span class="k">Encaissé</span><span class="v">38 100 $</span><span class="d">après commission : 36 195 $</span></div>
+          <div class="stat"><span class="k">Mobile money</span><span class="v">82 %</span><span class="d">des paiements</span></div>
+          <div class="stat"><span class="k">En attente</span><span class="v">9</span><span class="d">validations téléphone</span></div>
+        </div>
+        <div class="scroll"><table>
+          <thead><tr><th>Commande</th><th>Participant</th><th>Billet</th><th>Paiement</th><th class="num">Montant</th><th>Statut</th></tr></thead>
+          <tbody>
+            <tr><td class="mm">#4471</td><td>Grâce Mbuyi</td><td>VIP × 1</td><td>Orange Money</td><td class="num">45,00 $</td><td><span class="pill p-ok">Payé</span></td></tr>
+            <tr><td class="mm">#4470</td><td>Patrick Ilunga</td><td>Standard × 4</td><td>M-Pesa</td><td class="num">60,00 $</td><td><span class="pill p-warn">En attente</span></td></tr>
+            <tr><td class="mm">#4469</td><td>Sarah Kabeya</td><td>Table carré or</td><td>Carte</td><td class="num">600,00 $</td><td><span class="pill p-ok">Payé</span></td></tr>
+            <tr><td class="mm">#4468</td><td>Jonathan Tshibanda</td><td>Standard × 2</td><td>Airtel Money</td><td class="num">30,00 $</td><td><span class="pill p-err">Échoué</span></td></tr>
+            <tr><td class="mm">#4467</td><td>Divine Mukendi</td><td>VIP × 2</td><td>M-Pesa</td><td class="num">90,00 $</td><td><span class="pill p-ok">Payé</span></td></tr>
+          </tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="eyebrow">4 · Modèle de billet</span><h2>Un billet nominatif, difficile à copier</h2>
+      <p class="lede">Deux formats à partir des mêmes informations : le billet reçu sur WhatsApp et par e-mail, et la version PDF à imprimer. Données d'exemple, QR code illustratif.</p></div>
+    <div class="tickets">
+      <div>
+        <div class="tk-label">Sur téléphone (WhatsApp, e-mail, espace participant)</div>
+        <article class="mt" aria-label="Billet mobile">
+          <div class="mt-top">
+            <div class="mt-org"><div class="mt-logo">M</div><span>Mboka Events<br><span style="font-weight:400;opacity:.75">présente</span></span></div>
+            <div class="mt-brand">kass<i>Event</i></div>
+          </div>
+          <div class="mt-body">
+            <div class="mt-type"><span class="mt-badge">VIP</span><span class="mt-price">45,00 USD</span></div>
+            <h3 class="mt-title">Nuit de la Rumba</h3>
+            <div class="mt-grid">
+              <div><div class="mt-k">Date</div><div class="mt-v">Sam. 13 déc. 2025</div></div>
+              <div><div class="mt-k">Heure</div><div class="mt-v">20:00<small>Portes 18:30</small></div></div>
+              <div><div class="mt-k">Lieu</div><div class="mt-v">Salle Show Buzz<small>Bd du 30 Juin, Gombe</small></div></div>
+              <div><div class="mt-k">Accès</div><div class="mt-v">Zone VIP<small>Placement libre</small></div></div>
+            </div>
+          </div>
+          <div class="mt-perf"></div>
+          <div class="mt-qr">
+            <canvas class="qrc" data-seed="KE-7Q4M-92XD" width="33" height="33" role="img" aria-label="QR code du billet"></canvas>
+            <div class="mt-code">KE-7Q4M-92XD</div>
+            <div class="mt-holder">Grâce Mbuyi<small>Billet 1 sur 2 · Commande #4471</small></div>
+            <div class="micro">KASSEVENT · KE-7Q4M-92XD · GRACE MBUYI · NUIT DE LA RUMBA · 13.12.2025 · KASSEVENT · KE-7Q4M-92XD · GRACE MBUYI</div>
+          </div>
+          <div class="mt-foot">
+            <span>Billet nominatif, valable pour une seule entrée. Pièce d'identité demandée à l'entrée.</span>
+            <span>Revente uniquement via kassEvent. Une capture d'écran suffit : le QR code fonctionne hors ligne.</span>
+          </div>
+        </article>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+        <div>
+          <div class="tk-label">PDF à imprimer (format A4 paysage, 1 billet par tiers de page)</div>
+          <article class="pt" aria-label="Billet imprimable">
+            <div class="pt-main"><div class="pt-rail"></div>
+              <div class="pt-in">
+                <div class="pt-head"><div class="mt-org"><div class="mt-logo">M</div><span>Mboka Events présente</span></div><span class="mt-badge">VIP · 45,00 USD</span></div>
+                <h3 class="pt-title">Nuit de la Rumba</h3>
+                <div class="pt-grid">
+                  <div><div class="mt-k">Date</div><div class="mt-v">13.12.2025</div></div>
+                  <div><div class="mt-k">Heure</div><div class="mt-v">20:00<small>Portes 18:30</small></div></div>
+                  <div><div class="mt-k">Lieu</div><div class="mt-v">Show Buzz<small>Gombe, Kinshasa</small></div></div>
+                  <div><div class="mt-k">Titulaire</div><div class="mt-v">Grâce Mbuyi<small>Cde #4471</small></div></div>
+                </div>
+                <div class="pt-terms">Billet nominatif, une seule entrée, non remboursable sauf annulation de l'événement. Revente uniquement via kassEvent. Organisateur : Mboka Events, +243 81 000 00 00. Émis le 02.12.2025 à 14:32 par kassEvent · app.kassevent.com</div>
+              </div>
+            </div>
+            <div class="pt-stub">
+              <canvas class="qrc" data-seed="KE-7Q4M-92XD" width="33" height="33" role="img" aria-label="QR code du billet"></canvas>
+              <div style="text-align:center"><div class="mt-code">KE-7Q4M-92XD</div><div class="mt-k">Talon de contrôle</div></div>
+            </div>
+          </article>
+        </div>
+        <ul class="why">
+          <li><b>Nominatif.</b> Le nom du titulaire figure sur le billet et dans le QR code : un billet copié se voit au scan.</li>
+          <li><b>Code unique lisible.</b> Si le QR est abîmé, l'agent tape le code à la main.</li>
+          <li><b>Microtexte.</b> La bande de petits caractères reprend le nom et le code : une retouche grossière se remarque.</li>
+          <li><b>Hors ligne.</b> Une simple capture d'écran fonctionne à l'entrée, même sans réseau.</li>
+          <li><b>Organisateur en avant.</b> Son logo et son nom ouvrent le billet ; kassEvent reste discret.</li>
+          <li><b>Jaune signature.</b> Reconnaissable d'un coup d'œil dans une conversation WhatsApp.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+/* QR illustratif : motif déterministe avec les trois repères d'angle d'un vrai QR code (pas un code scannable). */
+(function(){
+  function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+  function rng(seed){let a=seed;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  document.querySelectorAll('canvas.qrc').forEach(cv=>{
+    const n=cv.width,ctx=cv.getContext('2d'),r=rng(hash(cv.dataset.seed||'x'));
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,n,n);ctx.fillStyle='#0E1B1C';
+    const inFinder=(x,y)=>(x<8&&y<8)||(x>n-9&&y<8)||(x<8&&y>n-9);
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){if(!inFinder(x,y)&&r()>.52)ctx.fillRect(x,y,1,1)}
+    for(let i=8;i<n-8;i+=2){ctx.fillRect(i,6,1,1);ctx.fillRect(6,i,1,1)}
+    [[0,0],[n-7,0],[0,n-7]].forEach(([x,y])=>{ctx.fillStyle='#0E1B1C';ctx.fillRect(x,y,7,7);ctx.fillStyle='#fff';ctx.fillRect(x+1,y+1,5,5);ctx.fillStyle='#0E1B1C';ctx.fillRect(x+2,y+2,3,3)});
+  });
+})();
+</script>
