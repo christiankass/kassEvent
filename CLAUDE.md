@@ -15,10 +15,11 @@ Plateforme SaaS de billetterie et d'invitations, multi-organisation (multi-tenan
 ## Règles
 - Isolation des données : toute table métier porte `organization_id` ; l'isolation est garantie côté serveur et base (scope global + RLS PostgreSQL), jamais seulement par l'interface.
 - Une ressource d'une autre organisation renvoie `404`, jamais `403`.
+- Nouvelle table métier : suivre la recette de `backend/app/Modules/README.md` (colonne, RLS, trait).
 - Langue de l'interface et des messages : français et anglais.
 
 ## Commandes
-- Backend : `cd backend && composer install && php artisan test && ./vendor/bin/pint --test`
+- Backend : `cd backend && composer install && php artisan test && ./vendor/bin/pint --test` (tests sur PostgreSQL : base `kassevent_test` sur 127.0.0.1, rôle `kassevent` sans superutilisateur ni BYPASSRLS)
 - Frontend : `cd frontend && npm ci && npm run lint && npm run build`
 - Tout lancer : `cp backend/.env.example backend/.env && docker compose up -d --build`
 
