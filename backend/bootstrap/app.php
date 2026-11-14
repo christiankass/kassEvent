@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SetLocale;
 use App\Modules\Tenancy\Http\Middleware\IdentifyUser;
 use App\Modules\Tenancy\Http\Middleware\ResolveOrganization;
 use Illuminate\Foundation\Application;
@@ -15,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Sessions par cookie pour le site (app.kassevent.com), jetons pour les futures applications.
+        $middleware->statefulApi();
+        $middleware->api(prepend: [SetLocale::class]);
+
         $middleware->alias([
             'tenant.user' => IdentifyUser::class,
             'tenant' => ResolveOrganization::class,
