@@ -1,0 +1,6 @@
+backend/vendor
+backend/.env
+backend/storage/logs
+frontend/node_modules
+frontend/.next
+.git

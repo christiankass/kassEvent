@@ -1,0 +1,50 @@
+/* Jetons du design system : voir docs/DESIGN.md */
+:root {
+  --fleuve: #0b3b3c;
+  --billet: #ffc83d;
+  --billet-ink: #2a2100;
+  --bg: #f3f6f5;
+  --surface: #ffffff;
+  --line: #d5dedc;
+  --muted: #5b6e6c;
+  --fg: #0e1b1c;
+  --ok: #1e8e4e;
+  --warn: #b87300;
+  --err: #c62828;
+  --info: #1f6fb2;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fleuve: #5fc4bc;
+    --bg: #0b1414;
+    --surface: #122020;
+    --line: #24393a;
+    --muted: #93a9a7;
+    --fg: #e7f0ef;
+    --ok: #4cc27d;
+    --warn: #f2b24c;
+    --err: #f06a6a;
+    --info: #6aafea;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.55 var(--f-body), system-ui, sans-serif;
+}
+
+h1, h2, h3 {
+  font-family: var(--f-display), Georgia, serif;
+  font-variation-settings: "SOFT" 100;
+  line-height: 1.05;
+  text-wrap: balance;
+}

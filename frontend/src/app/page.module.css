@@ -1,0 +1,38 @@
+.main {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px max(16px, env(safe-area-inset-left, 0px));
+}
+
+.title {
+  font-size: clamp(48px, 12vw, 96px);
+  font-weight: 900;
+  color: var(--fleuve);
+  margin: 0;
+}
+
+.title mark {
+  background: var(--billet);
+  color: var(--billet-ink);
+  padding: 0 0.12em;
+  border-radius: 4px;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 18px;
+  margin: 0;
+  max-width: 52ch;
+}
+
+.soon {
+  font: 600 13px/1 var(--f-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fleuve);
+}
