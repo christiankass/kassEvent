@@ -5,6 +5,7 @@ Plateforme SaaS de billetterie et d'invitations pour les événements, multi-org
 ## Démarrer en local
 
 ```bash
+cp .env.example .env                      # puis choisir un mot de passe MinIO
 cp backend/.env.example backend/.env
 docker compose run --rm api php artisan key:generate --show   # copier la clé dans APP_KEY de backend/.env
 docker compose up -d --build
