@@ -61,7 +61,9 @@ class MemberTest extends TestCase
         $this->patchJson("/api/v1/members/{$member->id}", ['role' => 'admin'], $this->headers())
             ->assertOk()
             ->assertJsonPath('data.role', 'admin');
-        $this->getJson('/api/v1/members', $this->headers())->assertJsonPath('data.0.role', 'admin');
+        // Liste triée par nom : on retrouve le membre par son identifiant.
+        $listed = collect($this->getJson('/api/v1/members', $this->headers())->json('data'))->firstWhere('id', $member->id);
+        $this->assertSame('admin', $listed['role']);
 
         Sanctum::actingAs($member->fresh());
         $this->getJson('/api/v1/organization', $this->headers())->assertJsonPath('meta.roles', ['admin']);
