@@ -1,0 +1,190 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.headerInner {
+  max-width: 1120px;
+  margin: 0 auto;
+  min-height: 64px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fleuve);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+}
+
+.narrow {
+  max-width: 640px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(28px, 6vw, 44px);
+  font-weight: 800;
+  color: var(--fleuve);
+}
+
+.lede {
+  margin: 8px 0 0;
+  color: var(--muted);
+  max-width: 60ch;
+}
+
+.form {
+  display: grid;
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.legend {
+  font-weight: 600;
+  font-size: 15px;
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.choices {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .choices {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.choice {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  min-height: 64px;
+  padding: 12px 14px 12px 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.choice input {
+  position: absolute;
+  left: 14px;
+  top: 15px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--fleuve);
+}
+
+.choice:has(input:checked) {
+  border-color: var(--fleuve);
+  box-shadow: inset 0 0 0 1px var(--fleuve);
+}
+
+.choice:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.choiceTitle {
+  font-weight: 600;
+}
+
+.choiceHint {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(88px, auto);
+  gap: 8px;
+}
+
+.segmented .choice {
+  min-height: 48px;
+  align-content: center;
+}
+
+.select {
+  min-height: 44px;
+  max-width: 220px;
+  padding: 0 10px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+}
+
+.empty {
+  margin-top: 32px;
+  padding: 24px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  background: var(--surface);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.emptyBody {
+  margin: 0;
+  color: var(--muted);
+}
+
+.skeleton {
+  height: 44px;
+  width: min(420px, 80%);
+  border-radius: var(--r-md);
+  background: var(--line);
+}
+
+.skeletonLine {
+  margin-top: 12px;
+  height: 18px;
+  width: min(300px, 60%);
+  border-radius: var(--r-sm);
+  background: var(--line);
+}
+
+/* Sur téléphone, le bouton de déconnexion se réduit à son icône (libellé gardé pour les lecteurs d'écran). */
+@media (max-width: 520px) {
+  .logout {
+    padding: 0 12px;
+  }
+
+  .logoutLabel {
+    display: none;
+  }
+}
