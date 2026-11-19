@@ -2,11 +2,20 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Modules\Tenancy\Support\TenantContext;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Validation\UncompromisedVerifier;
+use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\NotPwnedVerifier;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -17,6 +26,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Une instance par requête ou par job : jamais d'organisation qui fuit d'un appel à l'autre.
         $this->app->scoped(TenantContext::class);
+
+        // Vérification des mots de passe divulgués (production) : ne jamais bloquer une inscription plus de 3 s.
+        $this->app->singleton(UncompromisedVerifier::class, fn ($app) => new NotPwnedVerifier($app[HttpFactory::class], timeout: 3));
     }
 
     /**
@@ -24,6 +36,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Password::defaults(fn () => Password::min(10)->letters()->numbers()
+            ->when(app()->isProduction(), fn (Password $rule) => $rule->uncompromised()));
+
+        // Le lien de l'e-mail ouvre la page du site, pas l'API.
+        ResetPassword::createUrlUsing(fn (User $user, string $token) => config('app.frontend_url')
+            .'/mot-de-passe/reinitialiser?'.http_build_query(['token' => $token, 'email' => $user->email]));
+
+        // Inscription, connexion et mot de passe oublié : 10 requêtes par minute et par adresse IP.
+        RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
+
         // Les workers gardent leur connexion PostgreSQL ouverte : chaque job repart d'un contexte vide,
         // quelle qu'ait été l'issue du précédent. (En file « sync », le job tourne dans la requête
         // et doit garder son contexte.)

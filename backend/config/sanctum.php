@@ -3,7 +3,6 @@
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Laravel\Sanctum\Http\Middleware\AuthenticateSession;
-use Laravel\Sanctum\Sanctum;
 
 return [
 
@@ -18,12 +17,12 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
-        Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
-    ))),
+    // kassEvent : par défaut, le domaine du site (FRONTEND_URL), seul à recevoir des sessions.
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', (static function (): string {
+        $url = parse_url((string) env('FRONTEND_URL', 'http://localhost:3000'));
+
+        return ($url['host'] ?? 'localhost').(isset($url['port']) ? ':'.$url['port'] : '');
+    })())),
 
     /*
     |--------------------------------------------------------------------------

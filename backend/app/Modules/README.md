@@ -20,3 +20,9 @@ Les routes qui agissent dans une organisation passent par le middleware `tenant`
 Hors requête HTTP (jobs, commandes), utiliser `app(TenantContext::class)->run($organizationId, fn () => ...)`.
 
 Les tests tournent sur PostgreSQL avec un rôle sans `BYPASSRLS` (voir `phpunit.xml` et la CI).
+
+## Connexion (module Identity)
+
+Le site Next.js se connecte par cookie de session (Sanctum SPA) : il appelle `GET /sanctum/csrf-cookie`,
+puis `POST /api/v1/auth/login` en envoyant ses cookies (`credentials: "include"`) et l'en-tête `X-XSRF-TOKEN`.
+Aucun jeton n'est stocké dans le navigateur. L'en-tête `Accept-Language` (fr ou en) choisit la langue des messages.
