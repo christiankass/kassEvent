@@ -46,6 +46,9 @@ class AppServiceProvider extends ServiceProvider
         // Inscription, connexion et mot de passe oublié : 10 requêtes par minute et par adresse IP.
         RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
 
+        // Consultation d'un lien d'invitation : plus large, plusieurs invités peuvent partager une adresse IP.
+        RateLimiter::for('invitation', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+
         // Les workers gardent leur connexion PostgreSQL ouverte : chaque job repart d'un contexte vide,
         // quelle qu'ait été l'issue du précédent. (En file « sync », le job tourne dans la requête
         // et doit garder son contexte.)

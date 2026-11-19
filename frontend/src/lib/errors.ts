@@ -12,3 +12,9 @@ export function formErrorMessage(error: unknown, t: Dictionary): string | null {
   // Les autres messages du serveur ne sont pas toujours traduits : on affiche les nôtres.
   return t.common.genericError;
 }
+
+/** Message d'une action hors formulaire : pour un refus (422), le premier message du serveur, déjà traduit. */
+export function actionErrorMessage(error: unknown, t: Dictionary): string {
+  const firstFieldError = error instanceof ApiError ? Object.values(error.errors)[0]?.[0] : undefined;
+  return formErrorMessage(error, t) ?? firstFieldError ?? t.common.genericError;
+}

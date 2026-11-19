@@ -2,6 +2,7 @@
 
 namespace App\Modules\Access;
 
+use App\Models\User;
 use App\Modules\Tenancy\Support\TenantContext;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -40,6 +41,34 @@ final class Roles
             'check_in_agent' => ['events.view', 'checkin.scan'],
             'viewer' => ['events.view', 'orders.view', 'reports.view'],
         ];
+    }
+
+    /**
+     * Rôles qu'on peut donner par invitation ou changement de rôle. Propriétaire exclu :
+     * il ne se donne pas et ne se retire pas, l'organisation en garde toujours un.
+     *
+     * @return list<string>
+     */
+    public static function assignable(): array
+    {
+        return array_values(array_diff(array_keys(self::definitions()), [self::OWNER]));
+    }
+
+    /**
+     * Rôles que cette personne peut donner dans l'organisation courante : seulement ceux dont
+     * elle a déjà toutes les permissions (un administrateur ne peut pas donner « finance »,
+     * qui gère l'abonnement, pour se l'octroyer par un second compte).
+     *
+     * @return list<string>
+     */
+    public static function assignableBy(User $user): array
+    {
+        $mine = $user->getAllPermissions()->pluck('name')->all();
+
+        return array_values(array_filter(
+            self::assignable(),
+            fn (string $role) => array_diff(self::definitions()[$role], $mine) === [],
+        ));
     }
 
     /** Crée ou met à jour les rôles et permissions prédéfinis (idempotent). */

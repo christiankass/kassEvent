@@ -126,3 +126,34 @@
     visibility: hidden;
   }
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  font-weight: 600;
+}
+
+/* Lien qui a l'allure du bouton principal. */
+.primaryLink {
+  min-height: 48px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-md);
+  background: var(--fleuve);
+  color: var(--on-fleuve);
+  text-decoration: none;
+}
+
+.primaryLink:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.intro {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.45;
+}
