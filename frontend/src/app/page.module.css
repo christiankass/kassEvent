@@ -30,9 +30,28 @@
   max-width: 52ch;
 }
 
-.soon {
-  font: 600 13px/1 var(--f-body);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--fleuve);
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  margin: 16px 0 0;
+  font-weight: 600;
+}
+
+.primary {
+  min-height: 48px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-md);
+  background: var(--fleuve);
+  color: var(--on-fleuve);
+  text-decoration: none;
+}
+
+.locale {
+  position: absolute;
+  top: 16px;
+  right: 16px;
 }

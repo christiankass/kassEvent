@@ -6,7 +6,11 @@
   --bg: #f3f6f5;
   --surface: #ffffff;
   --line: #d5dedc;
+  --line-strong: #8a9d9a;
   --muted: #5b6e6c;
+  --on-fleuve: #ffffff;
+  --focus: rgb(11 59 60 / 0.3);
+  --ok-ink: #15703b;
   --fg: #0e1b1c;
   --ok: #1e8e4e;
   --warn: #b87300;
@@ -23,7 +27,11 @@
     --bg: #0b1414;
     --surface: #122020;
     --line: #24393a;
+    --line-strong: #4d6664;
     --muted: #93a9a7;
+    --on-fleuve: #062223;
+    --focus: rgb(95 196 188 / 0.35);
+    --ok-ink: #4cc27d;
     --fg: #e7f0ef;
     --ok: #4cc27d;
     --warn: #f2b24c;
@@ -47,4 +55,15 @@ h1, h2, h3 {
   font-variation-settings: "SOFT" 100;
   line-height: 1.05;
   text-wrap: balance;
+}
+
+a {
+  color: var(--fleuve);
+  text-underline-offset: 3px;
+}
+
+a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
