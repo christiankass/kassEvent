@@ -1,23 +1,28 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Alert, Button } from "@/components/ui";
-import { api, isUnauthenticated, type Organization } from "@/lib/api";
+import { Alert } from "@/components/ui";
+import { api, isUnauthenticated, type Organization, type Role } from "@/lib/api";
 import { getCurrentOrganizationId, setCurrentOrganizationId } from "@/lib/current-organization";
 import { formErrorMessage } from "@/lib/errors";
-import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { useUser } from "@/lib/user-context";
+import { OrganizationContext } from "@/lib/organization-context";
 import { PageSkeleton } from "../PageSkeleton";
 import styles from "../app.module.css";
 
-type Current = { data: Organization; meta: { roles: string[]; permissions: string[] } };
+type Current = { data: Organization; meta: { roles: Role[]; permissions: string[] } };
 
-export default function DashboardPage() {
+/**
+ * Pages qui agissent dans une organisation : choisit l'organisation courante (celle retenue
+ * sur cet appareil si elle est toujours accessible, sinon la première), charge mon rôle et mes
+ * permissions, et affiche la navigation de l'espace.
+ */
+export default function OrganizationLayout({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
-  const user = useUser();
   const router = useRouter();
+  const pathname = usePathname();
   const [organizations, setOrganizations] = useState<Organization[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [current, setCurrent] = useState<Current | null>(null);
@@ -68,26 +73,38 @@ export default function DashboardPage() {
     );
   }
 
-  if (!organizations || !current) {
-    return <PageSkeleton />;
-  }
+  if (!organizations || !current) return <PageSkeleton />;
 
-  const role = current.meta.roles[0] as keyof typeof t.dashboard.roles | undefined;
+  const canManageTeam = current.meta.permissions.includes("members.manage");
+  const links = [
+    { href: "/tableau-de-bord", label: t.app.dashboard },
+    ...(canManageTeam ? [{ href: "/equipe", label: t.app.team }] : []),
+  ];
 
   return (
-    <main className={styles.main}>
-      <h1 className={styles.title}>{format(t.dashboard.hello, { name: user.name.split(" ")[0] })}</h1>
-      <p className={styles.lede}>
-        {format(t.dashboard.roleIntro, {
-          organization: current.data.name,
-          role: role ? t.dashboard.roles[role] ?? role : "",
-        })}
-      </p>
-
-      {organizations.length > 1 && (
-        <p>
-          <label>
-            {t.app.switchOrganization}{" "}
+    <OrganizationContext.Provider
+      value={{
+        organization: current.data,
+        role: current.meta.roles[0],
+        permissions: current.meta.permissions,
+      }}
+    >
+      <div className={styles.subbar}>
+        <nav aria-label={t.app.nav} className={styles.tabs}>
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={styles.tab}
+              aria-current={pathname === link.href ? "page" : undefined}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+        {organizations.length > 1 && (
+          <label className={styles.switcher}>
+            <span className={styles.switcherLabel}>{t.app.switchOrganization}</span>
             <select className={styles.select} value={current.data.id} onChange={(e) => select(e.target.value)}>
               {organizations.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -96,18 +113,9 @@ export default function DashboardPage() {
               ))}
             </select>
           </label>
-        </p>
-      )}
-
-      <section className={styles.empty} aria-labelledby="empty-title">
-        <h2 id="empty-title" className={styles.emptyTitle}>
-          {t.dashboard.emptyTitle}
-        </h2>
-        <p className={styles.emptyBody}>{t.dashboard.emptyBody}</p>
-        <Button type="button" disabled>
-          {t.dashboard.emptyCta}
-        </Button>
-      </section>
-    </main>
+        )}
+      </div>
+      {children}
+    </OrganizationContext.Provider>
   );
 }

@@ -9,9 +9,10 @@ import { useI18n } from "./i18n/I18nProvider";
  * État commun des formulaires : envoi en cours, message général, erreurs de champ.
  * Pas de `useActionState` : une action de formulaire React vide les champs après l'envoi,
  * et l'utilisateur perdrait sa saisie à chaque erreur.
- * En cas de succès, `pending` reste vrai : la page change d'écran ou de route.
+ * `navigates` : le succès mène à une autre page ; le bouton reste alors désactivé
+ * jusqu'au changement de page (pas de second envoi par double clic).
  */
-export function useFormSubmit(onSubmit: (form: FormData) => Promise<void>) {
+export function useFormSubmit(onSubmit: (form: FormData) => Promise<void>, { navigates = false } = {}) {
   const { t } = useI18n();
   const [error, setError] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
@@ -23,6 +24,7 @@ export function useFormSubmit(onSubmit: (form: FormData) => Promise<void>) {
     setError(null);
     try {
       await onSubmit(form);
+      if (!navigates) setPending(false);
     } catch (e) {
       setError(e);
       setPending(false);

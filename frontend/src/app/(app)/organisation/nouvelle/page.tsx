@@ -20,7 +20,7 @@ export default function NewOrganizationPage() {
     });
     setCurrentOrganizationId(data.id);
     router.replace("/tableau-de-bord");
-  });
+   }, { navigates: true });
   const copy = t.newOrganization;
 
   return (

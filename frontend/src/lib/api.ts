@@ -33,7 +33,7 @@ export class ApiError extends Error {
   }
 }
 
-type Options = { method?: "GET" | "POST"; body?: unknown; organizationId?: string };
+type Options = { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; organizationId?: string };
 
 function readXsrfToken(): string | undefined {
   const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
@@ -90,3 +90,9 @@ export async function api<T>(path: string, options: Options = {}, retried = fals
 
   return data as T;
 }
+
+export type Role = "owner" | "admin" | "event_manager" | "finance" | "check_in_agent" | "viewer";
+
+export type Member = { id: string; name: string; email: string; role: Role | null };
+
+export type Invitation = { id: string; email: string; role: Role; expires_at: string; expired: boolean };

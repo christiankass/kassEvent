@@ -188,3 +188,162 @@
     display: none;
   }
 }
+
+/* Navigation de l'espace (pages d'une organisation). */
+.subbar {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 12px 16px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+}
+
+.tab:hover {
+  color: var(--fleuve);
+}
+
+.tab[aria-current="page"] {
+  color: var(--fleuve);
+  border-bottom-color: var(--billet);
+}
+
+.switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.switcherLabel {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Page Équipe */
+.notice:not(:empty) {
+  margin-top: 20px;
+}
+
+.teamGrid {
+  display: grid;
+  gap: 40px;
+  margin-top: 32px;
+}
+
+@media (min-width: 960px) {
+  .teamGrid {
+    grid-template-columns: minmax(340px, 5fr) 7fr;
+    align-items: start;
+  }
+}
+
+.panel {
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.panel .form {
+  margin-top: 16px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--fleuve);
+}
+
+.roleChoices {
+  display: grid;
+  gap: 8px;
+}
+
+.stack {
+  display: grid;
+  gap: 40px;
+}
+
+.list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.email {
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fleuve);
+  background: color-mix(in srgb, var(--billet) 35%, var(--surface));
+  border-radius: 999px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.warn {
+  color: var(--err);
+  font-weight: 600;
+}

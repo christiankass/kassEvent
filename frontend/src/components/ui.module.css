@@ -106,6 +106,12 @@
   border: 1px solid var(--line-strong);
 }
 
+/* Action qu'on ne peut pas annuler (retirer un membre). */
+.danger {
+  color: var(--on-fleuve);
+  background: var(--err);
+}
+
 .alert {
   margin: 0;
   padding: 12px 14px;

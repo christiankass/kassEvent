@@ -60,10 +60,14 @@ export function Field({ label, hint, error, type = "text", className, ...input }
   );
 }
 
-export function Button({ variant = "primary", className, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" }) {
+export function Button({
+  variant = "primary",
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
   return (
     <button
-      className={[styles.button, variant === "secondary" && styles.secondary, className].filter(Boolean).join(" ")}
+      className={[styles.button, variant !== "primary" && styles[variant], className].filter(Boolean).join(" ")}
       {...props}
     />
   );

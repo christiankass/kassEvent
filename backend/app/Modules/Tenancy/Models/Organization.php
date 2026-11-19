@@ -22,6 +22,12 @@ class Organization extends Model
     public const LOCALES = ['fr', 'en'];
 
     /** @return BelongsToMany<User, $this> */
+    public function members(): BelongsToMany
+    {
+        return $this->users()->wherePivot('status', Membership::ACTIVE);
+    }
+
+    /** @return BelongsToMany<User, $this> */
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)
