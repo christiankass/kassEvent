@@ -2,6 +2,7 @@
 
 namespace App\Modules\Identity\Http\Requests;
 
+use App\Models\User;
 use App\Modules\Identity\Http\Requests\Concerns\NormalizesEmail;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
@@ -29,8 +30,9 @@ final class LoginRequest extends FormRequest
     /**
      * Vérifie les identifiants, avec 5 essais par minute pour un même e-mail depuis une même adresse IP.
      * Le message d'erreur ne dit jamais si c'est l'e-mail ou le mot de passe qui est faux.
+     * Ne connecte pas : avec la double authentification, la connexion attend le code.
      */
-    public function authenticate(): void
+    public function validateCredentials(): User
     {
         $key = $this->throttleKey();
 
@@ -42,13 +44,18 @@ final class LoginRequest extends FormRequest
             ])->status(429);
         }
 
-        if (! Auth::guard('web')->attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $guard = Auth::guard('web');
+
+        if (! $guard->validate($this->only('email', 'password'))) {
             RateLimiter::hit($key);
 
             throw ValidationException::withMessages(['email' => __('auth.failed')]);
         }
 
         RateLimiter::clear($key);
+
+        /** @var User */
+        return $guard->getLastAttempted();
     }
 
     private function throttleKey(): string

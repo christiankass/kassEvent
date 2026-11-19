@@ -6,7 +6,8 @@ export function formErrorMessage(error: unknown, t: Dictionary): string | null {
   if (error == null) return null;
   if (!(error instanceof ApiError)) return t.common.genericError;
   if (error.status === 0) return t.common.networkError;
-  if (error.status === 429) return error.field("email") ?? t.common.tooManyAttempts;
+  // Trop d'essais : le serveur précise l'attente (connexion : « email », code de vérification : « code »).
+  if (error.status === 429) return error.field("email") ?? error.field("code") ?? t.common.tooManyAttempts;
   if (error.status === 422) return null;
   if (error.status === 401) return t.common.sessionExpired;
   // Les autres messages du serveur ne sont pas toujours traduits : on affiche les nôtres.

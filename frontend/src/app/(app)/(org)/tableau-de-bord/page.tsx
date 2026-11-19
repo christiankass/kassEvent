@@ -1,11 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui";
+import type { Role } from "@/lib/api";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
 import { useUser } from "@/lib/user-context";
 import styles from "../../app.module.css";
+
+/** Rôles qui touchent à l'argent ou aux accès : la double authentification leur est recommandée. */
+const SENSITIVE_ROLES: Role[] = ["owner", "admin", "finance"];
 
 export default function DashboardPage() {
   const { t } = useI18n();
@@ -21,6 +26,15 @@ export default function DashboardPage() {
           role: role ? t.roles[role][0].toLowerCase() : "",
         })}
       </p>
+
+      {!user.two_factor_enabled && role && SENSITIVE_ROLES.includes(role) && (
+        <div className={styles.banner}>
+          <p>{format(t.security.recommended, { organization: organization.name })}</p>
+          <Link href="/compte/securite" className={styles.bannerLink}>
+            {t.security.recommendedCta}
+          </Link>
+        </div>
+      )}
 
       <section className={styles.empty} aria-labelledby="empty-title">
         <h2 id="empty-title" className={styles.emptyTitle}>

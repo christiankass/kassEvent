@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SignOut } from "@phosphor-icons/react";
-import { Alert, Button, LocaleSwitch, Wordmark } from "@/components/ui";
+import Link from "next/link";
+import { ShieldCheck, SignOut } from "@phosphor-icons/react";
+import { Alert, Button, buttonClass, LocaleSwitch, Wordmark } from "@/components/ui";
 import { api } from "@/lib/api";
 import { setCurrentOrganizationId } from "@/lib/current-organization";
 import { formErrorMessage } from "@/lib/errors";
@@ -43,9 +44,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <span className={styles.spacer} />
           <LocaleSwitch />
           {session.status === "signed-in" && (
-            <Button type="button" variant="secondary" onClick={logout} aria-label={t.app.logout} className={styles.logout}>
+            <Link href="/compte/securite" className={buttonClass("secondary", styles.iconButton)} aria-label={t.app.security}>
+              <ShieldCheck size={20} aria-hidden />
+              <span className={styles.headerLabel}>{t.app.security}</span>
+            </Link>
+          )}
+          {session.status === "signed-in" && (
+            <Button type="button" variant="secondary" onClick={logout} aria-label={t.app.logout} className={styles.iconButton}>
               <SignOut size={20} aria-hidden />
-              <span className={styles.logoutLabel}>{t.app.logout}</span>
+              <span className={styles.headerLabel}>{t.app.logout}</span>
             </Button>
           )}
         </div>
@@ -56,7 +63,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
       {session.status === "signed-in" ? (
-        <UserContext.Provider value={session.user}>{children}</UserContext.Provider>
+        <UserContext.Provider value={{ user: session.user, setUser: session.setUser }}>{children}</UserContext.Provider>
       ) : session.status === "error" ? (
         <main className={styles.main}>
           <Alert tone="error">{formErrorMessage(session.error, t)}</Alert>

@@ -60,6 +60,27 @@ export function Field({ label, hint, error, type = "text", className, ...input }
   );
 }
 
+/** Classes d'un bouton, pour donner la même allure à un lien. */
+export function buttonClass(variant: "primary" | "secondary" | "danger" = "primary", className?: string) {
+  return [styles.button, variant !== "primary" && styles[variant], className].filter(Boolean).join(" ");
+}
+
+/** Champ du code à 6 chiffres d'une application d'authentification. */
+export function OtpField({ label, error, autoFocus }: { label: string; error?: string; autoFocus?: boolean }) {
+  return (
+    <Field
+      label={label}
+      name="code"
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      maxLength={7}
+      required
+      autoFocus={autoFocus}
+      error={error}
+    />
+  );
+}
+
 export function Button({
   variant = "primary",
   className,
@@ -67,7 +88,7 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
   return (
     <button
-      className={[styles.button, variant !== "primary" && styles[variant], className].filter(Boolean).join(" ")}
+      className={buttonClass(variant, className)}
       {...props}
     />
   );

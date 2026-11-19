@@ -13,7 +13,7 @@ export type Session =
  * Utilisateur connecté, d'après l'API (seule source de vérité). Seul un 401 signifie « non connecté » :
  * une coupure de réseau ou une erreur serveur ne déconnecte pas l'utilisateur.
  */
-export function useSession(): Session & { retry: () => void } {
+export function useSession(): Session & { retry: () => void; setUser: (user: User) => void } {
   const [session, setSession] = useState<Session>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -32,5 +32,7 @@ export function useSession(): Session & { retry: () => void } {
     setAttempt((n) => n + 1);
   }, []);
 
-  return { ...session, retry };
+  const setUser = useCallback((user: User) => setSession({ status: "signed-in", user }), []);
+
+  return { ...session, retry, setUser };
 }

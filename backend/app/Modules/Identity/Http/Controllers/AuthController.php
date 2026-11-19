@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Identity\Http\Requests\LoginRequest;
 use App\Modules\Identity\Http\Requests\RegisterRequest;
 use App\Modules\Identity\Http\Resources\UserResource;
+use App\Modules\Identity\Support\TwoFactorChallenge;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,12 +34,24 @@ final class AuthController
         return UserResource::make($user)->response()->setStatusCode(201);
     }
 
-    public function login(LoginRequest $request): UserResource
+    /**
+     * Identifiants corrects : connexion immédiate, ou, si la double authentification est activée,
+     * étape du code (POST /auth/two-factor-challenge) avant toute session connectée.
+     */
+    public function login(LoginRequest $request, TwoFactorChallenge $challenge): JsonResponse
     {
-        $request->authenticate();
+        $user = $request->validateCredentials();
+
+        if ($user->hasTwoFactor()) {
+            $challenge->start($request, $user, $request->boolean('remember'));
+
+            return response()->json(['two_factor' => true]);
+        }
+
+        Auth::guard('web')->login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 
-        return UserResource::make($request->user());
+        return UserResource::make($user)->response();
     }
 
     public function logout(Request $request): Response

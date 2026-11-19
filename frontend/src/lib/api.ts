@@ -5,7 +5,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
 const API_ORIGIN = new URL(API_URL).origin;
 
-export type User = { id: string; name: string; email: string; locale: "fr" | "en" };
+export type User = { id: string; name: string; email: string; locale: "fr" | "en"; two_factor_enabled: boolean };
 
 export type Organization = {
   id: string;

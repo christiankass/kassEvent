@@ -5,6 +5,7 @@ use App\Modules\Access\Http\Controllers\InvitationLinkController;
 use App\Modules\Access\Http\Controllers\MemberController;
 use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\PasswordResetController;
+use App\Modules\Identity\Http\Controllers\TwoFactorController;
 use App\Modules\Identity\Http\Middleware\RequireSession;
 use App\Modules\Tenancy\Http\Controllers\OrganizationController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::middleware(RequireSession::class)->group(function () {
             Route::post('/register', [AuthController::class, 'register'])->name('register');
             Route::post('/login', [AuthController::class, 'login'])->name('login');
+            Route::post('/two-factor-challenge', [TwoFactorController::class, 'challenge'])->name('two-factor.challenge');
         });
         Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->name('password.email');
         Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
@@ -38,6 +40,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::middleware(['auth:sanctum', 'tenant.user'])->group(function () {
         Route::get('/me', [AuthController::class, 'me'])->name('me');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+
+        Route::prefix('auth/two-factor')->name('auth.two-factor.')->middleware('throttle:auth')->group(function () {
+            Route::post('/', [TwoFactorController::class, 'enable'])->name('enable');
+            Route::post('/confirm', [TwoFactorController::class, 'confirm'])->name('confirm');
+            Route::post('/recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes'])->name('recovery-codes');
+            Route::delete('/', [TwoFactorController::class, 'disable'])->name('disable');
+        });
 
         Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations.index');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
