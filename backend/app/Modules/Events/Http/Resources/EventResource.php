@@ -4,6 +4,7 @@ namespace App\Modules\Events\Http\Resources;
 
 use App\Modules\Events\Models\Event;
 use App\Modules\Events\Support\LocalDateTime;
+use App\Modules\Ticketing\Support\Inventory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,6 +18,9 @@ final class EventResource extends JsonResource
 {
     private bool $public = false;
 
+    /** @var array<string, int> places prises par type de billet (voir Inventory::taken) */
+    private array $taken = [];
+
     public static function forPublic(Event $event): self
     {
         $resource = new self($event);
@@ -25,11 +29,23 @@ final class EventResource extends JsonResource
         return $resource;
     }
 
+    /**
+     * Ajoute les places restantes de chaque billet. À appeler dans le contexte de l'organisation de l'événement.
+     *
+     * @param  array<string, int>|null  $taken  déjà calculées (liste d'événements), sinon calculées ici
+     */
+    public function withAvailability(?array $taken = null): self
+    {
+        $this->taken = $taken ?? Inventory::taken($this->ticketTypes->modelKeys());
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
         $tickets = $this->whenLoaded('ticketTypes', fn () => $this->ticketTypes
-            ->map(fn ($ticketType) => new TicketTypeResource($ticketType, $this->timezone)));
+            ->map(fn ($ticketType) => new TicketTypeResource($ticketType, $this->timezone, $this->taken[$ticketType->id] ?? 0)));
 
         $public = [
             'slug' => $this->slug,

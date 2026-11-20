@@ -7,6 +7,7 @@ use App\Modules\Events\Http\Resources\TicketTypeResource;
 use App\Modules\Events\Models\Event;
 use App\Modules\Events\Models\TicketType;
 use App\Modules\Events\Support\Money;
+use App\Modules\Ticketing\Support\Inventory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -34,21 +35,31 @@ final class TicketTypeController
     public function update(TicketTypeRequest $request, string $id): TicketTypeResource
     {
         return DB::transaction(function () use ($request, $id) {
-            $ticketType = self::find($id);
-            $event = Event::with('ticketTypes')->lockForUpdate()->findOrFail($ticketType->event_id);
-            $ticketType->update(self::checked($request, $event, except: $ticketType));
+            $event = Event::with('ticketTypes')->lockForUpdate()->findOrFail(self::find($id)->event_id);
+            // Verrou sur le type de billet, comme à la commande : les places prises ne bougent plus pendant le contrôle.
+            $ticketType = TicketType::lockForUpdate()->findOrFail($id);
+            $attributes = self::checked($request, $event, except: $ticketType);
+            $taken = Inventory::taken([$ticketType->id])[$ticketType->id] ?? 0;
 
-            return new TicketTypeResource($ticketType, $event->timezone);
+            if ($attributes['quantity'] < $taken) {
+                throw ValidationException::withMessages(['quantity' => __('ticketing.quantity_below_taken', ['count' => $taken])]);
+            }
+            $ticketType->update($attributes);
+
+            return new TicketTypeResource($ticketType, $event->timezone, $taken);
         });
     }
 
-    /** Un événement publié garde au moins un type de billet. */
+    /** Un événement publié garde au moins un type de billet ; un billet déjà commandé ne se supprime plus. */
     public function destroy(string $id): Response
     {
         $ticketType = self::find($id);
 
         if ($ticketType->event->isPublished() && $ticketType->event->ticketTypes()->count() === 1) {
             throw ValidationException::withMessages(['ticket_type' => __('events.keep_one_ticket')]);
+        }
+        if (Inventory::everOrdered($ticketType->id)) {
+            throw ValidationException::withMessages(['ticket_type' => __('ticketing.ticket_type_ordered')]);
         }
 
         $ticketType->delete();
