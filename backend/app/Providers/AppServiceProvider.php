@@ -48,6 +48,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Consultation d'un lien d'invitation : plus large, plusieurs invités peuvent partager une adresse IP.
         RateLimiter::for('invitation', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+        // Page publique : rendue par le serveur Next.js, dont toutes les requêtes partagent une adresse.
+        RateLimiter::for('public', fn (Request $request) => Limit::perMinute(1200)->by($request->ip()));
 
         // Les workers gardent leur connexion PostgreSQL ouverte : chaque job repart d'un contexte vide,
         // quelle qu'ait été l'issue du précédent. (En file « sync », le job tourne dans la requête
