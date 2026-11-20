@@ -34,6 +34,12 @@ final class SimulatedGateway implements PaymentGateway
         return null;
     }
 
+    /** La page de carte simulée s'abandonne ; un mobile money simulé attend sa réponse, comme un vrai. */
+    public function cancel(Payment $payment): bool
+    {
+        return $payment->method === Payment::CARD;
+    }
+
     public function check(Payment $payment): GatewayStatus
     {
         if ($payment->method !== Payment::MOBILE_MONEY) {

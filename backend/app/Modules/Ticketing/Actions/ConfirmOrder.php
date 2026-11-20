@@ -2,32 +2,40 @@
 
 namespace App\Modules\Ticketing\Actions;
 
+use App\Modules\Events\Models\TicketType;
 use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Ticketing\Jobs\SendTickets;
 use App\Modules\Ticketing\Models\Order;
+use App\Modules\Ticketing\Support\Inventory;
 use App\Modules\Ticketing\Support\TicketCode;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Commande payée (ou gratuite) : émet un billet par place et l'envoie par e-mail.
- * Idempotent : une commande déjà payée n'émet pas de seconds billets.
+ * Idempotent : une commande déjà réglée n'émet pas de seconds billets.
  */
 final class ConfirmOrder
 {
-    public function handle(string $orderId): void
+    /** @param  string|null  $paymentId  paiement qui a réglé la commande (null : commande gratuite) */
+    public function handle(string $orderId, ?string $paymentId = null): void
     {
-        DB::transaction(function () use ($orderId) {
+        DB::transaction(function () use ($orderId, $paymentId) {
             $order = Order::with('items')->lockForUpdate()->findOrFail($orderId);
 
-            if ($order->isPaid()) {
+            if ($order->status !== Order::PENDING) {
+                // Second paiement réussi pour une commande déjà réglée (carte puis mobile money, par exemple).
+                Log::warning('Paiement reçu pour une commande déjà réglée : à rembourser', ['order' => $order->id, 'payment' => $paymentId]);
+
                 return;
             }
 
-            // Un paiement validé après l'expiration de la réservation est honoré : l'acheteur a payé.
-            // Les réservations sont prolongées pendant chaque paiement, ce cas reste exceptionnel.
-            if ($order->isExpired()) {
-                Log::warning('Commande payée après expiration de sa réservation', ['order' => $order->id]);
+            // Payée après l'expiration de sa réservation : ses places ont pu être vendues entre-temps.
+            if ($order->isExpired() && ! $this->seatsStillAvailable($order)) {
+                $order->forceFill(['status' => Order::REFUND_DUE, 'paid_at' => now()])->save();
+                Log::error('Commande payée après expiration, places vendues entre-temps : à rembourser', ['order' => $order->id, 'payment' => $paymentId]);
+
+                return;
             }
 
             $order->forceFill(['status' => Order::PAID, 'paid_at' => now()])->save();
@@ -50,15 +58,15 @@ final class ConfirmOrder
     /** Écoute les paiements réussis (module Payments). */
     public function onPaymentSucceeded(PaymentSucceeded $event): void
     {
-        $order = Order::find($event->payment->order_id);
+        $this->handle($event->payment->order_id, $event->payment->id);
+    }
 
-        if ($order?->isPaid()) {
-            // Deuxième paiement réussi pour une commande déjà payée (carte puis mobile money, par exemple).
-            Log::warning('Paiement reçu pour une commande déjà payée : à rembourser', ['payment' => $event->payment->id]);
+    /** Sous le même verrou que la prise de commande ; la commande expirée n'occupe déjà plus de places. */
+    private function seatsStillAvailable(Order $order): bool
+    {
+        $ticketTypes = TicketType::whereIn('id', $order->items->pluck('ticket_type_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+        $taken = Inventory::taken($ticketTypes->keys());
 
-            return;
-        }
-
-        $this->handle($event->payment->order_id);
+        return $order->items->every(fn ($item) => $item->quantity <= $ticketTypes[$item->ticket_type_id]->quantity - ($taken[$item->ticket_type_id] ?? 0));
     }
 }

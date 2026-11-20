@@ -28,7 +28,10 @@ final class StoreOrderRequest extends FormRequest
     {
         return [
             function (Validator $validator) {
-                if (! $validator->errors()->has('items') && $this->quantities() === []) {
+                if ($validator->errors()->isNotEmpty()) {
+                    return; // lignes mal formées : quantities() ne doit lire que des données validées
+                }
+                if ($this->quantities() === []) {
                     $validator->errors()->add('items', __('ticketing.choose_tickets'));
                 }
                 $this->validatePhone($validator);
@@ -41,7 +44,8 @@ final class StoreOrderRequest extends FormRequest
     {
         return collect($this->input('items', []))
             ->filter(fn ($item) => is_array($item) && (int) ($item['quantity'] ?? 0) > 0)
-            ->mapWithKeys(fn ($item) => [(string) $item['ticket_type_id'] => (int) $item['quantity']])
+            // UUID en minuscules, comme les renvoie PostgreSQL (la base ignore la casse, pas PHP).
+            ->mapWithKeys(fn ($item) => [strtolower((string) $item['ticket_type_id']) => (int) $item['quantity']])
             ->all();
     }
 

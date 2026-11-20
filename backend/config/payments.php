@@ -10,6 +10,8 @@
 return [
     // Durée de réservation des places pendant le paiement (minutes).
     'hold_minutes' => (int) env('ORDER_HOLD_MINUTES', 15),
+    // Réservation maximale d'une commande, nouveaux essais de paiement compris (minutes).
+    'max_hold_minutes' => (int) env('ORDER_MAX_HOLD_MINUTES', 45),
 
     'pawapay' => [
         'mode' => env('PAWAPAY_MODE', 'simulated'), // simulated, sandbox, live

@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Http;
  */
 final class PawaPayGateway implements PaymentGateway
 {
+    private const NOT_FOUND_AFTER_SECONDS = 120;
+
     public function __construct(private readonly string $baseUrl, private readonly string $token) {}
 
     public function start(Payment $payment, Order $order, string $returnUrl): ?GatewayStatus
@@ -48,7 +50,10 @@ final class PawaPayGateway implements PaymentGateway
         $response = $this->http()->get('/v2/deposits/'.$payment->id)->throw();
 
         if ($response->json('status') !== 'FOUND') {
-            return GatewayStatus::pending();
+            // Lancement interrompu (délai dépassé) et jamais enregistré chez pawaPay.
+            return $payment->created_at->diffInSeconds(now()) > self::NOT_FOUND_AFTER_SECONDS
+                ? GatewayStatus::failed('not_found')
+                : GatewayStatus::pending();
         }
 
         $deposit = $response->json('data');
@@ -61,6 +66,12 @@ final class PawaPayGateway implements PaymentGateway
             // ACCEPTED, SUBMITTED, ENQUEUED, PROCESSING, IN_RECONCILIATION : pas encore terminé.
             default => GatewayStatus::pending(),
         };
+    }
+
+    /** Un dépôt mobile money ne s'annule pas : seul l'opérateur (ou son expiration) y met fin. */
+    public function cancel(Payment $payment): bool
+    {
+        return false;
     }
 
     private function http(): PendingRequest

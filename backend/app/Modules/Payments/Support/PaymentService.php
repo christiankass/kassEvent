@@ -8,6 +8,8 @@ use App\Modules\Payments\Gateways\GatewayStatus;
 use App\Modules\Payments\Models\Payment;
 use App\Modules\Tenancy\Support\TenantKeys;
 use App\Modules\Ticketing\Models\Order;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -24,11 +26,21 @@ final class PaymentService
     /** Délai minimal entre deux vérifications d'un même paiement auprès du prestataire. */
     private const CHECK_EVERY_SECONDS = 4;
 
+    /** Réservation pendant un paiement par carte : la page Stripe reste valable 30 minutes. */
+    private const CARD_HOLD_MINUTES = 32;
+
+    private const MOBILE_MONEY_HOLD_MINUTES = 10;
+
+    private const MOBILE_MONEY_EXTENSION_MINUTES = 3;
+
     public function __construct(private readonly GatewayRegistry $gateways) {}
 
     /**
      * Lance un paiement pour la commande. Une panne du prestataire n'est pas une erreur pour
-     * l'acheteur : le paiement est enregistré comme échoué et il peut réessayer.
+     * l'acheteur : le paiement est enregistré comme échoué et il peut réessayer. Exception : un
+     * mobile money dont la demande a pu arriver chez pawaPay (délai dépassé, erreur 5xx) reste en
+     * attente, et c'est la vérification suivante qui tranche (sinon l'acheteur pourrait valider
+     * sur son téléphone un paiement déjà déclaré échoué, et payer deux fois).
      *
      * @param  array{method: string, operator?: string|null, phone?: string|null}  $data
      */
@@ -50,14 +62,15 @@ final class PaymentService
             $immediate = $this->gateways->for($payment)->start($payment, $order, $order->publicUrl());
         } catch (Throwable $e) {
             report($e);
-            $immediate = GatewayStatus::failed('provider_unavailable');
+            $immediate = $payment->method === Payment::MOBILE_MONEY && self::mayHaveReachedProvider($e)
+                ? null
+                : GatewayStatus::failed('provider_unavailable');
         }
         $payment->save();
 
         // Les places restent réservées tant que le paiement peut aboutir.
-        $holdUntil = now()->addMinutes($payment->method === Payment::CARD ? 32 : 10);
-        if ($immediate === null && $order->expires_at->lt($holdUntil)) {
-            $order->forceFill(['expires_at' => $holdUntil])->save();
+        if ($immediate === null) {
+            $this->extendHold($order, $payment->method === Payment::CARD ? self::CARD_HOLD_MINUTES : self::MOBILE_MONEY_HOLD_MINUTES);
         }
 
         if ($immediate !== null) {
@@ -90,7 +103,55 @@ final class PaymentService
 
         $this->settle($payment, $status);
 
+        // Mobile money toujours en attente : on garde les places le temps que l'opérateur réponde.
+        if ($status->status === Payment::PENDING && $payment->method === Payment::MOBILE_MONEY) {
+            $order = $payment->order;
+            if ($order !== null && ! $order->isExpired()) {
+                $this->extendHold($order, self::MOBILE_MONEY_EXTENSION_MINUTES);
+            }
+        }
+
         return $payment->refresh();
+    }
+
+    /**
+     * Abandonne un paiement en attente avant d'en lancer un autre (page de carte quittée sans payer).
+     * Faux si le prestataire ne peut pas l'annuler : un mobile money attend la réponse de l'opérateur.
+     */
+    public function cancel(Payment $payment): bool
+    {
+        try {
+            $cancelled = $this->gateways->for($payment)->cancel($payment);
+        } catch (Throwable $e) {
+            report($e);
+
+            return false;
+        }
+
+        if ($cancelled) {
+            $this->settle($payment, GatewayStatus::failed('cancelled'));
+        }
+
+        return $cancelled;
+    }
+
+    /**
+     * Prolonge la réservation des places, sans dépasser max_hold_minutes depuis la commande :
+     * des essais de paiement répétés ne peuvent pas bloquer des places indéfiniment.
+     */
+    private function extendHold(Order $order, int $minutes): void
+    {
+        $until = now()->addMinutes($minutes)->min($order->created_at->copy()->addMinutes(config('payments.max_hold_minutes')));
+
+        if ($order->expires_at->lt($until)) {
+            $order->forceFill(['expires_at' => $until])->save();
+        }
+    }
+
+    /** Délai dépassé ou erreur du serveur : la demande a peut-être été enregistrée par le prestataire. */
+    private static function mayHaveReachedProvider(Throwable $e): bool
+    {
+        return $e instanceof ConnectionException || ($e instanceof RequestException && $e->response->serverError());
     }
 
     /** Enregistre le résultat, une seule fois : les notifications en double ne changent rien. */
@@ -103,6 +164,10 @@ final class PaymentService
         DB::transaction(function () use ($payment, $status) {
             $locked = Payment::lockForUpdate()->find($payment->id);
             if ($locked === null || ! $locked->isPending()) {
+                if ($locked !== null && $status->status === Payment::SUCCEEDED && $locked->status === Payment::FAILED) {
+                    Log::error('Paiement encaissé après avoir été déclaré échoué : à rembourser', ['payment' => $locked->id]);
+                }
+
                 return;
             }
 

@@ -17,4 +17,7 @@ interface PaymentGateway
 
     /** Statut actuel, demandé au prestataire (jamais déduit d'une notification non vérifiée). */
     public function check(Payment $payment): GatewayStatus;
+
+    /** Empêche un paiement en attente d'aboutir ; faux si ce n'est pas possible (ou plus possible). */
+    public function cancel(Payment $payment): bool;
 }

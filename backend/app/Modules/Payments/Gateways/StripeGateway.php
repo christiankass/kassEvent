@@ -57,6 +57,16 @@ final class StripeGateway implements PaymentGateway
         };
     }
 
+    /** Fait expirer la page de paiement ; refusé par Stripe si elle a déjà été payée. */
+    public function cancel(Payment $payment): bool
+    {
+        if ($payment->provider_reference === null) {
+            return true;
+        }
+
+        return $this->http()->post('/v1/checkout/sessions/'.$payment->provider_reference.'/expire')->successful();
+    }
+
     private function http(): PendingRequest
     {
         return Http::baseUrl('https://api.stripe.com')->withToken($this->secretKey)->acceptJson()->timeout(15)->connectTimeout(5);

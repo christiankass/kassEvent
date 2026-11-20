@@ -12,7 +12,7 @@ return [
     'phone_invalid' => 'Enter a DRC phone number, for example 0812345678.',
     'order_paid' => 'This order is already paid.',
     'order_expired' => 'Your reservation has expired. Please start your order again.',
-    'payment_in_progress' => 'A mobile money payment is still waiting for your approval. Approve it on your phone, or wait a minute before trying again.',
+    'payment_in_progress' => 'A mobile money payment is still waiting for the operator\'s answer. Approve it on your phone, or wait a few minutes before trying again.',
     'free_order' => 'This order is free: nothing to pay.',
     'event_has_orders' => 'This event has orders: it can no longer be deleted.',
     'ticket_type_ordered' => 'This ticket has already been ordered: it can no longer be deleted. Reduce its quantity instead.',

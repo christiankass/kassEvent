@@ -18,7 +18,7 @@ export function guessOperator(phone: string): Operator | null {
   return (Object.keys(PREFIXES) as Operator[]).find((operator) => PREFIXES[operator].includes(prefix)) ?? null;
 }
 
-export type OrderStatus = "pending" | "paid" | "expired";
+export type OrderStatus = "pending" | "paid" | "expired" | "refund_due";
 
 /** Commande telle que la voit son acheteur (lien personnel). */
 export type Order = {

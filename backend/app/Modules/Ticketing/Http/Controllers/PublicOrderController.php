@@ -3,7 +3,6 @@
 namespace App\Modules\Ticketing\Http\Controllers;
 
 use App\Modules\Events\Models\Event;
-use App\Modules\Payments\Models\Payment;
 use App\Modules\Payments\Support\PaymentService;
 use App\Modules\Tenancy\Support\TenantContext;
 use App\Modules\Tenancy\Support\TenantKeys;
@@ -22,9 +21,6 @@ use Illuminate\Validation\ValidationException;
  */
 final class PublicOrderController
 {
-    /** Un mobile money en attente bloque un nouvel essai pendant ce délai (évite de payer deux fois). */
-    private const MOBILE_MONEY_LOCK_SECONDS = 90;
-
     public function __construct(private readonly PaymentService $payments, private readonly TenantContext $context) {}
 
     public function store(StoreOrderRequest $request, CreateOrder $createOrder, string $slug): JsonResponse
@@ -58,6 +54,10 @@ final class PublicOrderController
         }) ?? abort(404);
     }
 
+    /**
+     * Nouvel essai. Jamais deux paiements en cours à la fois : une page de carte quittée est d'abord
+     * annulée chez Stripe ; un mobile money en attente doit recevoir sa réponse de l'opérateur.
+     */
     public function pay(PayOrderRequest $request, string $id): OrderResource
     {
         return TenantKeys::within($id, function () use ($request, $id) {
@@ -65,11 +65,10 @@ final class PublicOrderController
             $pending = $order->latestPayment?->isPending() ? $this->payments->refresh($order->latestPayment, force: true) : null;
 
             $error = match (true) {
-                $order->refresh()->isPaid() => __('ticketing.order_paid'),
+                $order->refresh()->status !== Order::PENDING => __('ticketing.order_paid'),
                 $order->isExpired() => __('ticketing.order_expired'),
                 $order->total === 0 => __('ticketing.free_order'),
-                $pending?->isPending() && $pending->method === Payment::MOBILE_MONEY
-                    && $pending->created_at->diffInSeconds(now()) < self::MOBILE_MONEY_LOCK_SECONDS => __('ticketing.payment_in_progress'),
+                $pending?->isPending() && ! $this->payments->cancel($pending) => __('ticketing.payment_in_progress'),
                 default => null,
             };
             if ($error !== null) {

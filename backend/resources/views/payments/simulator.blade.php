@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Paiement simulé · kassEvent</title>
+<title>{{ __('payments.simulator.title') }} · kassEvent</title>
 <style>
     body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #F3F6F5; font: 16px/1.5 system-ui, sans-serif; color: #0E1B1C; }
     main { width: min(420px, calc(100% - 32px)); background: #fff; border: 1px solid #D5DEDC; border-radius: 16px; padding: 24px; }
@@ -19,15 +19,15 @@
 </head>
 <body>
 <main>
-    <span class="tag">Simulation · aucun argent réel</span>
-    <h1>Paiement par carte</h1>
+    <span class="tag">{{ __('payments.simulator.tag') }}</span>
+    <h1>{{ __('payments.simulator.heading') }}</h1>
     <div class="amount">{{ number_format($payment->amount / 100, $payment->currency === 'CDF' ? 0 : 2, ',', ' ') }} {{ $payment->currency === 'CDF' ? 'FC' : $payment->currency }}</div>
     <form method="post" action="{{ $action }}">
         @csrf
-        <button class="pay" name="outcome" value="pay">Payer</button>
-        <button class="decline" name="outcome" value="decline">Refuser le paiement</button>
+        <button class="pay" name="outcome" value="pay">{{ __('payments.simulator.pay') }}</button>
+        <button class="decline" name="outcome" value="decline">{{ __('payments.simulator.decline') }}</button>
     </form>
-    <p>Cette page remplace celle de Stripe tant qu'aucun compte n'est configuré (STRIPE_MODE=simulated).</p>
+    <p>{{ __('payments.simulator.note') }}</p>
 </main>
 </body>
 </html>

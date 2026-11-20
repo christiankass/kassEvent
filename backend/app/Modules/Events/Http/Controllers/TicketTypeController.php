@@ -53,16 +53,19 @@ final class TicketTypeController
     /** Un événement publié garde au moins un type de billet ; un billet déjà commandé ne se supprime plus. */
     public function destroy(string $id): Response
     {
-        $ticketType = self::find($id);
+        // Verrou sur le type de billet, comme à la commande : aucune commande ne s'y ajoute pendant le contrôle.
+        DB::transaction(function () use ($id) {
+            $ticketType = TicketType::whereHas('event')->lockForUpdate()->findOrFail($id);
 
-        if ($ticketType->event->isPublished() && $ticketType->event->ticketTypes()->count() === 1) {
-            throw ValidationException::withMessages(['ticket_type' => __('events.keep_one_ticket')]);
-        }
-        if (Inventory::everOrdered($ticketType->id)) {
-            throw ValidationException::withMessages(['ticket_type' => __('ticketing.ticket_type_ordered')]);
-        }
+            if ($ticketType->event->isPublished() && $ticketType->event->ticketTypes()->count() === 1) {
+                throw ValidationException::withMessages(['ticket_type' => __('events.keep_one_ticket')]);
+            }
+            if (Inventory::everOrdered($ticketType->id)) {
+                throw ValidationException::withMessages(['ticket_type' => __('ticketing.ticket_type_ordered')]);
+            }
 
-        $ticketType->delete();
+            $ticketType->delete();
+        });
 
         return response()->noContent();
     }

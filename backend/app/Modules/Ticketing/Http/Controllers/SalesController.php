@@ -20,7 +20,8 @@ final class SalesController
         $sold = $paid->flatMap->items->groupBy('ticket_type_id')->map->sum('quantity');
 
         $orders = Order::where('event_id', $event->id)
-            ->holdingSeats()
+            // Commandes en cours ou réglées, plus celles à rembourser (payées sans places).
+            ->where(fn ($query) => $query->holdingSeats()->orWhere('status', Order::REFUND_DUE))
             ->with(['items', 'latestPayment'])
             ->orderByDesc('id') // UUID v7 : du plus récent au plus ancien
             ->limit(self::LIMIT)

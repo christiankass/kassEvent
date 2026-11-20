@@ -65,7 +65,7 @@ export function OrderView() {
           <>
             <p className={styles.reference}>{format(t.order.reference, { reference: order.reference })}</p>
             <OrderState order={order} orderKey={key} onUpdate={setOrder} />
-            {order.payment?.simulated && order.status !== "paid" && <p className={styles.demo}>{t.order.simulated}</p>}
+            {order.payment?.simulated && order.status === "pending" && <p className={styles.demo}>{t.order.simulated}</p>}
             {order.status === "paid" && <Tickets order={order} />}
             <Summary order={order} />
           </>
@@ -94,6 +94,16 @@ function OrderState({ order, orderKey, onUpdate }: { order: Order; orderKey: str
         <button type="button" className={styles.secondary} onClick={() => window.print()}>
           <Printer size={18} aria-hidden /> {t.order.print}
         </button>
+      </section>
+    );
+  }
+
+  if (order.status === "refund_due") {
+    return (
+      <section className={styles.card} aria-live="polite">
+        <WarningCircle size={40} aria-hidden className={styles.iconWarn} />
+        <h1 className={styles.title}>{t.order.refundTitle}</h1>
+        <p>{t.order.refundBody}</p>
       </section>
     );
   }

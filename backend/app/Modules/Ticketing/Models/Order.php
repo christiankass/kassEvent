@@ -25,6 +25,12 @@ class Order extends Model
 
     public const PAID = 'paid';
 
+    /**
+     * Payée après l'expiration de sa réservation, alors que ses places ont été vendues entre-temps :
+     * aucun billet émis, l'acheteur doit être remboursé.
+     */
+    public const REFUND_DUE = 'refund_due';
+
     /** Statut vu par l'acheteur et l'organisateur : une commande en attente dépassée est « expirée ». */
     public const EXPIRED = 'expired';
 

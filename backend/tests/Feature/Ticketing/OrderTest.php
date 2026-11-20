@@ -3,7 +3,9 @@
 namespace Tests\Feature\Ticketing;
 
 use App\Models\User;
+use App\Modules\Payments\Gateways\GatewayStatus;
 use App\Modules\Payments\Models\Payment;
+use App\Modules\Payments\Support\PaymentService;
 use App\Modules\Payments\Support\StripeSignature;
 use App\Modules\Tenancy\Models\Organization;
 use App\Modules\Tenancy\Support\TenantContext;
@@ -192,6 +194,66 @@ class OrderTest extends TestCase
         $this->show($id, $key)->assertJsonPath('data.status', 'paid')->assertJsonCount(2, 'data.tickets');
     }
 
+    public function test_a_lost_pawapay_request_is_failed_once_pawapay_does_not_know_it(): void
+    {
+        config(['payments.pawapay.mode' => 'sandbox', 'payments.pawapay.api_token' => 'test-token']);
+        Http::fake([
+            'api.sandbox.pawapay.io/v2/deposits' => Http::response(null, 504),
+            'api.sandbox.pawapay.io/v2/deposits/*' => Http::response(['status' => 'NOT_FOUND']),
+        ]);
+        $response = $this->order()->assertJsonPath('data.payment.status', 'pending');
+
+        $this->travel(3)->minutes();
+        $this->show($response->json('data.id'), $response->json('access_key'))->assertJsonPath('data.payment.failure_code', 'not_found');
+    }
+
+    public function test_leaving_the_card_page_cancels_it_before_another_attempt(): void
+    {
+        $response = $this->order(['payment' => ['method' => 'card']])->assertJsonPath('data.payment.status', 'pending');
+        [$id, $key] = [$response->json('data.id'), $response->json('access_key')];
+
+        $this->postJson("/api/v1/public/orders/{$id}/payments", ['key' => $key, 'payment' => ['method' => 'mobile_money', 'operator' => 'vodacom', 'phone' => '0812345678']])
+            ->assertOk()->assertJsonPath('data.payment.method', 'mobile_money');
+
+        $statuses = app(TenantContext::class)->run($this->organization->id, fn () => Payment::orderBy('id')->pluck('failure_code', 'status')->all());
+        $this->assertSame(['failed' => 'cancelled', 'pending' => null], $statuses);
+    }
+
+    public function test_repeated_attempts_cannot_hold_seats_forever(): void
+    {
+        $response = $this->order(['payment' => ['method' => 'card']]);
+        [$id, $key] = [$response->json('data.id'), $response->json('access_key')];
+
+        $this->travel(25)->minutes();
+        $this->postJson("/api/v1/public/orders/{$id}/payments", ['key' => $key, 'payment' => ['method' => 'card']])->assertOk();
+
+        // Le nouvel essai aurait prolongé la réservation de 32 minutes : elle s'arrête à 45 minutes.
+        $this->travel(21)->minutes();
+        $this->show($id, $key)->assertJsonPath('data.status', 'expired');
+    }
+
+    public function test_a_payment_after_expiry_with_seats_resold_is_flagged_for_refund(): void
+    {
+        $late = $this->order(['items' => [['ticket_type_id' => $this->standard, 'quantity' => 3]], 'payment' => ['method' => 'card']]);
+        $this->travel(46)->minutes();
+        $this->order(['items' => [['ticket_type_id' => $this->standard, 'quantity' => 3]], 'payment' => ['method' => 'card']])->assertCreated();
+
+        $paymentId = app(TenantContext::class)->run($this->organization->id, fn () => Payment::where('order_id', $late->json('data.id'))->value('id'));
+        app(TenantContext::class)->run($this->organization->id, fn () => app(PaymentService::class)
+            ->settle(Payment::find($paymentId), GatewayStatus::succeeded(7500, 'USD')));
+
+        $this->show($late->json('data.id'), $late->json('access_key'))
+            ->assertJsonPath('data.status', 'refund_due')
+            ->assertJsonPath('data.tickets', []);
+    }
+
+    public function test_malformed_or_uppercase_items_never_crash(): void
+    {
+        $this->order(['items' => [['quantity' => 1]]])->assertUnprocessable();
+        $this->order(['items' => [['ticket_type_id' => [1], 'quantity' => 1]]])->assertUnprocessable();
+        $this->order(['items' => [['ticket_type_id' => strtoupper($this->standard), 'quantity' => 1]]])->assertCreated();
+    }
+
     public function test_a_second_mobile_money_attempt_waits_for_the_first(): void
     {
         $response = $this->order()->assertCreated();
@@ -285,7 +347,14 @@ class OrderTest extends TestCase
             ->push(null, 500)]);
         $this->order()->assertCreated()->assertJsonPath('data.payment.status', 'failed')->assertJsonPath('data.payment.failure_code', 'INVALID_PHONE_NUMBER');
 
+        // Erreur 5xx : la demande a pu arriver chez pawaPay, le paiement reste en attente de vérification.
         $this->order(['items' => [['ticket_type_id' => $this->standard, 'quantity' => 1]]])
+            ->assertCreated()->assertJsonPath('data.payment.status', 'pending');
+
+        // Carte sans prestataire configuré : échec franc, l'acheteur peut réessayer.
+        config(['payments.stripe.mode' => 'test', 'payments.stripe.secret_key' => null]);
+        $this->travel(20)->minutes(); // réservations précédentes expirées
+        $this->order(['items' => [['ticket_type_id' => $this->standard, 'quantity' => 1]], 'payment' => ['method' => 'card']])
             ->assertCreated()->assertJsonPath('data.payment.failure_code', 'provider_unavailable');
     }
 

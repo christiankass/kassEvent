@@ -12,7 +12,7 @@ return [
     'phone_invalid' => 'Saisissez un numéro de téléphone de RDC, par exemple 0812345678.',
     'order_paid' => 'Cette commande est déjà payée.',
     'order_expired' => 'La réservation a expiré. Recommencez votre commande.',
-    'payment_in_progress' => 'Un paiement mobile money attend encore votre validation. Validez-le sur votre téléphone, ou patientez une minute avant de réessayer.',
+    'payment_in_progress' => 'Un paiement mobile money attend encore la réponse de l\'opérateur. Validez-le sur votre téléphone, ou patientez quelques minutes avant de réessayer.',
     'free_order' => 'Cette commande est gratuite : aucun paiement à faire.',
     'event_has_orders' => 'Des commandes existent pour cet événement : il ne peut plus être supprimé.',
     'ticket_type_ordered' => 'Ce billet a déjà été commandé : il ne peut plus être supprimé. Réduisez plutôt sa quantité.',

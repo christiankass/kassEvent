@@ -473,3 +473,8 @@
   background: color-mix(in srgb, var(--warn) 14%, var(--surface));
   color: var(--warn);
 }
+
+.orderStatus[data-status="refund_due"] {
+  background: color-mix(in srgb, var(--err) 12%, var(--surface));
+  color: var(--err);
+}
