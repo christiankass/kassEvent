@@ -1,6 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui";
+import Link from "next/link";
+import { buttonClass } from "@/components/ui";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
@@ -10,7 +11,8 @@ import styles from "../../app.module.css";
 export default function DashboardPage() {
   const { t } = useI18n();
   const user = useUser();
-  const { organization, role } = useOrganization();
+  const { organization, role, permissions } = useOrganization();
+  const canManageEvents = permissions.includes("events.manage");
 
   return (
     <main className={styles.main}>
@@ -27,9 +29,15 @@ export default function DashboardPage() {
           {t.dashboard.emptyTitle}
         </h2>
         <p className={styles.emptyBody}>{t.dashboard.emptyBody}</p>
-        <Button type="button" disabled>
-          {t.dashboard.emptyCta}
-        </Button>
+        {canManageEvents ? (
+          <Link href="/evenements/nouveau" className={buttonClass()}>
+            {t.dashboard.emptyCta}
+          </Link>
+        ) : (
+          <Link href="/evenements" className={buttonClass("secondary")}>
+            {t.dashboard.seeEvents}
+          </Link>
+        )}
       </section>
     </main>
   );

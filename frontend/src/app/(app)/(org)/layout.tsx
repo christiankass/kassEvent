@@ -75,9 +75,11 @@ export default function OrganizationLayout({ children }: { children: React.React
 
   if (!organizations || !current) return <PageSkeleton />;
 
-  const canManageTeam = current.meta.permissions.includes("members.manage");
+  const can = (permission: string) => current.meta.permissions.includes(permission);
+  const canManageTeam = can("members.manage");
   const links = [
     { href: "/tableau-de-bord", label: t.app.dashboard },
+    ...(can("events.view") ? [{ href: "/evenements", label: t.app.events }] : []),
     ...(canManageTeam ? [{ href: "/equipe", label: t.app.team }] : []),
   ];
 
@@ -96,7 +98,7 @@ export default function OrganizationLayout({ children }: { children: React.React
               key={link.href}
               href={link.href}
               className={styles.tab}
-              aria-current={pathname === link.href ? "page" : undefined}
+              aria-current={pathname === link.href || pathname.startsWith(`${link.href}/`) ? "page" : undefined}
             >
               {link.label}
             </Link>

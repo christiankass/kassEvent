@@ -1,0 +1,323 @@
+/* Liste */
+.pageHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eventList {
+  list-style: none;
+  margin: 32px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.eventCard {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 12px;
+  color: inherit;
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  transition: border-color 150ms ease-out;
+}
+
+.eventCard:hover {
+  border-color: var(--fleuve);
+}
+
+.eventCard:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (min-width: 720px) {
+  .eventCard {
+    grid-template-columns: 96px 1fr auto;
+  }
+}
+
+.thumb {
+  aspect-ratio: 1;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--fleuve);
+  color: var(--billet);
+  font: 900 32px/1 var(--f-display), Georgia, serif;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.eventInfo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.eventTitle {
+  font: 800 20px/1.2 var(--f-display), Georgia, serif;
+  color: var(--fleuve);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.eventSide {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+@media (min-width: 720px) {
+  .eventSide {
+    grid-column: auto;
+    display: grid;
+    justify-items: end;
+  }
+}
+
+.metaSmall {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.draft {
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+}
+
+.published {
+  color: var(--billet-ink);
+  background: var(--billet);
+}
+
+.past {
+  color: var(--muted);
+  background: var(--line);
+}
+
+/* Fiche d'un événement */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--fleuve);
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.layout {
+  display: grid;
+  gap: 40px;
+  margin-top: 32px;
+}
+
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: 7fr minmax(320px, 4fr);
+    align-items: start;
+  }
+
+  .layout > aside {
+    position: sticky;
+    top: 88px;
+  }
+}
+
+.sectionLede {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.callout {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-left: 4px solid var(--billet);
+  background: var(--surface);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+}
+
+.price {
+  margin-left: auto;
+  font-family: var(--f-data), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.editRow {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.editRow .form {
+  margin-top: 0;
+}
+
+.addTicket {
+  margin-top: 16px;
+}
+
+.addTicket .form {
+  margin-top: 12px;
+}
+
+.subTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.url {
+  margin: 12px 0;
+  font-family: var(--f-code), monospace;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.url a {
+  color: var(--fleuve);
+}
+
+.hintSmall {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cover {
+  margin: 12px 0;
+  aspect-ratio: 1200 / 630;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px dashed var(--line-strong);
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fileButton {
+  position: relative;
+}
+
+.fileButton input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.fileButton:focus-within {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Formulaires */
+.plainFieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.form {
+  display: grid;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.twoCols,
+.threeCols {
+  display: grid;
+  gap: 20px;
+}
+
+@media (min-width: 640px) {
+  .twoCols {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .threeCols {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.more summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  color: var(--fleuve);
+  cursor: pointer;
+}
+
+.more[open] summary {
+  margin-bottom: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eventCard {
+    transition: none;
+  }
+}
