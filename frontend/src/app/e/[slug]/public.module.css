@@ -2,7 +2,6 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
 }
 
 .header {
@@ -38,7 +37,10 @@
   aspect-ratio: 1200 / 630;
   border-radius: var(--r-lg);
   overflow: hidden;
-  background: var(--fleuve);
+  background:
+    radial-gradient(circle at 100% 0%, var(--corail) 0 16%, transparent 16.5%),
+    radial-gradient(circle at 0% 100%, var(--billet) 0 12%, transparent 12.5%),
+    linear-gradient(135deg, var(--fleuve) 0%, var(--lagon-ink) 55%, var(--wax) 100%);
   display: grid;
   place-items: center;
 }
@@ -124,7 +126,8 @@
   color: var(--fleuve);
 }
 
-/* Chaque type de billet a l'allure du billet signature : fond jaune pâle, ligne perforée avant le prix. */
+/* Chaque type de billet a l'allure du billet signature : fond pâle, ligne perforée avant le prix.
+   Le premier est jaune Billet, les suivants prennent tour à tour corail, lagon et wax. */
 .ticketList {
   list-style: none;
   margin: 0;
@@ -136,11 +139,16 @@
 .ticket {
   display: flex;
   align-items: stretch;
+  --tint: var(--billet);
   border-radius: 20px;
-  background: color-mix(in srgb, var(--billet) 22%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--billet) 70%, var(--line));
+  background: color-mix(in srgb, var(--tint) 22%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tint) 70%, var(--line));
   overflow: hidden;
 }
+
+.ticket:nth-child(4n + 2) { --tint: var(--corail); }
+.ticket:nth-child(4n + 3) { --tint: var(--lagon); }
+.ticket:nth-child(4n + 4) { --tint: var(--wax); }
 
 .ticketMain {
   flex: 1;
