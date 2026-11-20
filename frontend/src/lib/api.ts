@@ -27,6 +27,8 @@ export class ApiError extends Error {
     readonly status: number,
     message: string,
     readonly errors: Record<string, string[]> = {},
+    /** Raison précise d'un refus, quand l'API la donne (ex. « two_factor_required »). */
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -91,7 +93,7 @@ export async function api<T>(path: string, options: Options = {}, retried = fals
   if (response.status === 204) return undefined as T;
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ApiError(response.status, data.message ?? "", data.errors ?? {});
+  if (!response.ok) throw new ApiError(response.status, data.message ?? "", data.errors ?? {}, data.code);
 
   return data as T;
 }

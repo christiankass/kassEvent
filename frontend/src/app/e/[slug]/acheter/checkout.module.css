@@ -1,0 +1,240 @@
+.page {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.header {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  color: var(--fleuve);
+}
+
+.main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.title {
+  margin: 8px 0 4px;
+  font-size: clamp(28px, 7vw, 44px);
+  font-weight: 900;
+  color: var(--fleuve);
+  overflow-wrap: anywhere;
+}
+
+.when {
+  margin: 0 0 24px;
+  color: var(--muted);
+}
+
+.when::first-letter {
+  text-transform: uppercase;
+}
+
+.form {
+  display: grid;
+  gap: 24px;
+}
+
+.section {
+  padding: 20px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+@media (min-width: 560px) {
+  .section {
+    padding: 24px;
+  }
+}
+
+.step {
+  margin: 0 0 16px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--fleuve);
+}
+
+.fields {
+  display: grid;
+  gap: 16px;
+}
+
+.tickets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+/* Rappel du billet signature : fond jaune pâle et bordure perforée. */
+.ticket {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--billet) 18%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--billet) 70%, var(--line));
+}
+
+.ticket[data-disabled="true"] {
+  background: var(--bg);
+  border-color: var(--line);
+  border-style: dashed;
+}
+
+.ticketMain {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ticketName {
+  font-weight: 700;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
+.ticketPrice {
+  font-family: var(--f-data), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.muted {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.note {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+.error {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--err);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.stepper button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  border: 1px solid var(--fleuve);
+  background: var(--surface);
+  color: var(--fleuve);
+  cursor: pointer;
+}
+
+.stepper button:disabled {
+  border-color: var(--line);
+  color: var(--line-strong);
+  cursor: not-allowed;
+}
+
+.stepper button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.stepper output {
+  min-width: 32px;
+  text-align: center;
+  font: 700 20px/1 var(--f-data), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Total et bouton de paiement : toujours visibles en bas sur téléphone. */
+.payBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 0 -16px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+@media (min-width: 720px) {
+  .payBar {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+  }
+}
+
+.payInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.totalLabel {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.total {
+  font: 700 22px/1.2 var(--f-data), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bouton de paiement : le seul bouton jaune de l'interface (DESIGN.md). */
+.pay {
+  min-height: 52px;
+  padding: 0 20px;
+  font: 700 16px/1.2 var(--f-body), system-ui, sans-serif;
+  color: var(--billet-ink);
+  background: var(--billet);
+  border: 0;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  text-align: center;
+}
+
+.pay:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pay:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.secure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
