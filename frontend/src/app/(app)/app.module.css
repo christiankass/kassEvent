@@ -6,6 +6,17 @@
   border-bottom: 1px solid var(--line);
 }
 
+/* Ruban multicolore sous l'en-tête */
+.header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 4px;
+  background: var(--ruban);
+}
+
 .headerInner {
   max-width: 1120px;
   margin: 0 auto;
@@ -224,8 +235,8 @@
 }
 
 .tab[aria-current="page"] {
-  color: var(--fleuve);
-  border-bottom-color: var(--billet);
+  color: var(--wax-ink);
+  border-bottom-color: var(--wax);
 }
 
 .switcher {
@@ -332,8 +343,8 @@
   padding: 0 12px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--fleuve);
-  background: color-mix(in srgb, var(--billet) 35%, var(--surface));
+  color: var(--wax-ink);
+  background: var(--wax-soft);
   border-radius: 999px;
 }
 
@@ -357,8 +368,8 @@
   justify-content: space-between;
   gap: 12px;
   border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--billet) 22%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--billet) 60%, var(--line));
+  background: linear-gradient(100deg, var(--billet-soft), var(--corail-soft));
+  border: 1px solid color-mix(in srgb, var(--corail) 45%, var(--line));
 }
 
 .banner p {

@@ -1,51 +1,70 @@
 /* Jetons du design system : voir docs/DESIGN.md */
+/* Thème clair unique, aux couleurs mélangées (2026-11-20).
+   Chaque accent a trois teintes : la couleur pleine (décor, aplats),
+   « -ink » pour du texte sur fond clair (contraste AA) et « -soft » pour un fond pâle. */
 :root {
+  color-scheme: light;
+
+  /* Identité */
   --fleuve: #0b3b3c;
+  --fleuve-soft: #dcefea;
   --billet: #ffc83d;
   --billet-ink: #2a2100;
-  --bg: #f3f6f5;
+  --billet-soft: #fff4d6;
+
+  /* Accents mélangés */
+  --corail: #ff7a59;
+  --corail-ink: #b8391c;
+  --corail-soft: #ffe6dc;
+  --lagon: #2ba3d8;
+  --lagon-ink: #0f6890;
+  --lagon-soft: #dcf0f9;
+  --wax: #6d4aff;
+  --wax-ink: #5b3cc4;
+  --wax-soft: #ece6ff;
+  --hibiscus: #e5487d;
+  --hibiscus-ink: #a3245a;
+  --hibiscus-soft: #fde4ee;
+
+  /* Ruban : la bande multicolore qui signe l'interface */
+  --ruban: linear-gradient(90deg, var(--fleuve) 0 20%, var(--lagon) 20% 40%, var(--wax) 40% 60%, var(--hibiscus) 60% 80%, var(--corail) 80% 90%, var(--billet) 90%);
+
+  /* Neutres (crème chaud) */
+  --bg: #fbf8f3;
   --surface: #ffffff;
-  --line: #d5dedc;
-  --line-strong: #8a9d9a;
+  --line: #e3ddd2;
+  --line-strong: #9a968c;
   --muted: #5b6e6c;
   --on-fleuve: #ffffff;
-  --focus: rgb(11 59 60 / 0.3);
-  --ok-ink: #15703b;
+  --focus: rgb(109 74 255 / 0.35);
   --fg: #0e1b1c;
+
+  /* Sémantiques */
+  --ok-ink: #15703b;
   --ok: #1e8e4e;
   --warn: #b87300;
   --err: #c62828;
-  --info: #1f6fb2;
+  --info: #0f6890;
+
   --r-sm: 6px;
   --r-md: 10px;
   --r-lg: 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fleuve: #5fc4bc;
-    --bg: #0b1414;
-    --surface: #122020;
-    --line: #24393a;
-    --line-strong: #4d6664;
-    --muted: #93a9a7;
-    --on-fleuve: #062223;
-    --focus: rgb(95 196 188 / 0.35);
-    --ok-ink: #4cc27d;
-    --fg: #e7f0ef;
-    --ok: #4cc27d;
-    --warn: #f2b24c;
-    --err: #f06a6a;
-    --info: #6aafea;
-    color-scheme: dark;
-  }
-}
-
 * { box-sizing: border-box; }
 
+html {
+  min-height: 100%;
+}
+
 body {
+  min-height: 100dvh;
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(60rem 30rem at 110% -10%, color-mix(in srgb, var(--lagon) 12%, transparent), transparent 70%),
+    radial-gradient(50rem 28rem at -15% 105%, color-mix(in srgb, var(--corail) 12%, transparent), transparent 70%),
+    radial-gradient(40rem 24rem at 50% 120%, color-mix(in srgb, var(--wax) 8%, transparent), transparent 70%),
+    var(--bg);
   color: var(--fg);
   font: 16px/1.55 var(--f-body), system-ui, sans-serif;
 }

@@ -25,12 +25,19 @@
   text-decoration: none;
   background: var(--surface);
   border: 1px solid var(--line);
+  border-left: 6px solid var(--accent, var(--fleuve));
   border-radius: var(--r-lg);
   transition: border-color 150ms ease-out;
 }
 
+/* Chaque carte prend un accent différent, à tour de rôle */
+.eventCard { --accent: var(--lagon); --accent-soft: var(--lagon-soft); }
+li:nth-child(4n + 2) > .eventCard { --accent: var(--corail); --accent-soft: var(--corail-soft); }
+li:nth-child(4n + 3) > .eventCard { --accent: var(--wax); --accent-soft: var(--wax-soft); }
+li:nth-child(4n + 4) > .eventCard { --accent: var(--hibiscus); --accent-soft: var(--hibiscus-soft); }
+
 .eventCard:hover {
-  border-color: var(--fleuve);
+  border-color: var(--accent);
 }
 
 .eventCard:focus-visible {
@@ -50,7 +57,7 @@
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: var(--fleuve);
+  background: linear-gradient(135deg, var(--fleuve) 30%, var(--accent, var(--lagon)));
   color: var(--billet);
   font: 900 32px/1 var(--f-display), Georgia, serif;
 }
@@ -114,9 +121,9 @@
 }
 
 .draft {
-  color: var(--muted);
-  background: var(--bg);
-  border: 1px solid var(--line-strong);
+  color: var(--lagon-ink);
+  background: var(--lagon-soft);
+  border: 1px solid color-mix(in srgb, var(--lagon) 45%, transparent);
 }
 
 .published {
@@ -179,8 +186,8 @@
 .callout {
   margin: 12px 0 0;
   padding: 12px 14px;
-  border-left: 4px solid var(--billet);
-  background: var(--surface);
+  border-left: 4px solid var(--corail);
+  background: var(--corail-soft);
   border-radius: 0 var(--r-md) var(--r-md) 0;
 }
 

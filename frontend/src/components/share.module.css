@@ -7,9 +7,3 @@
 .whatsapp {
   color: #0b6b3a;
 }
-
-@media (prefers-color-scheme: dark) {
-  .whatsapp {
-    color: #4cc27d;
-  }
-}

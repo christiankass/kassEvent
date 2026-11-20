@@ -9,7 +9,7 @@
 
 ## Aesthetic Direction
 - **Direction** : Industrial/Utilitarian pour l'application, avec une touche affiche de concert sur les titres et le billet.
-- **Décoration** : intentionnelle — le billet jaune perforé est l'objet signature ; le reste reste sobre.
+- **Décoration** : intentionnelle — le billet perforé est l'objet signature ; le ruban multicolore et les accents mélangés donnent l'ambiance de fête.
 - **Mood** : sérieux et rassurant pour l'argent, chaleureux et festif pour l'événement.
 - **Références** : Dice (billet comme objet central), Eventbrite et Fnac Spectacles (bouton d'achat toujours visible sur mobile). Aperçu : `docs/design-preview.html`.
 
@@ -22,12 +22,25 @@
 - **Scale** : 12 / 13 / 15 / 16 / 20 / 24 / 32 / 44 / 64 px
 
 ## Color
-- **Approche** : restrained — le vert porte l'interface, le jaune est rare et signifiant.
-- **Primary** : `#0B3B3C` « Fleuve » — navigation, boutons principaux, titres.
-- **Secondary** : `#FFC83D` « Billet » — billet, bouton de paiement, surlignage de ce qui compte ; texte dessus `#2A2100`.
-- **Neutrals** : `#FFFFFF` → `#F3F6F5` → `#D5DEDC` → `#5B6E6C` → `#0E1B1C` (lightest → darkest, teintés vers le vert).
-- **Semantic** : success `#1E8E4E`, warning `#B87300`, error `#C62828`, info `#1F6FB2`.
-- **Dark mode** : fond `#0B1414`, surfaces `#122020`, primary éclairci `#5FC4BC`, jaune Billet inchangé, sémantiques éclaircies (`#4CC27D`, `#F2B24C`, `#F06A6A`, `#6AAFEA`). Le billet reste toujours sur fond blanc/jaune pour être lisible et scannable.
+- **Approche** : thème clair unique, couleurs mélangées. Le vert « Fleuve » porte l'interface et le jaune « Billet » reste réservé au paiement ; quatre accents vifs (corail, lagon, wax, hibiscus) apportent la fête, à tour de rôle, sur les cartes, les billets, les onglets et les décors.
+- **Primary** : `#0B3B3C` « Fleuve » — boutons principaux, titres ; fond pâle `#DCEFEA`.
+- **Secondary** : `#FFC83D` « Billet » — billet, bouton de paiement ; texte dessus `#2A2100` ; fond pâle `#FFF4D6`.
+- **Accents** (couleur pleine pour les décors et aplats · encre pour du texte sur fond clair · fond pâle) :
+
+  | Nom | Pleine | Encre (texte) | Pâle |
+  |-----|--------|---------------|------|
+  | Corail | `#FF7A59` | `#B8391C` | `#FFE6DC` |
+  | Lagon | `#2BA3D8` | `#0F6890` | `#DCF0F9` |
+  | Wax | `#6D4AFF` | `#5B3CC4` | `#ECE6FF` |
+  | Hibiscus | `#E5487D` | `#A3245A` | `#FDE4EE` |
+
+- **Règle de contraste** : du texte coloré utilise toujours la teinte « encre » (≥ 4,5:1 sur blanc et sur son fond pâle). Les couleurs pleines corail, lagon et hibiscus ne portent jamais de texte blanc ; wax pleine accepte du texte blanc (5,1:1).
+- **Ruban** : bande multicolore (Fleuve → Lagon → Wax → Hibiscus → Corail → Billet) sous l'en-tête, signature visuelle de l'application.
+- **Fond** : crème chaud `#FBF8F3` avec de grands halos très pâles lagon, corail et wax dans les coins.
+- **Neutrals** : `#FFFFFF` → `#FBF8F3` → `#E3DDD2` → `#9A968C` → `#5B6E6C` → `#0E1B1C`.
+- **Semantic** : success `#1E8E4E`, warning `#B87300`, error `#C62828`, info `#0F6890`.
+- **Focus** : anneau wax à 35 % d'opacité.
+- **Dark mode** : abandonné le 2026-11-20 — l'application reste claire, même si le téléphone est en mode sombre. Le billet reste toujours sur fond blanc/jaune pour être lisible et scannable.
 
 ## Spacing
 - **Base** : 4px
@@ -56,3 +69,4 @@
 | Date | Décision | Rationale |
 |------|----------|-----------|
 | 2026-11-14 | Création initiale | /design — billetterie et invitations mobile-first pour la RDC ; signature « billet jaune » et scan plein écran |
+| 2026-11-20 | Thème clair aux couleurs mélangées | Demande de l'utilisateur : une interface plus vivante. Ajout de quatre accents (corail, lagon, wax, hibiscus), du ruban, d'un fond crème ; abandon du mode sombre |

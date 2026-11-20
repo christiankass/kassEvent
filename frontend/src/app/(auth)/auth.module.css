@@ -83,7 +83,11 @@
     flex-direction: column;
     justify-content: space-between;
     padding: 40px 48px;
-    background: #0b3b3c;
+    background:
+      radial-gradient(circle at 90% 8%, var(--corail) 0 70px, transparent 71px),
+      radial-gradient(circle at 96% 100%, var(--lagon) 0 90px, transparent 91px),
+      radial-gradient(circle at 75% 78%, var(--wax) 0 46px, transparent 47px),
+      var(--fleuve);
     color: #f3f6f5;
     position: relative;
     overflow: hidden;
