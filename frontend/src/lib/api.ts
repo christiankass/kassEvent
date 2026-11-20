@@ -2,7 +2,7 @@
  * Client de l'API kassEvent. La connexion passe par un cookie de session (Sanctum SPA) :
  * le navigateur envoie ses cookies, et chaque écriture porte le jeton CSRF lu dans XSRF-TOKEN.
  */
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
 const API_ORIGIN = new URL(API_URL).origin;
 
 export type User = { id: string; name: string; email: string; locale: "fr" | "en"; two_factor_enabled: boolean };
@@ -13,9 +13,12 @@ export type Organization = {
   slug: string;
   type: OrganizationType;
   country: string;
-  currency: "USD" | "CDF";
+  currency: Currency;
   locale: "fr" | "en";
 };
+
+export const CURRENCIES = ["USD", "CDF"] as const;
+export type Currency = (typeof CURRENCIES)[number];
 
 export type OrganizationType = "organizer" | "agency" | "company" | "institution" | "individual";
 
@@ -57,7 +60,9 @@ export async function api<T>(path: string, options: Options = {}, retried = fals
     Accept: "application/json",
     "Accept-Language": document.documentElement.lang || "fr",
   };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  // Un fichier part en multipart : le navigateur pose lui-même l'en-tête et sa frontière.
+  const isUpload = body instanceof FormData;
+  if (body !== undefined && !isUpload) headers["Content-Type"] = "application/json";
   if (organizationId) headers["X-Organization-Id"] = organizationId;
 
   let response: Response;
@@ -71,7 +76,7 @@ export async function api<T>(path: string, options: Options = {}, retried = fals
       method,
       headers,
       credentials: "include",
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined || isUpload ? (body as FormData | undefined) : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(0, "network");

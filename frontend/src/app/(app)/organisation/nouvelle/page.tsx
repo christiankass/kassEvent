@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Alert, Button, Field } from "@/components/ui";
-import { api, type Organization, type OrganizationType } from "@/lib/api";
+import { api, type Organization, type OrganizationType, CURRENCIES } from "@/lib/api";
 import { setCurrentOrganizationId } from "@/lib/current-organization";
 import { useFormSubmit } from "@/lib/form";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -48,7 +48,7 @@ export default function NewOrganizationPage() {
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>{copy.currency}</legend>
           <div className={styles.segmented}>
-            {(["USD", "CDF"] as const).map((currency, index) => (
+            {CURRENCIES.map((currency, index) => (
               <label key={currency} className={styles.choice}>
                 <input type="radio" name="currency" value={currency} defaultChecked={index === 0} />
                 <span className={styles.choiceTitle}>{currency}</span>

@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState, type InputHTMLAttributes, type ButtonHTMLAttributes } from "react";
+import {
+  useId,
+  useState,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from "react";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import styles from "./ui.module.css";
@@ -57,6 +64,48 @@ export function Field({ label, hint, error, type = "text", className, ...input }
         </p>
       )}
     </div>
+  );
+}
+
+type Described = { label: string; hint?: string; error?: string };
+
+/** Libellé, aide et erreur autour d'un contrôle, reliés pour les lecteurs d'écran (comme `Field`). */
+function Labelled({ label, hint, error, children }: Described & { children: (a11y: object) => React.ReactNode }) {
+  const id = useId();
+  const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
+  return (
+    <div className={styles.field}>
+      <label className={styles.label} htmlFor={id}>
+        {label}
+      </label>
+      {children({ id, "aria-describedby": describedBy, "aria-invalid": error ? true : undefined })}
+      {hint && (
+        <p id={`${id}-hint`} className={styles.hint}>
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={`${id}-error`} className={styles.error}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function TextArea({ label, hint, error, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & Described) {
+  return (
+    <Labelled label={label} hint={hint} error={error}>
+      {(a11y) => <textarea className={`${styles.input} ${styles.textarea}`} rows={5} {...a11y} {...props} />}
+    </Labelled>
+  );
+}
+
+export function Select({ label, hint, error, ...props }: SelectHTMLAttributes<HTMLSelectElement> & Described) {
+  return (
+    <Labelled label={label} hint={hint} error={error}>
+      {(a11y) => <select className={styles.input} {...a11y} {...props} />}
+    </Labelled>
   );
 }
 
