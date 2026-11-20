@@ -27,7 +27,7 @@ export default function RegisterPage() {
     });
     // Invité : on rejoint l'équipe au lieu de créer son propre espace.
     router.replace(invitation ? invitationPath(invitation) : "/organisation/nouvelle");
-   }, { navigates: true });
+  }, { navigates: true });
 
   return (
     <div className={styles.card}>

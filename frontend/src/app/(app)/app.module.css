@@ -178,13 +178,13 @@
   background: var(--line);
 }
 
-/* Sur téléphone, le bouton de déconnexion se réduit à son icône (libellé gardé pour les lecteurs d'écran). */
+/* Sur téléphone, les boutons d'en-tête (Sécurité, déconnexion) se réduisent à leur icône (libellé gardé pour les lecteurs d'écran). */
 @media (max-width: 520px) {
-  .logout {
+  .iconButton {
     padding: 0 12px;
   }
 
-  .logoutLabel {
+  .headerLabel {
     display: none;
   }
 }
@@ -346,4 +346,120 @@
 .warn {
   color: var(--err);
   font-weight: 600;
+}
+
+.banner {
+  margin-top: 24px;
+  padding: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--billet) 22%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--billet) 60%, var(--line));
+}
+
+.banner p {
+  margin: 0;
+  max-width: 60ch;
+}
+
+.bannerLink {
+  font-weight: 700;
+  color: var(--fleuve);
+}
+
+/* Page Sécurité */
+.statusOn,
+.statusOff {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.statusOn {
+  color: var(--ok-ink);
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface));
+}
+
+.statusOff {
+  color: var(--muted);
+  background: var(--line);
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.steps {
+  margin: 16px 0 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 16px;
+}
+
+.qr {
+  display: block;
+  width: 200px;
+  height: 200px;
+  margin-top: 12px;
+  padding: 8px;
+  background: #fff;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+}
+
+.secret,
+.codes {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+}
+
+.secret {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: var(--r-sm);
+  overflow-wrap: anywhere;
+}
+
+.codes {
+  list-style: none;
+  margin: 16px 0;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  background: var(--bg);
+  border-radius: var(--r-md);
+}
+
+.securityPanel {
+  margin-top: 24px;
+}
+
+.spaced {
+  margin-top: 20px;
+}
+
+.subTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.iconButton {
+  gap: 8px;
+  text-decoration: none;
 }

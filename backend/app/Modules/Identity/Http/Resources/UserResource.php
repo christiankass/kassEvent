@@ -18,6 +18,7 @@ final class UserResource extends JsonResource
             'email' => $this->email,
             'locale' => $this->locale,
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
+            'two_factor_enabled' => $this->hasTwoFactor(),
         ];
     }
 }
