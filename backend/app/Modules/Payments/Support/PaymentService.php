@@ -5,6 +5,7 @@ namespace App\Modules\Payments\Support;
 use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Payments\Gateways\GatewayRegistry;
 use App\Modules\Payments\Gateways\GatewayStatus;
+use App\Modules\Payments\Gateways\StripeGateway;
 use App\Modules\Payments\Models\Payment;
 use App\Modules\Tenancy\Support\TenantKeys;
 use App\Modules\Ticketing\Models\Order;
@@ -26,8 +27,8 @@ final class PaymentService
     /** Délai minimal entre deux vérifications d'un même paiement auprès du prestataire. */
     private const CHECK_EVERY_SECONDS = 4;
 
-    /** Réservation pendant un paiement par carte : la page Stripe reste valable 30 minutes. */
-    private const CARD_HOLD_MINUTES = 32;
+    /** Réservation pendant un paiement par carte : la durée de la page Stripe, plus une marge. */
+    private const CARD_HOLD_MINUTES = StripeGateway::SESSION_MINUTES + 2;
 
     private const MOBILE_MONEY_HOLD_MINUTES = 10;
 
@@ -68,12 +69,10 @@ final class PaymentService
         }
         $payment->save();
 
-        // Les places restent réservées tant que le paiement peut aboutir.
         if ($immediate === null) {
+            // Les places restent réservées tant que le paiement peut aboutir.
             $this->extendHold($order, $payment->method === Payment::CARD ? self::CARD_HOLD_MINUTES : self::MOBILE_MONEY_HOLD_MINUTES);
-        }
-
-        if ($immediate !== null) {
+        } else {
             $this->settle($payment, $immediate);
         }
 

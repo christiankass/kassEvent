@@ -2,7 +2,6 @@
 
 namespace App\Modules\Ticketing\Http\Resources;
 
-use App\Modules\Payments\Models\Payment;
 use App\Modules\Payments\Support\Phone;
 use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Support\QrCode;
@@ -54,8 +53,8 @@ final class OrderResource extends JsonResource
                 'operator' => $payment->operator,
                 'phone' => Phone::mask($payment->phone),
                 'failure_code' => $payment->failure_code,
-                // Page de paiement par carte à ouvrir, tant que le paiement attend.
-                'redirect_url' => $payment->isPending() && $payment->method === Payment::CARD ? $payment->redirect_url : null,
+                // Page de paiement externe à ouvrir (carte), tant que le paiement attend.
+                'redirect_url' => $payment->isPending() ? $payment->redirect_url : null,
                 'simulated' => $payment->provider === 'simulated',
             ] : null,
             'tickets' => $this->isPaid() ? $this->tickets->map(fn ($ticket) => [

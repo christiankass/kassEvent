@@ -19,7 +19,7 @@ final class TenantKeys
 
     public static function organizationOf(?string $id): ?string
     {
-        if (! is_string($id) || ! Str::isUuid($id)) {
+        if ($id === null || ! Str::isUuid($id)) {
             return null;
         }
 

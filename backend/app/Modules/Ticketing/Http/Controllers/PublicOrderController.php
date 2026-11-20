@@ -45,9 +45,8 @@ final class PublicOrderController
         return TenantKeys::within($id, function () use ($request, $id) {
             $order = $this->find($id, $request->query('key'));
 
-            if ($order->latestPayment?->isPending()) {
-                $this->payments->refresh($order->latestPayment);
-                $order->refresh();
+            if ($order->latestPayment?->isPending() && ! $this->payments->refresh($order->latestPayment)->isPending()) {
+                $order->refresh(); // paiement terminé : statut de la commande changé
             }
 
             return $this->resource($order);
@@ -77,7 +76,7 @@ final class PublicOrderController
 
             $this->payments->start($order, $request->payment());
 
-            return $this->resource($order);
+            return $this->resource($order->unsetRelation('latestPayment'));
         }) ?? abort(404);
     }
 
@@ -91,6 +90,8 @@ final class PublicOrderController
 
     private function resource(Order $order): OrderResource
     {
-        return new OrderResource($order->load(['event.organization', 'items', 'latestPayment', 'tickets.item']));
+        $order->loadMissing(['event.organization', 'items', 'latestPayment']);
+
+        return new OrderResource($order->isPaid() ? $order->loadMissing('tickets.item') : $order);
     }
 }

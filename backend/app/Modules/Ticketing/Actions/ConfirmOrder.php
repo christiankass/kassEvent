@@ -2,7 +2,6 @@
 
 namespace App\Modules\Ticketing\Actions;
 
-use App\Modules\Events\Models\TicketType;
 use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Ticketing\Jobs\SendTickets;
 use App\Modules\Ticketing\Models\Order;
@@ -64,9 +63,8 @@ final class ConfirmOrder
     /** Sous le même verrou que la prise de commande ; la commande expirée n'occupe déjà plus de places. */
     private function seatsStillAvailable(Order $order): bool
     {
-        $ticketTypes = TicketType::whereIn('id', $order->items->pluck('ticket_type_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-        $taken = Inventory::taken($ticketTypes->keys());
+        [, $remaining] = Inventory::lockRemaining($order->items->pluck('ticket_type_id'));
 
-        return $order->items->every(fn ($item) => $item->quantity <= $ticketTypes[$item->ticket_type_id]->quantity - ($taken[$item->ticket_type_id] ?? 0));
+        return $order->items->every(fn ($item) => $item->quantity <= $remaining[$item->ticket_type_id]);
     }
 }

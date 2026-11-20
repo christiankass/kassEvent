@@ -177,7 +177,7 @@ function OrderState({ order, orderKey, onUpdate }: { order: Order; orderKey: str
 function Retry({ order, orderKey, onUpdate, open = false }: { order: Order; orderKey: string; onUpdate: (order: Order) => void; open?: boolean }) {
   const { t, locale } = useI18n();
   const [choice, setChoice] = useState<PaymentChoice>({
-    method: order.payment?.method === "card" ? "mobile_money" : (order.payment?.method ?? "mobile_money"),
+    method: "mobile_money",
     operator: order.payment?.operator ?? null,
     phone: "",
   });

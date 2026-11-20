@@ -17,14 +17,10 @@ final class SalesOrderResource extends JsonResource
             'reference' => $this->reference,
             'status' => $this->displayStatus(),
             'total' => $this->total,
-            'currency' => $this->currency,
             'buyer_name' => $this->buyer_name,
-            'buyer_email' => $this->buyer_email,
-            'tickets' => $this->ticketCount(),
             'items' => $this->items->map(fn ($item) => ['name' => $item->name, 'quantity' => $item->quantity]),
             'payment_method' => $this->latestPayment?->method,
             'created_at' => $this->created_at->toIso8601String(),
-            'paid_at' => $this->paid_at?->toIso8601String(),
         ];
     }
 }

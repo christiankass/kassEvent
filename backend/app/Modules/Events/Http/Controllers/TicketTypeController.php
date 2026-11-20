@@ -37,9 +37,10 @@ final class TicketTypeController
         return DB::transaction(function () use ($request, $id) {
             $event = Event::with('ticketTypes')->lockForUpdate()->findOrFail(self::find($id)->event_id);
             // Verrou sur le type de billet, comme à la commande : les places prises ne bougent plus pendant le contrôle.
-            $ticketType = TicketType::lockForUpdate()->findOrFail($id);
+            [$locked, $remaining] = Inventory::lockRemaining([$id]);
+            $ticketType = $locked[$id];
+            $taken = $ticketType->quantity - $remaining[$id];
             $attributes = self::checked($request, $event, except: $ticketType);
-            $taken = Inventory::taken([$ticketType->id])[$ticketType->id] ?? 0;
 
             if ($attributes['quantity'] < $taken) {
                 throw ValidationException::withMessages(['quantity' => __('ticketing.quantity_below_taken', ['count' => $taken])]);

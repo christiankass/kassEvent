@@ -4,7 +4,7 @@ export const OPERATORS = ["vodacom", "orange", "airtel"] as const;
 export type Operator = (typeof OPERATORS)[number];
 export type PaymentMethod = "mobile_money" | "card";
 
-/** Préfixes des opérateurs de RDC (mêmes que Phone::PREFIXES côté serveur). */
+/** Préfixes des opérateurs de RDC : servent à proposer un opérateur, pas à l'imposer. */
 const PREFIXES: Record<Operator, string[]> = {
   vodacom: ["81", "82", "83"],
   orange: ["80", "84", "85", "89"],
@@ -59,14 +59,10 @@ export type SalesOrder = {
   reference: string;
   status: OrderStatus;
   total: number;
-  currency: Currency;
   buyer_name: string;
-  buyer_email: string;
-  tickets: number;
   items: { name: string; quantity: number }[];
   payment_method: PaymentMethod | null;
   created_at: string;
-  paid_at: string | null;
 };
 
 export type SalesSummary = {

@@ -5,6 +5,7 @@ namespace App\Modules\Ticketing\Http\Controllers;
 use App\Modules\Events\Models\Event;
 use App\Modules\Ticketing\Http\Resources\SalesOrderResource;
 use App\Modules\Ticketing\Models\Order;
+use App\Modules\Ticketing\Support\Inventory;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /** Ventes d'un événement de l'organisation courante (orders.view, double authentification pour les rôles argent). */
@@ -16,8 +17,9 @@ final class SalesController
     {
         $event = Event::with('ticketTypes')->findOrFail($eventId);
 
-        $paid = Order::where('event_id', $event->id)->where('status', Order::PAID)->with('items')->get();
-        $sold = $paid->flatMap->items->groupBy('ticket_type_id')->map->sum('quantity');
+        $paid = Order::where('event_id', $event->id)->where('status', Order::PAID)
+            ->selectRaw('count(*) as orders, coalesce(sum(total), 0) as revenue')->toBase()->first();
+        $sold = Inventory::sold($event->ticketTypes->modelKeys());
 
         $orders = Order::where('event_id', $event->id)
             // Commandes en cours ou réglées, plus celles à rembourser (payées sans places).
@@ -29,14 +31,14 @@ final class SalesController
 
         return SalesOrderResource::collection($orders)->additional(['summary' => [
             'currency' => $event->currency,
-            'revenue' => (int) $paid->sum('total'),
-            'orders' => $paid->count(),
-            'tickets_sold' => (int) $sold->sum(),
+            'revenue' => (int) $paid->revenue,
+            'orders' => (int) $paid->orders,
+            'tickets_sold' => array_sum($sold),
             'ticket_types' => $event->ticketTypes->map(fn ($ticketType) => [
                 'id' => $ticketType->id,
                 'name' => $ticketType->name,
                 'quantity' => $ticketType->quantity,
-                'sold' => (int) ($sold[$ticketType->id] ?? 0),
+                'sold' => $sold[$ticketType->id] ?? 0,
             ]),
         ]]);
     }

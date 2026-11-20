@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { ArrowLeft, LockSimple, Minus, Plus } from "@phosphor-icons/react";
 import { PaymentFields, paymentBody, type PaymentChoice } from "@/components/PaymentFields";
 import { Alert, Field, Wordmark } from "@/components/ui";
-import { api, ApiError } from "@/lib/api";
-import { formErrorMessage } from "@/lib/errors";
+import { api } from "@/lib/api";
 import { formatEventDate, formatPrice, ticketPrice, type PublicEvent } from "@/lib/events";
+import { useFormSubmit } from "@/lib/form";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { orderPath, type Order } from "@/lib/orders";
@@ -23,20 +23,13 @@ export function Checkout({ event }: { event: PublicEvent }) {
     Object.fromEntries(event.ticket_types.map((ticket, _, all) => [ticket.id, all.length === 1 && buyable(ticket) ? 1 : 0])),
   );
   const [payment, setPayment] = useState<PaymentChoice>({ method: "mobile_money", operator: null, phone: "" });
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<unknown>(null);
 
   const total = event.ticket_types.reduce((sum, ticket) => sum + ticket.price * (quantities[ticket.id] ?? 0), 0);
   const count = Object.values(quantities).reduce((sum, quantity) => sum + quantity, 0);
   const anyOnSale = event.ticket_types.some(buyable);
-  const fieldError = (name: string) => (error instanceof ApiError && error.status === 422 ? error.field(name) : undefined);
 
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    setPending(true);
-    setError(null);
-    try {
+  const form = useFormSubmit(
+    async (form) => {
       const response = await api<{ data: Order; access_key: string }>(`/public/events/${event.slug}/orders`, {
         method: "POST",
         body: {
@@ -50,13 +43,11 @@ export function Checkout({ event }: { event: PublicEvent }) {
       // Carte : page de paiement sécurisée du prestataire, qui ramène ensuite sur la page de commande.
       if (redirect) window.location.assign(redirect);
       else router.push(orderPath(response.data.id, response.access_key));
-    } catch (caught) {
-      setError(caught);
-      setPending(false);
-    }
-  }
-
-  const message = formErrorMessage(error, t) ?? (error instanceof ApiError ? fieldError("items") ?? fieldError("payment") : null);
+    },
+    { navigates: true },
+  );
+  const { submit, pending, fieldError } = form;
+  const message = form.message ?? fieldError("items") ?? fieldError("payment");
 
   return (
     <div className={styles.page}>
@@ -98,9 +89,9 @@ export function Checkout({ event }: { event: PublicEvent }) {
                         {!ticket.on_sale ? (
                           <span className={styles.note}>{t.publicEvent.notOnSale}</span>
                         ) : ticket.available === 0 ? (
-                          <span className={styles.note}>{t.checkout.soldOut}</span>
+                          <span className={styles.note}>{t.publicEvent.soldOut}</span>
                         ) : (
-                          ticket.available <= 10 && <span className={styles.note}>{format(t.checkout.left, { count: String(ticket.available) })}</span>
+                          ticket.available <= 10 && <span className={styles.note}>{format(t.publicEvent.left, { count: String(ticket.available) })}</span>
                         )}
                         {fieldError(`items.${ticket.id}`) && <span className={styles.error}>{fieldError(`items.${ticket.id}`)}</span>}
                       </div>

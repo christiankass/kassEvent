@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * Commande d'un participant, sans compte. Tant qu'elle attend son paiement, ses places sont
@@ -69,12 +70,6 @@ class Order extends Model
         return $this->hasMany(Ticket::class)->orderBy('created_at')->orderBy('code');
     }
 
-    /** @return HasMany<Payment, $this> */
-    public function payments(): HasMany
-    {
-        return $this->hasMany(Payment::class);
-    }
-
     /**
      * Dernière tentative de paiement (identifiants UUID v7, croissants dans le temps).
      *
@@ -100,20 +95,15 @@ class Order extends Model
         return $this->isExpired() ? self::EXPIRED : $this->status;
     }
 
-    public function ticketCount(): int
-    {
-        return (int) $this->items->sum('quantity');
-    }
-
     public function hasAccessKey(?string $key): bool
     {
         return is_string($key) && hash_equals($this->access_key, $key);
     }
 
     /** Page de la commande sur le site (lien personnel de l'acheteur, sans compte). */
-    public function publicUrl(array $query = []): string
+    public function publicUrl(): string
     {
-        return config('app.frontend_url').'/commande/'.$this->id.'?'.http_build_query(['cle' => $this->access_key, ...$query]);
+        return config('app.frontend_url').'/commande/'.$this->id.'?cle='.urlencode($this->access_key);
     }
 
     /**
@@ -123,7 +113,13 @@ class Order extends Model
      */
     public function scopeHoldingSeats(Builder $query): void
     {
-        $query->where(fn (Builder $q) => $q->where('status', self::PAID)
-            ->orWhere(fn (Builder $q) => $q->where('status', self::PENDING)->where('expires_at', '>', now())));
+        self::whereHoldingSeats($query);
+    }
+
+    /** Même condition, sur une requête qui joint la table orders (colonnes qualifiées). */
+    public static function whereHoldingSeats(Builder|QueryBuilder $query): void
+    {
+        $query->where(fn ($q) => $q->where('orders.status', self::PAID)
+            ->orWhere(fn ($q) => $q->where('orders.status', self::PENDING)->where('orders.expires_at', '>', now())));
     }
 }

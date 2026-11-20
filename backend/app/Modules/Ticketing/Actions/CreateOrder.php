@@ -3,7 +3,6 @@
 namespace App\Modules\Ticketing\Actions;
 
 use App\Modules\Events\Models\Event;
-use App\Modules\Events\Models\TicketType;
 use App\Modules\Tenancy\Support\TenantKeys;
 use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Support\Inventory;
@@ -33,22 +32,16 @@ final class CreateOrder
         }
 
         $order = DB::transaction(function () use ($event, $quantities, $buyer, $locale, $hasPayment) {
-            $ticketTypes = TicketType::where('event_id', $event->id)
-                ->whereIn('id', array_keys($quantities))
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
+            [$ticketTypes, $remaining] = Inventory::lockRemaining(array_keys($quantities));
 
-            if ($ticketTypes->count() !== count($quantities)) {
+            if ($ticketTypes->where('event_id', $event->id)->count() !== count($quantities)) {
                 throw ValidationException::withMessages(['items' => __('ticketing.unknown_ticket')]);
             }
 
-            $taken = Inventory::taken($ticketTypes->keys());
             $errors = [];
             foreach ($quantities as $id => $quantity) {
                 $ticketType = $ticketTypes[$id];
-                $left = max(0, $ticketType->quantity - ($taken[$id] ?? 0));
+                $left = $remaining[$id];
                 $error = match (true) {
                     ! $ticketType->isOnSale() => __('ticketing.not_on_sale', ['name' => $ticketType->name]),
                     $quantity > $ticketType->max_per_order => __('ticketing.max_per_order', ['name' => $ticketType->name, 'max' => $ticketType->max_per_order]),

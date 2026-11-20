@@ -21,15 +21,13 @@ final class SimulatedGateway implements PaymentGateway
     {
         $payment->provider_reference = 'SIM-'.$payment->id;
 
-        if ($payment->method === Payment::MOBILE_MONEY) {
-            return null;
+        if ($payment->method === Payment::CARD) {
+            $payment->redirect_url = URL::temporarySignedRoute(
+                'payments.simulator.show',
+                now()->addMinutes(StripeGateway::SESSION_MINUTES),
+                ['payment' => $payment->id, 'return' => $returnUrl],
+            );
         }
-
-        $payment->redirect_url = URL::temporarySignedRoute(
-            'payments.simulator.show',
-            now()->addMinutes(StripeGateway::SESSION_MINUTES),
-            ['payment' => $payment->id, 'return' => $returnUrl],
-        );
 
         return null;
     }

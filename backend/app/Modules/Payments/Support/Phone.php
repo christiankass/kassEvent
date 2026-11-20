@@ -8,13 +8,6 @@ namespace App\Modules\Payments\Support;
  */
 final class Phone
 {
-    /** Préfixes des opérateurs (sans le 0) : sert à proposer le bon opérateur, pas à l'imposer. */
-    public const PREFIXES = [
-        'vodacom' => ['81', '82', '83'],
-        'orange' => ['80', '84', '85', '89'],
-        'airtel' => ['97', '98', '99'],
-    ];
-
     public static function normalize(?string $input): ?string
     {
         if ($input === null) {
