@@ -30,7 +30,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
 import { ticketFontVariables } from "@/lib/ticket-fonts";
 import { useUser } from "@/lib/user-context";
-import { prepareImage } from "@/lib/images";
+import { IMAGE_ACCEPT, prepareImage } from "@/lib/images";
 import { PageSkeleton } from "../../../../PageSkeleton";
 import app from "../../../../app.module.css";
 import events from "../../events.module.css";
@@ -510,7 +510,7 @@ function ImageControl({
           {choose}
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={IMAGE_ACCEPT}
             disabled={busy}
             onChange={(e) => {
               const file = e.target.files?.[0];

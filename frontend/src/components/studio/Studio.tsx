@@ -59,7 +59,7 @@ import { formatEventDate, type EventData } from "@/lib/events";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { loadCanvasFonts, ticketFontVariables } from "@/lib/ticket-fonts";
-import { prepareImage } from "@/lib/images";
+import { IMAGE_ACCEPT, prepareImage } from "@/lib/images";
 import { CanvasStage, fitText, type StageHandle } from "./CanvasStage";
 import styles from "./studio.module.css";
 
@@ -333,11 +333,13 @@ export default function Studio({ event, studio: initial, organizationId, organiz
       const file = await prepareImage(original);
       const body = new FormData();
       body.append("image", file);
-      const { data } = await api<{ data: { name: string } }>(`/events/${event.id}/studio/assets`, { method: "POST", organizationId, body });
+      // La photo est déjà dans le navigateur : décodée pendant l'envoi, pas retéléchargée.
+      const [{ data }, image] = await Promise.all([
+        api<{ data: { name: string } }>(`/events/${event.id}/studio/assets`, { method: "POST", organizationId, body }),
+        decode(file),
+      ]);
       requested.current.add(data.name);
       setAssets((current) => [...current, data.name]);
-      // La photo est déjà dans le navigateur : pas besoin de la retélécharger.
-      const image = await decode(file);
       setImages((current) => ({ ...current, [data.name]: image }));
       place(data.name, image);
   }
@@ -625,7 +627,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                   <input
                     ref={fileRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept={IMAGE_ACCEPT}
                     hidden
                     onChange={(e) => {
                       const file = e.target.files?.[0];

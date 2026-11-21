@@ -238,7 +238,7 @@ function Retry({ order, orderKey, onUpdate, open = false }: { order: Order; orde
 
 /** Les billets du studio se chargent à la demande : on les charge tous avant d'ouvrir l'impression. */
 async function printTickets() {
-  const images = Array.from(document.querySelectorAll<HTMLImageElement>("img[loading='lazy']"));
+  const images = Array.from(document.querySelectorAll<HTMLImageElement>("#billets img[loading='lazy']"));
   for (const image of images) image.loading = "eager";
   await Promise.all(
     images
@@ -258,63 +258,46 @@ function failureMessage(code: string | null, t: Dictionary): string {
 
 /** Billets payés, aux couleurs choisies par l'organisateur dans l'atelier. */
 function Tickets({ order, design, orderKey }: { order: Order; design: TicketDesign; orderKey: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const title = design.kind === "invitation" ? t.order.invitationsTitle : t.order.ticketsTitle;
 
   return (
-    <section aria-labelledby="tickets-title" className={styles.ticketsSection}>
+    <section id="billets" aria-labelledby="tickets-title" className={styles.ticketsSection}>
       <h2 id="tickets-title" className={styles.subtitle}>
         {format(title, { count: String(order.tickets.length) })}
       </h2>
-      <TicketList order={order} design={design} orderKey={orderKey} />
-    </section>
-  );
-}
-
-function TicketList({ order, design, orderKey }: { order: Order; design: TicketDesign; orderKey: string }) {
-  const { t, locale } = useI18n();
-  const when = formatEventDate(order.event, locale);
-
-  // Billet du studio : l'image vient du serveur, QR code et nom de l'invité compris.
-  if (design.mode === "canvas") {
-    return (
       <ol className={styles.tickets}>
         {order.tickets.map((ticket) => (
           <li key={ticket.code}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- image privée, propre à chaque billet */}
-            <img
-              className={styles.ticketImage}
-              src={`${API_URL}/public/orders/${order.id}/tickets/${ticket.code}?key=${encodeURIComponent(orderKey)}`}
-              alt={format(t.order.ticketImageAlt, { holder: ticket.holder_name, code: ticket.code })}
-              width={1080}
-              height={1350}
-              loading="lazy"
-              decoding="async"
-            />
+            {design.mode === "canvas" ? (
+              // Billet du studio : l'image vient du serveur, QR code et nom de l'invité compris.
+              // eslint-disable-next-line @next/next/no-img-element -- image privée, propre à chaque billet
+              <img
+                className={styles.ticketImage}
+                src={`${API_URL}/public/orders/${order.id}/tickets/${ticket.code}?key=${encodeURIComponent(orderKey)}`}
+                alt={format(t.order.ticketImageAlt, { holder: ticket.holder_name, code: ticket.code })}
+                width={1080}
+                height={1350}
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              <TicketCard
+                design={design}
+                organization={order.event.organization.name}
+                title={order.event.title}
+                when={formatEventDate(order.event, locale)}
+                where={`${order.event.venue_name}, ${order.event.city}`}
+                type={ticket.name}
+                holder={ticket.holder_name}
+                qr={ticket.qr}
+                code={ticket.code}
+              />
+            )}
           </li>
         ))}
       </ol>
-    );
-  }
-
-  return (
-    <ol className={styles.tickets}>
-      {order.tickets.map((ticket) => (
-        <li key={ticket.code}>
-          <TicketCard
-            design={design}
-            organization={order.event.organization.name}
-            title={order.event.title}
-            when={when}
-            where={`${order.event.venue_name}, ${order.event.city}`}
-            type={ticket.name}
-            holder={ticket.holder_name}
-            qr={ticket.qr}
-            code={ticket.code}
-          />
-        </li>
-      ))}
-    </ol>
+    </section>
   );
 }
 

@@ -294,12 +294,15 @@
     background: #ffffff;
   }
 
+  .main {
+    max-width: none;
+    padding: 0;
+  }
+
   .main,
   .ticketsSection,
   .tickets {
     display: block;
-    max-width: none;
-    padding: 0;
   }
 
   .tickets > li {
