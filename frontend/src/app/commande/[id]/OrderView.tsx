@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { CheckCircle, DeviceMobile, Printer, WarningCircle } from "@phosphor-icons/react";
 import { TicketCard } from "@/components/TicketCard";
 import { PaymentFields, paymentBody, type PaymentChoice } from "@/components/PaymentFields";
@@ -184,11 +184,15 @@ function Retry({ order, orderKey, onUpdate, open = false }: { order: Order; orde
     phone: "",
   });
   const [pending, setPending] = useState(false);
+  // Verrou synchrone : un double clic part avant que React ait désactivé le bouton.
+  const busy = useRef(false);
   const [error, setError] = useState<unknown>(null);
   const fieldError = (name: string) => (error instanceof ApiError && error.status === 422 ? error.field(name) : undefined);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (busy.current) return;
+    busy.current = true;
     setPending(true);
     setError(null);
     try {
@@ -204,6 +208,7 @@ function Retry({ order, orderKey, onUpdate, open = false }: { order: Order; orde
     } catch (caught) {
       setError(caught);
     }
+    busy.current = false;
     setPending(false);
   }
 

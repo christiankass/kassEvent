@@ -76,6 +76,11 @@ class OrderTest extends TestCase
         ]);
     }
 
+    private function inTenant(callable $callback): mixed
+    {
+        return app(TenantContext::class)->run($this->organization->id, $callback);
+    }
+
     private function show(string $id, string $key): TestResponse
     {
         return $this->getJson("/api/v1/public/orders/{$id}?key={$key}");
@@ -262,6 +267,63 @@ class OrderTest extends TestCase
             'key' => $response->json('access_key'),
             'payment' => ['method' => 'mobile_money', 'operator' => 'vodacom', 'phone' => '0812345678'],
         ])->assertUnprocessable()->assertJsonValidationErrors('payment');
+    }
+
+    public function test_the_same_checkout_sent_twice_creates_one_order_and_one_payment(): void
+    {
+        $key = '9b2f6c1e-4d3a-4f8b-9c7d-2e1a0b3c4d5e';
+        $first = $this->order(['idempotency_key' => $key])->assertCreated();
+        $second = $this->order(['idempotency_key' => strtoupper($key)])->assertOk();
+
+        $this->assertSame($first->json('data.id'), $second->json('data.id'));
+        $this->assertSame($first->json('access_key'), $second->json('access_key'));
+        $this->assertSame([1, 1], $this->inTenant(fn () => [Order::count(), Payment::count()]));
+
+        // La même clé pour un autre panier ou un autre acheteur ne rend pas la commande.
+        $this->order(['idempotency_key' => $key, 'email' => 'autre@example.com'])->assertUnprocessable()->assertJsonValidationErrors('idempotency_key');
+        $this->order(['idempotency_key' => $key, 'items' => [['ticket_type_id' => $this->standard, 'quantity' => 1]]])->assertUnprocessable();
+
+        // Une autre clé (panier modifié) est une nouvelle commande ; une clé mal formée est refusée.
+        $this->order(['items' => [['ticket_type_id' => $this->standard, 'quantity' => 1]], 'idempotency_key' => '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a'])->assertCreated();
+        $this->order(['idempotency_key' => 'pas-un-uuid'])->assertUnprocessable()->assertJsonValidationErrors('idempotency_key');
+    }
+
+    public function test_a_resent_checkout_starts_the_payment_the_first_could_not(): void
+    {
+        $key = '3c2b1a0f-9e8d-4c7b-a6f5-e4d3c2b1a0f9';
+        $id = $this->order(['idempotency_key' => $key])->assertCreated()->json('data.id');
+        // Premier envoi interrompu avant le lancement du paiement.
+        $this->inTenant(fn () => Payment::query()->delete());
+
+        $this->order(['idempotency_key' => $key])->assertOk()->assertJsonPath('data.id', $id)->assertJsonPath('data.payment.status', 'pending');
+
+        $this->travel(40)->minutes();
+        $this->order(['idempotency_key' => $key])->assertUnprocessable()->assertJsonValidationErrors('items');
+    }
+
+    public function test_a_free_checkout_sent_twice_issues_its_tickets_once(): void
+    {
+        $body = ['items' => [['ticket_type_id' => $this->vip, 'quantity' => 2]], 'payment' => null, 'idempotency_key' => '0f1e2d3c-4b5a-4987-a6b5-c4d3e2f1a0b9'];
+        $this->order($body)->assertCreated();
+        $this->order($body)->assertOk()->assertJsonCount(2, 'data.tickets');
+
+        Mail::assertSentCount(1);
+    }
+
+    public function test_an_order_has_at_most_one_pending_payment(): void
+    {
+        $id = $this->order()->assertCreated()->json('data.id');
+
+        // Deux essais arrivés ensemble : le second trouve déjà un paiement en attente.
+        $second = $this->inTenant(fn () => app(PaymentService::class)->start(Order::findOrFail($id), ['method' => 'card']));
+
+        $this->assertNull($second);
+        $this->assertSame(1, $this->inTenant(fn () => Payment::where('order_id', $id)->count()));
+    }
+
+    public function test_order_references_are_long_enough_to_never_repeat(): void
+    {
+        $this->assertMatchesRegularExpression('/^KE[0-9A-Z]{10}$/', $this->order()->json('data.reference'));
     }
 
     public function test_an_order_is_only_visible_with_its_key(): void

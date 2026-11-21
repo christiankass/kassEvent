@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowLeft, LockSimple, Minus, Plus } from "@phosphor-icons/react";
 import { PaymentFields, paymentBody, type PaymentChoice } from "@/components/PaymentFields";
 import { Alert, Field, Wordmark } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { formatEventDate, formatPrice, ticketPrice, type PublicEvent } from "@/lib/events";
 import { useFormSubmit } from "@/lib/form";
 import { format } from "@/lib/i18n/dictionaries";
@@ -23,6 +23,9 @@ export function Checkout({ event }: { event: PublicEvent }) {
     Object.fromEntries(event.ticket_types.map((ticket, _, all) => [ticket.id, all.length === 1 && buyable(ticket) ? 1 : 0])),
   );
   const [payment, setPayment] = useState<PaymentChoice>({ method: "mobile_money", operator: null, phone: "" });
+  // Clé d'idempotence : le même envoi répété (réponse perdue, nouvel essai) rend la même commande.
+  // Une nouvelle clé dès que le panier ou les coordonnées changent.
+  const attempt = useRef<{ body: string; key: string } | null>(null);
 
   const total = event.ticket_types.reduce((sum, ticket) => sum + ticket.price * (quantities[ticket.id] ?? 0), 0);
   const count = Object.values(quantities).reduce((sum, quantity) => sum + quantity, 0);
@@ -30,14 +33,22 @@ export function Checkout({ event }: { event: PublicEvent }) {
 
   const form = useFormSubmit(
     async (form) => {
+      const body = {
+        items: Object.entries(quantities).map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity })),
+        name: form.get("name"),
+        email: form.get("email"),
+        payment: total > 0 ? paymentBody(payment) : null,
+      };
+      const serialized = JSON.stringify(body);
+      if (attempt.current?.body !== serialized) attempt.current = { body: serialized, key: randomUuid() };
       const response = await api<{ data: Order; access_key: string }>(`/public/events/${event.slug}/orders`, {
         method: "POST",
-        body: {
-          items: Object.entries(quantities).map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity })),
-          name: form.get("name"),
-          email: form.get("email"),
-          payment: total > 0 ? paymentBody(payment) : null,
-        },
+        body: { ...body, idempotency_key: attempt.current.key },
+      }).catch((error: unknown) => {
+        // Réponse claire du serveur (refus, réservation expirée) : le prochain envoi est une nouvelle commande.
+        // Réseau coupé ou erreur serveur : la commande existe peut-être, on garde la clé.
+        if (error instanceof ApiError && error.status < 500) attempt.current = null;
+        throw error;
       });
       const redirect = response.data.payment?.redirect_url;
       // Carte : page de paiement sécurisée du prestataire, qui ramène ensuite sur la page de commande.
@@ -170,4 +181,14 @@ export function Checkout({ event }: { event: PublicEvent }) {
 
 function buyable(ticket: PublicEvent["ticket_types"][number]): boolean {
   return ticket.on_sale && ticket.available > 0;
+}
+
+/** UUID v4 ; crypto.randomUUID n'existe que sur HTTPS ou localhost, getRandomValues partout. */
+function randomUuid(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

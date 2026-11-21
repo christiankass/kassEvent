@@ -9,6 +9,7 @@ use App\Modules\Payments\Gateways\StripeGateway;
 use App\Modules\Payments\Models\Payment;
 use App\Modules\Tenancy\Support\TenantKeys;
 use App\Modules\Ticketing\Models\Order;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
@@ -43,9 +44,12 @@ final class PaymentService
      * attente, et c'est la vérification suivante qui tranche (sinon l'acheteur pourrait valider
      * sur son téléphone un paiement déjà déclaré échoué, et payer deux fois).
      *
+     * Rend null, sans rien lancer, si la commande a déjà un paiement en attente (deux essais
+     * simultanés) : la base n'en accepte qu'un par commande.
+     *
      * @param  array{method: string, operator?: string|null, phone?: string|null}  $data
      */
-    public function start(Order $order, array $data): Payment
+    public function start(Order $order, array $data): ?Payment
     {
         $payment = new Payment([
             'method' => $data['method'],
@@ -56,7 +60,12 @@ final class PaymentService
             'phone' => $data['method'] === Payment::MOBILE_MONEY ? $data['phone'] : null,
         ]);
         $payment->order()->associate($order);
-        $payment->save();
+        try {
+            // Transaction imbriquée : l'échec de l'insertion n'annule pas une transaction englobante.
+            DB::transaction(fn () => $payment->save());
+        } catch (UniqueConstraintViolationException) {
+            return null;
+        }
         TenantKeys::remember($payment->id, $order->organization_id);
 
         try {
