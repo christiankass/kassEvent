@@ -7,6 +7,7 @@ use App\Modules\Events\Models\EventDesign;
 use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Support\QrCode;
 use App\Modules\Ticketing\Support\TicketCode;
+use App\Modules\Ticketing\Support\TicketImage;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -38,14 +39,16 @@ final class TicketsMail extends Mailable
                 'colors' => $design->colors(),
                 'subject' => $this->envelope()->subject,
                 'key' => $this->key(...),
-                'images' => array_filter(['logo' => $design->logo_path, 'banner' => $design->bannerPath()]),
+                'images' => $design->usesCanvas() ? [] : array_filter(['logo' => $design->logo_path, 'banner' => $design->bannerPath()]),
                 'when' => $event->starts_at->timezone($event->timezone)->locale(app()->getLocale())->translatedFormat('l j F Y, H:i'),
                 'tickets' => $this->order->tickets->map(fn ($ticket) => [
                     'code' => TicketCode::format($ticket->code),
                     'type' => $ticket->item->name,
                     'holder' => $ticket->holder_name,
-                    'qr' => QrCode::png($ticket->code),
-                    'file' => "billet-{$ticket->code}.png",
+                    // Billet du studio : une image complète par billet ; sinon le billet simple et son QR code.
+                    'image' => TicketImage::forTicket($design, $ticket),
+                    'qr' => $design->usesCanvas() ? null : QrCode::png($ticket->code),
+                    'file' => "billet-{$ticket->code}",
                 ]),
                 // Commande d'exemple (atelier) : pas de page de commande à ouvrir.
                 'url' => $this->order->exists ? $this->order->publicUrl() : null,

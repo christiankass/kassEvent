@@ -31,6 +31,7 @@ return [
         'where' => 'Où :',
         'access' => 'Billet :',
         'holder' => 'Titulaire :',
+        'ticket_alt' => 'Billet de :holder, code :code',
         'qr_alt' => 'QR code du billet',
         'view' => 'Voir mes billets en ligne',
         'keep' => 'Gardez cet e-mail : chaque QR code ne permet qu\'une seule entrée. Ne le partagez pas publiquement.',

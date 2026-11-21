@@ -7,6 +7,7 @@ use App\Modules\Access\Http\Middleware\RequireTwoFactorForMoney;
 use App\Modules\Events\Http\Controllers\EventController;
 use App\Modules\Events\Http\Controllers\EventDesignController;
 use App\Modules\Events\Http\Controllers\PublicEventController;
+use App\Modules\Events\Http\Controllers\StudioController;
 use App\Modules\Events\Http\Controllers\TicketTypeController;
 use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\PasswordResetController;
@@ -45,6 +46,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->middleware('throttle:checkout')->where('slug', '[a-z0-9-]{1,100}')->name('public.orders.store');
     Route::get('/public/orders/{id}', [PublicOrderController::class, 'show'])
         ->middleware('throttle:order')->whereUuid('id')->name('public.orders.show');
+    Route::get('/public/orders/{id}/tickets/{code}', [PublicOrderController::class, 'ticketImage'])
+        ->middleware('throttle:order')->whereUuid('id')->where('code', '[0-9A-Z-]{12,14}')->name('public.orders.ticket-image');
     Route::post('/public/orders/{id}/payments', [PublicOrderController::class, 'pay'])
         ->middleware('throttle:checkout')->whereUuid('id')->name('public.orders.pay');
 
@@ -87,6 +90,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/events/{id}', [EventController::class, 'show'])->whereUuid('id')->name('events.show');
                 Route::get('/events/{id}/design', [EventDesignController::class, 'show'])->whereUuid('id')->name('events.design.show');
                 Route::get('/events/{id}/design/preview', [TicketPreviewController::class, 'show'])->whereUuid('id')->name('events.design.preview');
+
+                // Studio (éditeur libre) : document, images et billet d'exemple.
+                Route::get('/events/{id}/studio', [StudioController::class, 'show'])->whereUuid('id')->name('events.studio.show');
+                Route::get('/events/{id}/studio/assets/{name}', [StudioController::class, 'asset'])
+                    ->whereUuid('id')->where('name', 'cover|[A-Za-z0-9]{40}\.(png|jpg)')->name('events.studio.asset');
+                Route::get('/events/{id}/studio/preview', [TicketPreviewController::class, 'canvas'])->whereUuid('id')->name('events.studio.preview');
             });
 
             Route::middleware('can:events.manage')->group(function () {
@@ -105,6 +114,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                     ->whereUuid('id')->whereIn('image', ['logo', 'banner'])->name('events.design.remove-image');
                 Route::post('/events/{id}/design/test', [TicketPreviewController::class, 'send'])
                     ->middleware('throttle:design-test')->whereUuid('id')->name('events.design.test');
+
+                Route::post('/events/{id}/studio/assets', [StudioController::class, 'storeAsset'])->whereUuid('id')->name('events.studio.assets.store');
+                Route::post('/events/{id}/studio/ticket', [StudioController::class, 'saveTicket'])->whereUuid('id')->name('events.studio.ticket');
+                Route::post('/events/{id}/studio/poster', [StudioController::class, 'savePoster'])->whereUuid('id')->name('events.studio.poster');
+                Route::post('/events/{id}/studio/classic', [StudioController::class, 'useClassic'])->whereUuid('id')->name('events.studio.classic');
 
                 Route::post('/events/{id}/ticket-types', [TicketTypeController::class, 'store'])->whereUuid('id')->name('ticket-types.store');
                 Route::patch('/ticket-types/{id}', [TicketTypeController::class, 'update'])->whereUuid('id')->name('ticket-types.update');

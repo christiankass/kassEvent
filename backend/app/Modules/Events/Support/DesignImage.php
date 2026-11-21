@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 final class DesignImage
 {
     /** @return string chemin enregistré sur le disque des médias */
-    public static function store(UploadedFile $file, string $directory, int $maxWidth, int $maxHeight): string
+    public static function store(UploadedFile $file, string $directory, int $maxWidth, int $maxHeight, int $quality = 85): string
     {
         $source = imagecreatefromstring((string) file_get_contents($file->getRealPath()));
         [$width, $height] = [imagesx($source), imagesy($source)];
@@ -27,7 +27,7 @@ final class DesignImage
         }
 
         ob_start();
-        $png ? imagepng($image, null, 9) : imagejpeg($image, null, 85);
+        $png ? imagepng($image, null, 9) : imagejpeg($image, null, $quality);
         $path = $directory.'/'.Str::random(40).($png ? '.png' : '.jpg');
         Event::mediaDisk()->put($path, (string) ob_get_clean());
 

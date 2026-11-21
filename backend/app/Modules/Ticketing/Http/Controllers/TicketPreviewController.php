@@ -7,7 +7,9 @@ use App\Modules\Ticketing\Mail\TicketsMail;
 use App\Modules\Ticketing\Support\QrCode;
 use App\Modules\Ticketing\Support\SampleOrder;
 use App\Modules\Ticketing\Support\TicketCode;
+use App\Modules\Ticketing\Support\TicketImage;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -26,6 +28,20 @@ final class TicketPreviewController
             'qr' => 'data:image/svg+xml;base64,'.base64_encode(QrCode::svg(SampleOrder::CODE)),
             'code' => TicketCode::format(SampleOrder::CODE),
         ]]);
+    }
+
+    /** Billet d'exemple du studio, tel que le recevra un invité (JPEG). */
+    public function canvas(string $id): Response
+    {
+        $event = Event::with('design')->findOrFail($id);
+        $image = TicketImage::render($event->ticketDesign(), SampleOrder::CODE, [
+            'holder' => auth()->user()->name,
+            'ticket_type' => $event->ticketTypes()->value('name') ?? __('designs.sample_ticket'),
+            'code' => TicketCode::format(SampleOrder::CODE),
+        ]);
+        abort_unless($image !== null, 404);
+
+        return response($image, 200, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'no-store']);
     }
 
     /** Envoie l'e-mail d'exemple à l'adresse de l'utilisateur connecté, et à elle seule. */

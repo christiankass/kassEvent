@@ -47,6 +47,35 @@ class EventDesign extends Model
         return (new self(['event_id' => $event->id, ...self::defaults()]))->setRelation('event', $event);
     }
 
+    /**
+     * Apparence à modifier : celle enregistrée, créée au premier changement. createOrFirst résiste
+     * à deux créations simultanées (event_id unique). Événement d'une autre organisation : 404.
+     */
+    public static function editable(string $eventId): self
+    {
+        $event = Event::with('design')->findOrFail($eventId);
+        $design = $event->design ?? self::createOrFirst(['event_id' => $event->id], self::defaults());
+        $design->wasRecentlyCreated = false; // la réponse est une mise à jour (200), même au premier changement
+
+        return $design->setRelation('event', $event);
+    }
+
+    /** Dossier des images du studio d'un événement (supprimé avec l'événement). */
+    public static function studioDirectory(Event $event): string
+    {
+        return "designs/{$event->organization_id}/{$event->id}";
+    }
+
+    public function usesCanvas(): bool
+    {
+        return $this->mode === 'canvas' && $this->canvas && $this->canvas_image_path;
+    }
+
+    protected function casts(): array
+    {
+        return ['canvas' => 'array', 'poster_canvas' => 'array'];
+    }
+
     /** @return BelongsTo<Event, $this> */
     public function event(): BelongsTo
     {

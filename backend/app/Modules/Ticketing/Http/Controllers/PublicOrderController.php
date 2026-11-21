@@ -11,8 +11,10 @@ use App\Modules\Ticketing\Http\Requests\PayOrderRequest;
 use App\Modules\Ticketing\Http\Requests\StoreOrderRequest;
 use App\Modules\Ticketing\Http\Resources\OrderResource;
 use App\Modules\Ticketing\Models\Order;
+use App\Modules\Ticketing\Support\TicketImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -77,6 +79,20 @@ final class PublicOrderController
             $this->payments->start($order, $request->payment());
 
             return $this->resource($order->unsetRelation('latestPayment'));
+        }) ?? abort(404);
+    }
+
+    /** Image d'un billet fait dans le studio (QR code et nom compris), pour la page de commande. */
+    public function ticketImage(Request $request, string $id, string $code): Response
+    {
+        return TenantKeys::within($id, function () use ($request, $id, $code) {
+            $order = $this->find($id, $request->query('key'));
+            abort_unless($order->isPaid(), 404);
+            $ticket = $order->tickets()->with('item')->where('code', str_replace('-', '', $code))->first();
+            $image = $ticket ? TicketImage::forTicket($order->event()->with('design')->first()->ticketDesign(), $ticket) : null;
+            abort_unless($image !== null, 404);
+
+            return response($image, 200, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, max-age=300']);
         }) ?? abort(404);
     }
 

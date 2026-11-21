@@ -18,6 +18,8 @@ final class EventDesignResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            // canvas : billet fait dans le studio (image par billet) ; classic : billet de l'atelier.
+            'mode' => $this->usesCanvas() ? 'canvas' : 'classic',
             'template' => $this->template,
             'kind' => $this->kind,
             'primary_color' => $this->primary_color,

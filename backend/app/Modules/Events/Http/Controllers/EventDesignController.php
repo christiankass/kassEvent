@@ -36,8 +36,9 @@ final class EventDesignController
 
     public function update(EventDesignRequest $request, string $id): EventDesignResource
     {
-        $design = $this->storedDesign($id);
+        $design = EventDesign::editable($id);
         $design->fill($request->toAttributes());
+        $design->mode = 'classic'; // enregistrer l'atelier repasse au billet simple
 
         if ($design->banner !== 'none' && ! $design->bannerPath()) {
             throw ValidationException::withMessages(['banner' => __("designs.banner_needs_{$design->banner}")]);
@@ -52,7 +53,7 @@ final class EventDesignController
     {
         [$rules, $maxWidth, $maxHeight] = self::IMAGES[$image];
         $request->validate(['image' => $rules]);
-        $design = $this->storedDesign($id);
+        $design = EventDesign::editable($id);
         $column = "{$image}_path";
         $previous = $design->{$column};
 
@@ -97,15 +98,5 @@ final class EventDesignController
     private function design(string $id): EventDesign
     {
         return Event::with('design')->findOrFail($id)->ticketDesign();
-    }
-
-    /** Apparence enregistrée, créée au premier changement ; createOrFirst résiste à deux créations simultanées. */
-    private function storedDesign(string $id): EventDesign
-    {
-        $event = Event::with('design')->findOrFail($id);
-        $design = $event->design ?? EventDesign::createOrFirst(['event_id' => $event->id], EventDesign::defaults());
-        $design->wasRecentlyCreated = false; // la réponse est une mise à jour (200), même au premier changement
-
-        return $design->setRelation('event', $event);
     }
 }

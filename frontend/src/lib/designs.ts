@@ -29,6 +29,8 @@ export type DesignSettings = {
 
 /** Apparence renvoyée par l'API : réglages et images. */
 export type TicketDesign = DesignSettings & {
+  /** canvas : billet fait dans le studio, servi en image (QR et nom compris) ; classic : billet de l'atelier. */
+  mode: "classic" | "canvas";
   headline_text: string;
   banner_url: string | null;
   custom_banner_url: string | null;
