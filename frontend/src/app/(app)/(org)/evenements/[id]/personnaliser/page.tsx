@@ -30,6 +30,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
 import { ticketFontVariables } from "@/lib/ticket-fonts";
 import { useUser } from "@/lib/user-context";
+import { prepareImage } from "@/lib/images";
 import { PageSkeleton } from "../../../../PageSkeleton";
 import app from "../../../../app.module.css";
 import events from "../../events.module.css";
@@ -143,7 +144,7 @@ export default function DesignStudioPage() {
   const upload = (image: Image, file: File) =>
     run(async () => {
       const body = new FormData();
-      body.append("image", file);
+      body.append("image", await prepareImage(file, image === "logo" ? 960 : 2000));
       const { data } = await api<{ data: TicketDesign }>(`/events/${id}/design/${image}`, { method: "POST", organizationId, body });
       // Le serveur passe la bannière sur « image dédiée » ; les autres réglages en cours restent à enregistrer.
       applySaved(data, image === "banner" ? { banner: "custom" } : {});

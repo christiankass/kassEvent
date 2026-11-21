@@ -17,6 +17,8 @@ Tests du backend dans Docker : `docker compose exec api php artisan test` (base 
 Si une base avait été créée avant le socle multi-organisation (rôle superutilisateur), la recréer une fois :
 `docker compose down -v` puis relancer. La Row-Level Security ne protège rien avec un superutilisateur.
 
+Les images envoyées (affiches, photos du studio) sont dans le volume Docker `media`, partagé par l'API, les workers et Nginx (`/storage/...`) : elles survivent aux reconstructions, pas à `docker compose down -v`.
+
 - API : http://localhost:8080/api/v1/health
 - Interface : http://localhost:3000
 

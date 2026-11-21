@@ -6,6 +6,16 @@
   color: #0e1b1c;
   border: 1px solid #e3ddd2;
   break-inside: avoid;
+  /* Sans cela, le navigateur retire les fonds à l'impression : titre blanc sur blanc, illisible. */
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+@media print {
+  .ticket {
+    max-width: 150mm;
+    margin: 0 auto;
+  }
 }
 
 .banner {

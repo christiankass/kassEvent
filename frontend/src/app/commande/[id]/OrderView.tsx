@@ -93,9 +93,10 @@ function OrderState({ order, orderKey, onUpdate }: { order: Order; orderKey: str
         <CheckCircle size={40} weight="fill" aria-hidden className={styles.icon} />
         <h1 className={styles.title}>{order.design?.kind === "invitation" ? t.order.invitationTitle : t.order.paidTitle}</h1>
         <p>{format(t.order.paidBody, { email: order.buyer_email })}</p>
-        <button type="button" className={styles.secondary} onClick={() => window.print()}>
+        <button type="button" className={styles.secondary} onClick={() => void printTickets()}>
           <Printer size={18} aria-hidden /> {t.order.print}
         </button>
+        <p className={styles.muted}>{t.order.printHint}</p>
       </section>
     );
   }
@@ -235,6 +236,21 @@ function Retry({ order, orderKey, onUpdate, open = false }: { order: Order; orde
   );
 }
 
+/** Les billets du studio se chargent à la demande : on les charge tous avant d'ouvrir l'impression. */
+async function printTickets() {
+  const images = Array.from(document.querySelectorAll<HTMLImageElement>("img[loading='lazy']"));
+  for (const image of images) image.loading = "eager";
+  await Promise.all(
+    images
+      .filter((image) => !image.complete)
+      .map((image) => new Promise((done) => {
+        image.addEventListener("load", done, { once: true });
+        image.addEventListener("error", done, { once: true });
+      })),
+  );
+  window.print();
+}
+
 function failureMessage(code: string | null, t: Dictionary): string {
   const failures = t.order.failures as Record<string, string>;
   return (code && failures[code]) || failures.other;
@@ -242,6 +258,20 @@ function failureMessage(code: string | null, t: Dictionary): string {
 
 /** Billets payés, aux couleurs choisies par l'organisateur dans l'atelier. */
 function Tickets({ order, design, orderKey }: { order: Order; design: TicketDesign; orderKey: string }) {
+  const { t } = useI18n();
+  const title = design.kind === "invitation" ? t.order.invitationsTitle : t.order.ticketsTitle;
+
+  return (
+    <section aria-labelledby="tickets-title" className={styles.ticketsSection}>
+      <h2 id="tickets-title" className={styles.subtitle}>
+        {format(title, { count: String(order.tickets.length) })}
+      </h2>
+      <TicketList order={order} design={design} orderKey={orderKey} />
+    </section>
+  );
+}
+
+function TicketList({ order, design, orderKey }: { order: Order; design: TicketDesign; orderKey: string }) {
   const { t, locale } = useI18n();
   const when = formatEventDate(order.event, locale);
 

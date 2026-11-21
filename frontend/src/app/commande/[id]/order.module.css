@@ -252,19 +252,13 @@
   color: var(--muted);
 }
 
-@media print {
-  .header,
-  .card,
-  .summary,
-  .reference,
-  .demo,
-  .footer {
-    display: none;
-  }
+.ticketsSection {
+  display: grid;
+  gap: 12px;
+}
 
-  .page {
-    background: #ffffff;
-  }
+.ticketsSection > .subtitle {
+  margin: 0;
 }
 
 /* Billet fait dans le studio : une image au format 4:5, QR code compris. */
@@ -277,4 +271,48 @@
   border-radius: 20px;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 12px 32px rgb(0 0 0 / 0.12);
   background: var(--surface);
+}
+
+/* Impression : un billet par page, en mise en page simple (les grilles se coupent mal à l'impression). */
+@page {
+  margin: 12mm;
+}
+
+@media print {
+  .header,
+  .card,
+  .summary,
+  .reference,
+  .demo,
+  .footer,
+  .ticketsSection > .subtitle {
+    display: none;
+  }
+
+  .page {
+    min-height: 0;
+    background: #ffffff;
+  }
+
+  .main,
+  .ticketsSection,
+  .tickets {
+    display: block;
+    max-width: none;
+    padding: 0;
+  }
+
+  .tickets > li {
+    break-inside: avoid;
+    break-after: page;
+  }
+
+  .tickets > li:last-child {
+    break-after: auto;
+  }
+
+  .ticketImage {
+    max-width: 120mm;
+    box-shadow: none;
+  }
 }
