@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowSquareOut, ImageSquare, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, FrameCorners, ImageSquare, MagicWand, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { Alert, Button, buttonClass } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -263,9 +263,17 @@ export default function EventPage() {
               {t.events.designTitle}
             </h2>
             <p className={styles.sectionLede}>{t.events.designLede}</p>
-            <Link href={`/evenements/${event.id}/personnaliser`} className={buttonClass("secondary")}>
-              <PaintBrush size={18} aria-hidden /> {t.events.designOpen}
-            </Link>
+            <div className={styles.buttons}>
+              <Link href={`/evenements/${event.id}/studio`} className={buttonClass("primary")}>
+                <MagicWand size={18} aria-hidden /> {t.events.studioTicket}
+              </Link>
+              <Link href={`/evenements/${event.id}/studio?format=poster`} className={buttonClass("secondary")}>
+                <FrameCorners size={18} aria-hidden /> {t.events.studioPoster}
+              </Link>
+              <Link href={`/evenements/${event.id}/personnaliser`} className={buttonClass("secondary")}>
+                <PaintBrush size={18} aria-hidden /> {t.events.designOpen}
+              </Link>
+            </div>
           </section>
 
           <section className={app.panel} aria-labelledby="cover-title">

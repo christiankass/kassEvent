@@ -5,6 +5,7 @@ namespace App\Modules\Events\Http\Controllers;
 use App\Modules\Events\Http\Requests\EventRequest;
 use App\Modules\Events\Http\Resources\EventResource;
 use App\Modules\Events\Models\Event;
+use App\Modules\Events\Models\EventDesign;
 use App\Modules\Events\Support\LocalDateTime;
 use App\Modules\Ticketing\Support\Inventory;
 use Illuminate\Http\JsonResponse;
@@ -103,6 +104,7 @@ final class EventController
         if ($images !== []) {
             Event::mediaDisk()->delete($images);
         }
+        Event::mediaDisk()->deleteDirectory(EventDesign::studioDirectory($event));
 
         return response()->noContent();
     }

@@ -3,8 +3,12 @@
     $logoSrc = isset($images['logo']) ? \App\Modules\Ticketing\Mail\TicketsMail::imageSource($message ?? null, $images['logo']) : null;
     $bannerSrc = isset($images['banner']) ? \App\Modules\Ticketing\Mail\TicketsMail::imageSource($message ?? null, $images['banner']) : null;
     $qrSrc = fn (array $ticket) => isset($message)
-        ? $message->embedData($ticket['qr'], $ticket['file'], 'image/png')
+        ? $message->embedData($ticket['qr'], $ticket['file'].'.png', 'image/png')
         : 'data:image/png;base64,'.base64_encode($ticket['qr']);
+    // Billet du studio : l'image complète du billet (QR code et nom de l'invité compris).
+    $ticketSrc = fn (array $ticket) => isset($message)
+        ? $message->embedData($ticket['image'], $ticket['file'].'.jpg', 'image/jpeg')
+        : 'data:image/jpeg;base64,'.base64_encode($ticket['image']);
     $display = $design->fontStack();
 @endphp
 <!DOCTYPE html>
@@ -29,6 +33,12 @@
     </td></tr>
 
     @foreach ($tickets as $ticket)
+    @if ($ticket['image'])
+    <tr><td style="padding-bottom:20px;" align="center">
+        <img src="{{ $ticketSrc($ticket) }}" width="560" alt="{{ __('ticketing.mail.ticket_alt', ['holder' => $ticket['holder'], 'code' => $ticket['code']]) }}" style="display:block;width:100%;max-width:560px;height:auto;border-radius:20px;">
+        <div style="font-family:'Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:.08em;margin-top:10px;color:#0E1B1C;">{{ $ticket['code'] }}</div>
+    </td></tr>
+    @else
     <tr><td style="padding-bottom:20px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-radius:20px;overflow:hidden;background:#FFFFFF;border:1px solid #E3DDD2;">
             @if ($bannerSrc)
@@ -65,6 +75,7 @@
             @endif
         </table>
     </td></tr>
+    @endif
     @endforeach
 
     @if ($url)

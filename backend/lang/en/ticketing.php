@@ -31,6 +31,7 @@ return [
         'where' => 'Where:',
         'access' => 'Ticket:',
         'holder' => 'Holder:',
+        'ticket_alt' => 'Ticket for :holder, code :code',
         'qr_alt' => 'Ticket QR code',
         'view' => 'View my tickets online',
         'keep' => 'Keep this email: each QR code allows a single entry. Do not share it publicly.',

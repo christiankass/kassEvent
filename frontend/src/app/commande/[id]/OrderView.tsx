@@ -7,7 +7,7 @@ import { CheckCircle, DeviceMobile, Printer, WarningCircle } from "@phosphor-ico
 import { TicketCard } from "@/components/TicketCard";
 import { PaymentFields, paymentBody, type PaymentChoice } from "@/components/PaymentFields";
 import { Alert, Wordmark } from "@/components/ui";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, API_URL } from "@/lib/api";
 import { actionErrorMessage, formErrorMessage } from "@/lib/errors";
 import { formatEventDate, formatPrice } from "@/lib/events";
 import { format, type Dictionary } from "@/lib/i18n/dictionaries";
@@ -68,7 +68,7 @@ export function OrderView() {
             <p className={styles.reference}>{format(t.order.reference, { reference: order.reference })}</p>
             <OrderState order={order} orderKey={key} onUpdate={setOrder} />
             {order.payment?.simulated && order.status === "pending" && <p className={styles.demo}>{t.order.simulated}</p>}
-            {order.status === "paid" && order.design && <Tickets order={order} design={order.design} />}
+            {order.status === "paid" && order.design && <Tickets order={order} design={order.design} orderKey={key} />}
             <Summary order={order} />
           </>
         )}
@@ -236,9 +236,31 @@ function failureMessage(code: string | null, t: Dictionary): string {
 }
 
 /** Billets payés, aux couleurs choisies par l'organisateur dans l'atelier. */
-function Tickets({ order, design }: { order: Order; design: TicketDesign }) {
-  const { locale } = useI18n();
+function Tickets({ order, design, orderKey }: { order: Order; design: TicketDesign; orderKey: string }) {
+  const { t, locale } = useI18n();
   const when = formatEventDate(order.event, locale);
+
+  // Billet du studio : l'image vient du serveur, QR code et nom de l'invité compris.
+  if (design.mode === "canvas") {
+    return (
+      <ol className={styles.tickets}>
+        {order.tickets.map((ticket) => (
+          <li key={ticket.code}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- image privée, propre à chaque billet */}
+            <img
+              className={styles.ticketImage}
+              src={`${API_URL}/public/orders/${order.id}/tickets/${ticket.code}?key=${encodeURIComponent(orderKey)}`}
+              alt={format(t.order.ticketImageAlt, { holder: ticket.holder_name, code: ticket.code })}
+              width={1080}
+              height={1350}
+              loading="lazy"
+              decoding="async"
+            />
+          </li>
+        ))}
+      </ol>
+    );
+  }
 
   return (
     <ol className={styles.tickets}>
@@ -276,8 +298,8 @@ function Summary({ order }: { order: Order }) {
         <span className={`${styles.muted} ${styles.capitalize}`}>{formatEventDate(order.event, locale)}</span>
       </p>
       <ul className={styles.lines}>
-        {order.items.map((item) => (
-          <li key={item.name}>
+        {order.items.map((item, index) => (
+          <li key={`${index}-${item.name}`}>
             <span>
               {item.quantity} × {item.name}
             </span>

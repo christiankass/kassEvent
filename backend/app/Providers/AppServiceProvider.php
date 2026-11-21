@@ -56,6 +56,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         // Page de commande, consultée toutes les quelques secondes pendant un paiement mobile money.
         RateLimiter::for('order', fn (Request $request) => Limit::perMinute(60)->by($request->ip().'|'.$request->route('id')));
+        // Images des billets d'une commande : une par billet (jusqu'à plusieurs centaines), en plus des consultations.
+        RateLimiter::for('order-tickets', fn (Request $request) => Limit::perMinute(1200)->by($request->ip().'|'.$request->route('id')));
         // E-mail d'exemple de l'atelier : envoyé à soi-même, quelques fois seulement.
         RateLimiter::for('design-test', fn (Request $request) => Limit::perMinute(3)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('webhooks', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
