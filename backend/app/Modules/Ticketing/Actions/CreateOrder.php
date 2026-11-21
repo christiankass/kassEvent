@@ -7,6 +7,7 @@ use App\Modules\Tenancy\Support\TenantKeys;
 use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Support\Inventory;
 use App\Modules\Ticketing\Support\TicketCode;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,8 @@ use Illuminate\Validation\ValidationException;
  * Réserve les places d'une commande. À appeler dans le contexte de l'organisation de l'événement.
  * Les types de billets sont verrouillés pendant le calcul : deux acheteurs simultanés ne peuvent
  * pas prendre ensemble plus de places qu'il n'en reste.
+ * Avec une clé d'idempotence, un même envoi répété (double clic, réseau qui renvoie la demande)
+ * rend la commande déjà créée au lieu d'en créer une seconde : wasRecentlyCreated est alors faux.
  */
 final class CreateOrder
 {
@@ -24,15 +27,46 @@ final class CreateOrder
      * @param  array<string, int>  $quantities  identifiant du type de billet => quantité (> 0)
      * @param  array{name: string, email: string}  $buyer
      * @param  bool  $hasPayment  un moyen de paiement est choisi (obligatoire si la commande n'est pas gratuite)
+     * @param  string|null  $idempotencyKey  identifiant tiré au hasard par la page d'achat pour cet envoi
      */
-    public function handle(Event $event, array $quantities, array $buyer, string $locale, bool $hasPayment): Order
+    public function handle(Event $event, array $quantities, array $buyer, string $locale, bool $hasPayment, ?string $idempotencyKey = null): Order
     {
         if ($event->starts_at->isPast()) {
             throw ValidationException::withMessages(['items' => __('ticketing.event_started')]);
         }
 
-        $order = DB::transaction(function () use ($event, $quantities, $buyer, $locale, $hasPayment) {
+        try {
+            $order = $this->create($event, $quantities, $buyer, $locale, $hasPayment, $idempotencyKey);
+        } catch (UniqueConstraintViolationException $e) {
+            // Même envoi arrivé en même temps pour d'autres billets : l'autre demande a créé la commande.
+            $order = $idempotencyKey !== null ? $this->existing($event, $idempotencyKey) : null;
+            if ($order === null) {
+                throw $e;
+            }
+        }
+
+        // Billets gratuits sur inscription : rien à payer, les billets partent tout de suite.
+        if ($order->wasRecentlyCreated && $order->total === 0) {
+            $this->confirm->handle($order->id);
+        }
+
+        return $order->refresh();
+    }
+
+    /**
+     * @param  array<string, int>  $quantities
+     * @param  array{name: string, email: string}  $buyer
+     */
+    private function create(Event $event, array $quantities, array $buyer, string $locale, bool $hasPayment, ?string $idempotencyKey): Order
+    {
+        return DB::transaction(function () use ($event, $quantities, $buyer, $locale, $hasPayment, $idempotencyKey) {
             [$ticketTypes, $remaining] = Inventory::lockRemaining(array_keys($quantities));
+
+            // Après le verrou : un envoi identique simultané a attendu la fin du premier et le retrouve ici.
+            $existing = $idempotencyKey !== null ? $this->existing($event, $idempotencyKey) : null;
+            if ($existing !== null) {
+                return $existing;
+            }
 
             if ($ticketTypes->where('event_id', $event->id)->count() !== count($quantities)) {
                 throw ValidationException::withMessages(['items' => __('ticketing.unknown_ticket')]);
@@ -63,7 +97,10 @@ final class CreateOrder
             }
 
             $order = new Order([
-                'reference' => 'KE'.TicketCode::generate(6),
+                // 10 caractères tirés au hasard (50 bits) : pas de doublon même après des millions de
+                // commandes, et « kassEvent KE… » tient dans les 22 caractères du message pawaPay.
+                'reference' => 'KE'.TicketCode::generate(10),
+                'idempotency_key' => $idempotencyKey,
                 'currency' => $event->currency,
                 'total' => $total,
                 'buyer_name' => $buyer['name'],
@@ -87,12 +124,10 @@ final class CreateOrder
 
             return $order;
         });
+    }
 
-        // Billets gratuits sur inscription : rien à payer, les billets partent tout de suite.
-        if ($order->total === 0) {
-            $this->confirm->handle($order->id);
-        }
-
-        return $order->refresh();
+    private function existing(Event $event, string $idempotencyKey): ?Order
+    {
+        return Order::where('event_id', $event->id)->where('idempotency_key', $idempotencyKey)->first();
     }
 }

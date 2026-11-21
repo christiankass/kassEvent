@@ -19,6 +19,8 @@ final class StoreOrderRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'min:0', 'max:50'],
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'email' => ['required', 'string', 'email:rfc', 'max:254'],
+            // Tirée au hasard par la page d'achat : un envoi répété rend la même commande.
+            'idempotency_key' => ['nullable', 'uuid'],
             // Le paiement est obligatoire sauf pour une commande gratuite (vérifié une fois le total connu).
             ...$this->paymentRules(required: false),
         ];
@@ -47,6 +49,13 @@ final class StoreOrderRequest extends FormRequest
             // UUID en minuscules, comme les renvoie PostgreSQL (la base ignore la casse, pas PHP).
             ->mapWithKeys(fn ($item) => [strtolower((string) $item['ticket_type_id']) => (int) $item['quantity']])
             ->all();
+    }
+
+    public function idempotencyKey(): ?string
+    {
+        $key = $this->validated('idempotency_key');
+
+        return $key === null ? null : strtolower($key);
     }
 
     /** @return array{name: string, email: string} */

@@ -32,13 +32,15 @@ final class PublicOrderController
         return $this->context->run($event->organization_id, function () use ($request, $createOrder, $event) {
             $payment = $request->payment();
 
-            $order = $createOrder->handle($event, $request->quantities(), $request->buyer(), app()->getLocale(), $payment !== null);
+            $order = $createOrder->handle($event, $request->quantities(), $request->buyer(), app()->getLocale(), $payment !== null, $request->idempotencyKey());
 
-            if ($order->total > 0) {
+            // Envoi répété : la commande existe déjà et son paiement est lancé, on la rend telle quelle.
+            if ($order->wasRecentlyCreated && $order->total > 0) {
                 $this->payments->start($order, $payment);
             }
 
-            return $this->resource($order)->additional(['access_key' => $order->access_key])->response()->setStatusCode(201);
+            return $this->resource($order)->additional(['access_key' => $order->access_key])->response()
+                ->setStatusCode($order->wasRecentlyCreated ? 201 : 200);
         });
     }
 
@@ -76,7 +78,10 @@ final class PublicOrderController
                 throw ValidationException::withMessages(['payment' => $error]);
             }
 
-            $this->payments->start($order, $request->payment());
+            // Deux essais envoyés ensemble : la base n'accepte qu'un paiement en attente par commande.
+            if ($this->payments->start($order, $request->payment()) === null) {
+                throw ValidationException::withMessages(['payment' => __('ticketing.payment_already_started')]);
+            }
 
             return $this->resource($order->unsetRelation('latestPayment'));
         }) ?? abort(404);
