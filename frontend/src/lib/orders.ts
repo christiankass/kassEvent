@@ -41,8 +41,8 @@ export type Order = {
     city: string;
     organization: { name: string };
   };
-  /** Apparence des billets choisie par l'organisateur (atelier). */
-  design: TicketDesign;
+  /** Apparence des billets choisie par l'organisateur (atelier), une fois la commande payée. */
+  design: TicketDesign | null;
   items: { name: string; quantity: number; unit_price: number }[];
   payment: {
     method: PaymentMethod;

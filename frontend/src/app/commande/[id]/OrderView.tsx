@@ -12,6 +12,7 @@ import { actionErrorMessage, formErrorMessage } from "@/lib/errors";
 import { formatEventDate, formatPrice } from "@/lib/events";
 import { format, type Dictionary } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import type { TicketDesign } from "@/lib/designs";
 import type { Order } from "@/lib/orders";
 import styles from "./order.module.css";
 
@@ -67,7 +68,7 @@ export function OrderView() {
             <p className={styles.reference}>{format(t.order.reference, { reference: order.reference })}</p>
             <OrderState order={order} orderKey={key} onUpdate={setOrder} />
             {order.payment?.simulated && order.status === "pending" && <p className={styles.demo}>{t.order.simulated}</p>}
-            {order.status === "paid" && <Tickets order={order} />}
+            {order.status === "paid" && order.design && <Tickets order={order} design={order.design} />}
             <Summary order={order} />
           </>
         )}
@@ -90,7 +91,7 @@ function OrderState({ order, orderKey, onUpdate }: { order: Order; orderKey: str
     return (
       <section className={`${styles.card} ${styles.success}`} aria-live="polite">
         <CheckCircle size={40} weight="fill" aria-hidden className={styles.icon} />
-        <h1 className={styles.title}>{order.design.kind === "invitation" ? t.order.invitationTitle : t.order.paidTitle}</h1>
+        <h1 className={styles.title}>{order.design?.kind === "invitation" ? t.order.invitationTitle : t.order.paidTitle}</h1>
         <p>{format(t.order.paidBody, { email: order.buyer_email })}</p>
         <button type="button" className={styles.secondary} onClick={() => window.print()}>
           <Printer size={18} aria-hidden /> {t.order.print}
@@ -235,7 +236,7 @@ function failureMessage(code: string | null, t: Dictionary): string {
 }
 
 /** Billets payés, aux couleurs choisies par l'organisateur dans l'atelier. */
-function Tickets({ order }: { order: Order }) {
+function Tickets({ order, design }: { order: Order; design: TicketDesign }) {
   const { locale } = useI18n();
   const when = formatEventDate(order.event, locale);
 
@@ -244,7 +245,7 @@ function Tickets({ order }: { order: Order }) {
       {order.tickets.map((ticket) => (
         <li key={ticket.code}>
           <TicketCard
-            design={order.design}
+            design={design}
             organization={order.event.organization.name}
             title={order.event.title}
             when={when}

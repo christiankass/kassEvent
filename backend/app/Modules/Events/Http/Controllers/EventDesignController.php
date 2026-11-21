@@ -6,62 +6,57 @@ use App\Modules\Events\Http\Requests\EventDesignRequest;
 use App\Modules\Events\Http\Resources\EventDesignResource;
 use App\Modules\Events\Models\Event;
 use App\Modules\Events\Models\EventDesign;
+use App\Modules\Events\Support\DesignImage;
 use App\Modules\Events\Support\DesignTemplates;
-use App\Modules\Ticketing\Mail\TicketsMail;
-use App\Modules\Ticketing\Support\QrCode;
-use App\Modules\Ticketing\Support\TicketCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
  * Atelier de personnalisation des billets et invitations d'un événement
- * (lecture : events.view ; modification : events.manage).
+ * (lecture : events.view ; modification : events.manage). L'aperçu de l'e-mail est dans Ticketing.
  */
 final class EventDesignController
 {
-    /** Taille et formats des images : jamais de SVG (il peut contenir du script). */
+    /** Formats acceptés (jamais de SVG, qui peut contenir du script) et taille maximale après réduction. */
     private const IMAGES = [
-        'logo' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:2048', 'dimensions:min_width=64,min_height=64'],
-        'banner' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:5120', 'dimensions:min_width=600,min_height=150'],
+        'logo' => [['required', 'image', 'mimes:jpeg,png,webp', 'max:2048', 'dimensions:min_width=64,min_height=64'], 480, 480],
+        'banner' => [['required', 'image', 'mimes:jpeg,png,webp', 'max:5120', 'dimensions:min_width=600,min_height=150'], 1200, 600],
     ];
 
+    /** Avec les modèles de départ et les titres par défaut, utiles à l'aperçu en direct. */
     public function show(string $id): JsonResponse
     {
-        return $this->respond($this->design($id));
+        return EventDesignResource::make($this->design($id))->additional(['meta' => [
+            'templates' => DesignTemplates::all(),
+            'headlines' => array_combine(EventDesign::KINDS, array_map(fn ($kind) => __("designs.headline.{$kind}"), EventDesign::KINDS)),
+        ]])->response();
     }
 
-    public function update(EventDesignRequest $request, string $id): JsonResponse
+    public function update(EventDesignRequest $request, string $id): EventDesignResource
     {
         $design = $this->storedDesign($id);
         $design->fill($request->toAttributes());
 
-        $error = match ($design->banner) {
-            'cover' => $design->event->cover_path ? null : __('designs.banner_needs_cover'),
-            'custom' => $design->banner_path ? null : __('designs.banner_needs_image'),
-            default => null,
-        };
-        if ($error !== null) {
-            throw ValidationException::withMessages(['banner' => $error]);
+        if ($design->banner !== 'none' && ! $design->bannerPath()) {
+            throw ValidationException::withMessages(['banner' => __("designs.banner_needs_{$design->banner}")]);
         }
-
         $design->save();
 
-        return $this->respond($design);
+        return EventDesignResource::make($design);
     }
 
     /** Envoie le logo ou la bannière ; l'ancienne image est supprimée. */
-    public function upload(Request $request, string $id, string $image): JsonResponse
+    public function upload(Request $request, string $id, string $image): EventDesignResource
     {
-        $request->validate(['image' => self::IMAGES[$image]]);
+        [$rules, $maxWidth, $maxHeight] = self::IMAGES[$image];
+        $request->validate(['image' => $rules]);
         $design = $this->storedDesign($id);
-        $disk = Event::mediaDisk();
         $column = "{$image}_path";
         $previous = $design->{$column};
 
-        $path = $disk->putFile("designs/{$design->event->organization_id}", $request->file('image'));
+        $path = DesignImage::store($request->file('image'), "designs/{$design->event->organization_id}", $maxWidth, $maxHeight);
         $design->{$column} = $path;
         if ($image === 'banner') {
             $design->banner = 'custom';
@@ -69,19 +64,19 @@ final class EventDesignController
         try {
             $design->save();
         } catch (Throwable $e) {
-            $disk->delete($path); // pas de fichier orphelin si l'enregistrement échoue
+            Event::mediaDisk()->delete($path); // pas de fichier orphelin si l'enregistrement échoue
 
             throw $e;
         }
 
         if ($previous) {
-            $disk->delete($previous);
+            Event::mediaDisk()->delete($previous);
         }
 
-        return $this->respond($design);
+        return EventDesignResource::make($design);
     }
 
-    public function removeImage(string $id, string $image): JsonResponse
+    public function removeImage(string $id, string $image): EventDesignResource
     {
         $design = $this->design($id);
         $column = "{$image}_path";
@@ -95,26 +90,7 @@ final class EventDesignController
             $design->save();
         }
 
-        return $this->respond($design);
-    }
-
-    /** L'e-mail des billets tel qu'il partira, avec un billet d'exemple (le site l'affiche dans un cadre isolé, sans script). */
-    public function preview(string $id): JsonResponse
-    {
-        $mail = new TicketsMail(TicketsMail::sample($this->design($id)->event, auth()->user()->name));
-
-        return response()->json(['data' => ['subject' => $mail->envelope()->subject, 'html' => $mail->render()]]);
-    }
-
-    /** Envoie l'e-mail d'exemple à l'adresse de l'utilisateur connecté, et à elle seule. */
-    public function test(string $id): JsonResponse
-    {
-        $user = auth()->user();
-        $event = $this->design($id)->event;
-
-        Mail::to($user->email, $user->name)->send(new TicketsMail(TicketsMail::sample($event, $user->name)));
-
-        return response()->json(['message' => __('designs.test_sent', ['email' => $user->email])]);
+        return EventDesignResource::make($design);
     }
 
     /** Apparence enregistrée, sinon celle par défaut (pas encore enregistrée). Événement d'une autre organisation : 404. */
@@ -123,25 +99,13 @@ final class EventDesignController
         return Event::with('design')->findOrFail($id)->ticketDesign();
     }
 
-    /**
-     * Apparence enregistrée, créée avec les réglages par défaut si besoin. createOrFirst résiste
-     * à deux premières modifications simultanées (event_id unique).
-     */
+    /** Apparence enregistrée, créée au premier changement ; createOrFirst résiste à deux créations simultanées. */
     private function storedDesign(string $id): EventDesign
     {
-        $event = Event::findOrFail($id);
-        $defaults = EventDesign::defaultFor($event)->only(['template', 'kind', 'primary_color', 'accent_color', 'font', 'banner']);
+        $event = Event::with('design')->findOrFail($id);
+        $design = $event->design ?? EventDesign::createOrFirst(['event_id' => $event->id], EventDesign::defaults());
+        $design->wasRecentlyCreated = false; // la réponse est une mise à jour (200), même au premier changement
 
-        return EventDesign::createOrFirst(['event_id' => $event->id], $defaults)->setRelation('event', $event);
-    }
-
-    private function respond(EventDesign $design): JsonResponse
-    {
-        return EventDesignResource::make($design)->additional(['meta' => [
-            'templates' => DesignTemplates::all(),
-            // QR code de l'exemple, pour l'aperçu en direct (il ne correspond à aucun billet).
-            'sample_qr' => 'data:image/svg+xml;base64,'.base64_encode(QrCode::svg(TicketsMail::SAMPLE_CODE)),
-            'sample_code' => TicketCode::format(TicketsMail::SAMPLE_CODE),
-        ]])->response()->setStatusCode(200);
+        return $design->setRelation('event', $event);
     }
 }

@@ -1,15 +1,16 @@
 /**
- * Apparence des billets et invitations (atelier). Les calculs de contraste reprennent ceux de l'API
- * (Color.php) pour que l'aperçu en direct montre exactement ce qui partira.
+ * Apparence des billets et invitations (atelier). Les calculs de contraste reprennent ceux de l'e-mail
+ * (Color.php) : à changer ensemble, pour que le site et l'e-mail restent identiques.
  */
 
-export type DesignKind = "ticket" | "invitation";
-export type DesignFont = "fraunces" | "playfair" | "instrument" | "script";
-export type BannerSource = "none" | "cover" | "custom";
+export const KINDS = ["ticket", "invitation"] as const;
+export type DesignKind = (typeof KINDS)[number];
+export const FONTS = ["fraunces", "playfair", "instrument", "script"] as const;
+export type DesignFont = (typeof FONTS)[number];
+export const BANNERS = ["none", "cover", "custom"] as const;
+export type BannerSource = (typeof BANNERS)[number];
+/** Noms des modèles : la liste et leurs réglages viennent de l'API (meta.templates). */
 export type TemplateName = "kassevent" | "concert" | "entreprise" | "mariage" | "anniversaire";
-
-export const TEMPLATES: TemplateName[] = ["kassevent", "concert", "entreprise", "mariage", "anniversaire"];
-export const FONTS: DesignFont[] = ["fraunces", "playfair", "instrument", "script"];
 
 export type TemplatePreset = { kind: DesignKind; primary_color: string; accent_color: string; font: DesignFont };
 
@@ -26,19 +27,19 @@ export type DesignSettings = {
   banner: BannerSource;
 };
 
-/** Apparence renvoyée par l'API : réglages, images et couleurs de texte calculées. */
+/** Apparence renvoyée par l'API : réglages et images. */
 export type TicketDesign = DesignSettings & {
   headline_text: string;
   banner_url: string | null;
   custom_banner_url: string | null;
   logo_url: string | null;
-  colors: { on_primary: string; on_accent: string; stub: string };
 };
 
-export type DesignResponse = {
-  data: TicketDesign;
-  meta: { templates: Record<TemplateName, TemplatePreset>; sample_qr: string; sample_code: string };
-};
+/** Données fixes de l'atelier : modèles de départ et titres par défaut. */
+export type DesignMeta = { templates: Record<TemplateName, TemplatePreset>; headlines: Record<DesignKind, string> };
+
+/** Billet d'exemple : e-mail tel qu'il partira et QR code de l'aperçu (il ne scanne jamais). */
+export type DesignPreview = { subject: string; html: string; qr: string; code: string };
 
 export const SETTINGS: (keyof DesignSettings)[] = [
   "template",
@@ -106,18 +107,20 @@ export function pale(hex: string, white = 0.85): string {
   );
 }
 
+/** Couleurs de texte lisibles et fond de la zone du QR code (mêmes calculs que l'e-mail). */
+export function ticketColors(design: Pick<DesignSettings, "primary_color" | "accent_color">) {
+  return { onPrimary: textOn(design.primary_color), onAccent: textOn(design.accent_color), stub: pale(design.accent_color) };
+}
+
 /** Applique les réglages en cours à l'apparence enregistrée, pour l'aperçu en direct. */
-export function previewDesign(saved: TicketDesign, draft: DesignSettings, defaultHeadlines: Record<DesignKind, string>, coverUrl: string | null): TicketDesign {
-  const primary = HEX.test(draft.primary_color) ? draft.primary_color : saved.primary_color;
-  const accent = HEX.test(draft.accent_color) ? draft.accent_color : saved.accent_color;
+export function previewDesign(saved: TicketDesign, draft: DesignSettings, meta: DesignMeta, coverUrl: string | null): TicketDesign {
   const bannerUrl = { none: null, cover: coverUrl, custom: saved.custom_banner_url }[draft.banner];
   return {
     ...saved,
     ...draft,
-    primary_color: primary,
-    accent_color: accent,
-    headline_text: draft.headline?.trim() || defaultHeadlines[draft.kind],
+    primary_color: HEX.test(draft.primary_color) ? draft.primary_color : saved.primary_color,
+    accent_color: HEX.test(draft.accent_color) ? draft.accent_color : saved.accent_color,
+    headline_text: draft.headline?.trim() || meta.headlines[draft.kind],
     banner_url: bannerUrl,
-    colors: { on_primary: textOn(primary), on_accent: textOn(accent), stub: pale(accent) },
   };
 }

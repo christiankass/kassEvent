@@ -383,10 +383,6 @@ const fr = {
       ticket: "Pour un événement payant ou ouvert au public.",
       invitation: "Pour un mariage, un anniversaire ou une soirée privée : on parle d'invité(e).",
     },
-    headlines: {
-      ticket: "Billet d'entrée",
-      invitation: "Vous êtes invité(e)",
-    },
     colorsTitle: "Couleurs",
     colorsHint: "Le texte passe tout seul en blanc ou en noir pour rester lisible. Le QR code reste toujours noir sur blanc pour se scanner partout.",
     primaryColor: "Couleur principale",
@@ -848,10 +844,6 @@ const en: Dictionary = {
     kindHints: {
       ticket: "For a paid or public event.",
       invitation: "For a wedding, a birthday or a private party: attendees are called guests.",
-    },
-    headlines: {
-      ticket: "Admission ticket",
-      invitation: "You're invited",
     },
     colorsTitle: "Colors",
     colorsHint: "Text switches to white or black on its own to stay readable. The QR code always stays black on white so it scans everywhere.",

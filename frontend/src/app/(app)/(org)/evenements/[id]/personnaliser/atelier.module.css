@@ -3,17 +3,6 @@
   max-width: 1200px;
 }
 
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  margin-bottom: 8px;
-  color: var(--muted);
-  font-weight: 600;
-  text-decoration: none;
-}
-
 .mobileTabs {
   position: sticky;
   top: 0;
@@ -56,15 +45,12 @@
   min-width: 0;
 }
 
+/* Carte de réglages : .panel de l'application, en fieldset. */
 .section {
   display: grid;
   gap: 14px;
   min-width: 0;
   margin: 0;
-  padding: 20px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
 }
 
 .legend {
@@ -248,22 +234,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.fileButton {
-  position: relative;
-}
-
-.fileButton input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.fileButton:focus-within {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
 }
 
 .logoThumb {

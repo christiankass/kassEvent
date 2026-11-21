@@ -2,12 +2,9 @@
 
 namespace App\Modules\Ticketing\Mail;
 
-use App\Modules\Events\Http\Resources\EventDesignResource;
 use App\Modules\Events\Models\Event;
 use App\Modules\Events\Models\EventDesign;
 use App\Modules\Ticketing\Models\Order;
-use App\Modules\Ticketing\Models\OrderItem;
-use App\Modules\Ticketing\Models\Ticket;
 use App\Modules\Ticketing\Support\QrCode;
 use App\Modules\Ticketing\Support\TicketCode;
 use Illuminate\Mail\Mailable;
@@ -20,33 +17,17 @@ use Illuminate\Mail\Mailables\Envelope;
  */
 final class TicketsMail extends Mailable
 {
-    /** Code de l'exemple : contient O et U, lettres jamais tirées pour un vrai billet (voir TicketCode). */
-    public const SAMPLE_CODE = 'APERCU0EXEMP';
-
     public function __construct(public readonly Order $order) {}
-
-    /** Commande fictive (jamais enregistrée) pour l'aperçu et l'e-mail de test de l'atelier. */
-    public static function sample(Event $event, string $holder): Order
-    {
-        $order = new Order(['buyer_name' => $holder, 'reference' => __('designs.sample_reference')]);
-        $item = new OrderItem(['name' => $event->ticketTypes()->value('name') ?? __('designs.sample_ticket')]);
-        $ticket = (new Ticket(['code' => self::SAMPLE_CODE, 'holder_name' => $holder]))->setRelation('item', $item);
-
-        return $order->setRelation('event', $event)->setRelation('tickets', collect([$ticket]));
-    }
 
     public function envelope(): Envelope
     {
-        $design = $this->design();
-        $key = $design->isInvitation() ? 'ticketing.mail.subject_invitation' : 'ticketing.mail.subject';
-
-        return new Envelope(subject: __($key, ['event' => $this->order->event->title]));
+        return new Envelope(subject: __($this->key('subject'), ['event' => $this->order->event->title]));
     }
 
     public function content(): Content
     {
         $event = $this->order->event;
-        $design = $this->design();
+        $design = $event->ticketDesign();
 
         return new Content(
             view: 'mail.tickets',
@@ -54,11 +35,10 @@ final class TicketsMail extends Mailable
                 'order' => $this->order,
                 'event' => $event,
                 'design' => $design,
-                'look' => EventDesignResource::make($design)->resolve(),
-                'images' => array_filter([
-                    'logo' => $this->image($design->logo_path, 'logo'),
-                    'banner' => $this->image($design->bannerPath(), 'banner'),
-                ]),
+                'colors' => $design->colors(),
+                'subject' => $this->envelope()->subject,
+                'key' => $this->key(...),
+                'images' => array_filter(['logo' => $design->logo_path, 'banner' => $design->bannerPath()]),
                 'when' => $event->starts_at->timezone($event->timezone)->locale(app()->getLocale())->translatedFormat('l j F Y, H:i'),
                 'tickets' => $this->order->tickets->map(fn ($ticket) => [
                     'code' => TicketCode::format($ticket->code),
@@ -73,20 +53,27 @@ final class TicketsMail extends Mailable
         );
     }
 
-    private function design(): EventDesign
+    /**
+     * Image du disque des médias intégrée à l'e-mail (les liens externes sont souvent bloqués).
+     * Rendu sans envoi (aperçu de l'atelier) : simple lien vers l'image.
+     */
+    public static function imageSource(?object $message, string $path): ?string
     {
-        return $this->order->event->ticketDesign();
+        if (! $message) {
+            return EventDesign::url($path);
+        }
+        $data = Event::mediaDisk()->get($path);
+
+        return $data === null ? null : $message->embedData($data, basename($path), match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            default => 'image/jpeg',
+        });
     }
 
-    /** @return array{data: string, mime: string, name: string}|null image intégrée à l'e-mail (les liens externes sont souvent bloqués) */
-    private function image(?string $path, string $name): ?array
+    /** Clé de traduction, au vocabulaire de l'invitation quand l'organisateur l'a choisi. */
+    private function key(string $name): string
     {
-        $disk = Event::mediaDisk();
-        if (! $path || ! $disk->exists($path)) {
-            return null;
-        }
-        $mime = $disk->mimeType($path) ?: 'image/png';
-
-        return ['data' => $disk->get($path), 'mime' => $mime, 'name' => $name.'.'.pathinfo($path, PATHINFO_EXTENSION)];
+        return 'ticketing.mail.'.$name.($this->order->event->ticketDesign()->isInvitation() ? '_invitation' : '');
     }
 }

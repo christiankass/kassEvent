@@ -2,24 +2,26 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, EnvelopeSimple, Ticket, Trash } from "@phosphor-icons/react";
 import { TicketCard } from "@/components/TicketCard";
 import { Alert, Button, Field, TextArea, buttonClass } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import {
   ACCENT_SWATCHES,
+  BANNERS,
   FONT_STACKS,
   FONTS,
   HEX,
+  KINDS,
   PRIMARY_SWATCHES,
-  TEMPLATES,
   previewDesign,
   settingsOf,
-  type BannerSource,
-  type DesignKind,
-  type DesignResponse,
+  type DesignMeta,
+  type DesignPreview,
   type DesignSettings,
+  type TemplateName,
+  type TicketDesign,
 } from "@/lib/designs";
 import { actionErrorMessage, formErrorMessage } from "@/lib/errors";
 import { formatEventDate, type EventData } from "@/lib/events";
@@ -30,6 +32,7 @@ import { ticketFontVariables } from "@/lib/ticket-fonts";
 import { useUser } from "@/lib/user-context";
 import { PageSkeleton } from "../../../../PageSkeleton";
 import app from "../../../../app.module.css";
+import events from "../../events.module.css";
 import styles from "./atelier.module.css";
 
 type Notice = { tone: "success" | "error"; text: string };
@@ -48,43 +51,41 @@ export default function DesignStudioPage() {
   const canManage = permissions.includes("events.manage");
 
   const [event, setEvent] = useState<EventData | null>(null);
-  const [saved, setSaved] = useState<DesignResponse | null>(null);
+  const [meta, setMeta] = useState<DesignMeta | null>(null);
+  const [saved, setSaved] = useState<TicketDesign | null>(null);
   const [draft, setDraft] = useState<DesignSettings | null>(null);
+  // Billet d'exemple (e-mail et QR code) : rechargé après chaque enregistrement (remis à null).
+  const [preview, setPreview] = useState<DesignPreview | null | "error">(null);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<"ticket" | "email">("ticket");
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
-  const [email, setEmail] = useState<string | null>(null);
-  const [emailFailed, setEmailFailed] = useState(false);
 
   useEffect(() => {
     Promise.all([
       api<{ data: EventData }>(`/events/${id}`, { organizationId }),
-      api<DesignResponse>(`/events/${id}/design`, { organizationId }),
+      api<{ data: TicketDesign; meta: DesignMeta }>(`/events/${id}/design`, { organizationId }),
     ])
       .then(([eventResponse, designResponse]) => {
         setEvent(eventResponse.data);
-        setSaved(designResponse);
+        setMeta(designResponse.meta);
+        setSaved(designResponse.data);
         setDraft(settingsOf(designResponse.data));
       })
       .catch(setLoadError);
   }, [id, organizationId]);
 
-  // E-mail d'aperçu : chargé à l'ouverture de l'onglet, puis de nouveau après chaque enregistrement (email remis à null).
-  const loadEmail = useCallback(() => {
-    api<{ data: { html: string } }>(`/events/${id}/design/preview`, { organizationId })
-      .then(({ data }) => setEmail(data.html))
-      .catch(() => setEmailFailed(true));
-  }, [id, organizationId]);
-
   useEffect(() => {
-    if (view === "email" && email === null && !emailFailed) loadEmail();
-  }, [view, email, emailFailed, loadEmail]);
+    if (preview !== null) return;
+    api<{ data: DesignPreview }>(`/events/${id}/design/preview`, { organizationId })
+      .then(({ data }) => setPreview(data))
+      .catch(() => setPreview("error"));
+  }, [preview, id, organizationId]);
 
   const dirty = useMemo(
-    () => !!saved && !!draft && JSON.stringify(normalize(settingsOf(saved.data))) !== JSON.stringify(normalize(draft)),
+    () => !!saved && !!draft && JSON.stringify(normalize(settingsOf(saved))) !== JSON.stringify(normalize(draft)),
     [saved, draft],
   );
 
@@ -95,17 +96,17 @@ export default function DesignStudioPage() {
       </main>
     );
   }
-  if (!event || !saved || !draft) return <PageSkeleton />;
+  if (!event || !meta || !saved || !draft) return <PageSkeleton />;
 
-  const design = previewDesign(saved.data, draft, t.design.headlines, event.cover_url);
+  const design = previewDesign(saved, draft, meta, event.cover_url);
   const set = <K extends keyof DesignSettings>(key: K, value: DesignSettings[K]) =>
     setDraft((current) => (current ? { ...current, [key]: value } : current));
 
-  /** Nouvelle apparence enregistrée côté serveur ; l'e-mail d'aperçu est à recharger. */
-  function applySaved(response: DesignResponse, keepDraft: Partial<DesignSettings> = {}) {
+  /** Nouvelle apparence enregistrée : les réglages en cours sont gardés (sauf `replace`), l'exemple est rechargé. */
+  function applySaved(response: TicketDesign, changes: Partial<DesignSettings> = {}, replace = false) {
     setSaved(response);
-    setDraft((current) => ({ ...(current ?? settingsOf(response.data)), ...keepDraft }));
-    setEmail(null);
+    setDraft((current) => ({ ...(replace || !current ? settingsOf(response) : current), ...changes }));
+    setPreview(null);
   }
 
   async function run(action: () => Promise<void>) {
@@ -128,14 +129,13 @@ export default function DesignStudioPage() {
         return;
       }
       try {
-        const response = await api<DesignResponse>(`/events/${id}/design`, { method: "PUT", organizationId, body: normalize(draft) });
-        setSaved(response);
-        setDraft(settingsOf(response.data));
-        setEmail(null);
+        const { data } = await api<{ data: TicketDesign }>(`/events/${id}/design`, { method: "PUT", organizationId, body: normalize(draft) });
+        applySaved(data, {}, true);
         setNotice({ tone: "success", text: t.design.saved });
       } catch (e) {
-        const fields = (e as { errors?: Record<string, string[]> }).errors ?? {};
-        setErrors(Object.fromEntries(Object.entries(fields).map(([key, messages]) => [key, messages[0]])));
+        if (e instanceof ApiError && e.status === 422) {
+          setErrors(Object.fromEntries(Object.entries(e.errors).map(([key, messages]) => [key, messages[0]])));
+        }
         throw e;
       }
     });
@@ -144,16 +144,16 @@ export default function DesignStudioPage() {
     run(async () => {
       const body = new FormData();
       body.append("image", file);
-      const response = await api<DesignResponse>(`/events/${id}/design/${image}`, { method: "POST", organizationId, body });
+      const { data } = await api<{ data: TicketDesign }>(`/events/${id}/design/${image}`, { method: "POST", organizationId, body });
       // Le serveur passe la bannière sur « image dédiée » ; les autres réglages en cours restent à enregistrer.
-      applySaved(response, image === "banner" ? { banner: "custom" } : {});
+      applySaved(data, image === "banner" ? { banner: "custom" } : {});
       setNotice({ tone: "success", text: image === "logo" ? t.design.logoSaved : t.design.bannerSaved });
     });
 
   const remove = (image: Image) =>
     run(async () => {
-      const response = await api<DesignResponse>(`/events/${id}/design/${image}`, { method: "DELETE", organizationId });
-      applySaved(response, image === "banner" && draft.banner === "custom" ? { banner: "none" } : {});
+      const { data } = await api<{ data: TicketDesign }>(`/events/${id}/design/${image}`, { method: "DELETE", organizationId });
+      applySaved(data, image === "banner" && draft.banner === "custom" ? { banner: "none" } : {});
     });
 
   const sendTest = () =>
@@ -162,14 +162,12 @@ export default function DesignStudioPage() {
       setNotice({ tone: "success", text: message });
     });
 
-  const chooseTemplate = (name: (typeof TEMPLATES)[number]) =>
-    setDraft((current) => (current ? { ...current, template: name, ...saved.meta.templates[name] } : current));
-
-  const sampleType = event.ticket_types[0]?.name ?? t.design.sampleTicket;
+  const chooseTemplate = (name: TemplateName) =>
+    setDraft((current) => (current ? { ...current, template: name, ...meta.templates[name] } : current));
 
   return (
     <main className={`${app.main} ${styles.page}`}>
-      <Link href={`/evenements/${event.id}`} className={styles.back}>
+      <Link href={`/evenements/${event.id}`} className={events.back}>
         <ArrowLeft size={18} aria-hidden /> {t.design.back}
       </Link>
       <h1 className={app.title}>{t.design.title}</h1>
@@ -203,12 +201,12 @@ export default function DesignStudioPage() {
             void save();
           }}
         >
-          <fieldset className={styles.section} disabled={!canManage}>
+          <fieldset className={`${app.panel} ${styles.section}`} disabled={!canManage}>
             <legend className={styles.legend}>{t.design.templateTitle}</legend>
             <p className={styles.hint}>{t.design.templateHint}</p>
             <div className={styles.templates}>
-              {TEMPLATES.map((name) => {
-                const preset = saved.meta.templates[name];
+              {(Object.keys(meta.templates) as TemplateName[]).map((name) => {
+                const preset = meta.templates[name];
                 return (
                   <label key={name} className={styles.template}>
                     <input type="radio" name="template" checked={draft.template === name} onChange={() => chooseTemplate(name)} />
@@ -224,10 +222,10 @@ export default function DesignStudioPage() {
             </div>
           </fieldset>
 
-          <fieldset className={styles.section} disabled={!canManage}>
+          <fieldset className={`${app.panel} ${styles.section}`} disabled={!canManage}>
             <legend className={styles.legend}>{t.design.kindTitle}</legend>
             <div className={styles.kinds}>
-              {(["ticket", "invitation"] as DesignKind[]).map((kind) => (
+              {KINDS.map((kind) => (
                 <label key={kind} className={app.choice}>
                   <input type="radio" name="kind" checked={draft.kind === kind} onChange={() => set("kind", kind)} />
                   <span className={app.choiceTitle}>{t.design.kinds[kind]}</span>
@@ -237,7 +235,7 @@ export default function DesignStudioPage() {
             </div>
           </fieldset>
 
-          <fieldset className={styles.section} disabled={!canManage}>
+          <fieldset className={`${app.panel} ${styles.section}`} disabled={!canManage}>
             <legend className={styles.legend}>{t.design.colorsTitle}</legend>
             <p className={styles.hint}>{t.design.colorsHint}</p>
             <ColorPicker
@@ -256,7 +254,7 @@ export default function DesignStudioPage() {
             />
           </fieldset>
 
-          <fieldset className={`${styles.section} ${ticketFontVariables}`} disabled={!canManage}>
+          <fieldset className={`${app.panel} ${styles.section} ${ticketFontVariables}`} disabled={!canManage}>
             <legend className={styles.legend}>{t.design.fontTitle}</legend>
             <div className={styles.fonts}>
               {FONTS.map((font) => (
@@ -271,11 +269,11 @@ export default function DesignStudioPage() {
             </div>
           </fieldset>
 
-          <fieldset className={styles.section} disabled={!canManage}>
+          <fieldset className={`${app.panel} ${styles.section}`} disabled={!canManage}>
             <legend className={styles.legend}>{t.design.textsTitle}</legend>
             <Field
               label={t.design.headline}
-              hint={format(t.design.headlineHint, { default: t.design.headlines[draft.kind] })}
+              hint={format(t.design.headlineHint, { default: meta.headlines[draft.kind] })}
               value={draft.headline ?? ""}
               maxLength={60}
               error={errors.headline}
@@ -301,15 +299,15 @@ export default function DesignStudioPage() {
             />
           </fieldset>
 
-          <fieldset className={styles.section} disabled={!canManage}>
+          <fieldset className={`${app.panel} ${styles.section}`} disabled={!canManage}>
             <legend className={styles.legend}>{t.design.imagesTitle}</legend>
             <ImageControl
               label={t.design.logo}
               hint={t.design.logoHint}
-              url={saved.data.logo_url}
-              choose={saved.data.logo_url ? t.design.logoReplace : t.design.logoChoose}
+              url={saved.logo_url}
+              choose={saved.logo_url ? t.design.logoReplace : t.design.logoChoose}
               removeLabel={t.design.logoRemove}
-              busy={busy || !canManage}
+              busy={busy}
               onFile={(file) => upload("logo", file)}
               onRemove={() => remove("logo")}
             />
@@ -317,8 +315,8 @@ export default function DesignStudioPage() {
             <div className={styles.bannerChoice} role="radiogroup" aria-label={t.design.banner}>
               <span className={styles.subLabel}>{t.design.banner}</span>
               <div className={app.segmented}>
-                {(["none", "cover", "custom"] as BannerSource[]).map((source) => {
-                  const unavailable = (source === "cover" && !event.cover_url) || (source === "custom" && !saved.data.custom_banner_url);
+                {BANNERS.map((source) => {
+                  const unavailable = (source === "cover" && !event.cover_url) || (source === "custom" && !saved.custom_banner_url);
                   return (
                     <label key={source} className={app.choice}>
                       <input
@@ -339,11 +337,11 @@ export default function DesignStudioPage() {
             <ImageControl
               label={t.design.banners.custom}
               hint={t.design.bannerHint}
-              url={saved.data.custom_banner_url}
+              url={saved.custom_banner_url}
               wide
-              choose={saved.data.custom_banner_url ? t.design.bannerReplace : t.design.bannerChoose}
+              choose={saved.custom_banner_url ? t.design.bannerReplace : t.design.bannerChoose}
               removeLabel={t.design.bannerRemove}
-              busy={busy || !canManage}
+              busy={busy}
               onFile={(file) => upload("banner", file)}
               onRemove={() => remove("banner")}
             />
@@ -355,7 +353,7 @@ export default function DesignStudioPage() {
                 {dirty && t.design.unsaved}
               </span>
               {dirty && (
-                <Button type="button" variant="secondary" disabled={busy} onClick={() => setDraft(settingsOf(saved.data))}>
+                <Button type="button" variant="secondary" disabled={busy} onClick={() => setDraft(settingsOf(saved))}>
                   {t.design.reset}
                 </Button>
               )}
@@ -376,42 +374,38 @@ export default function DesignStudioPage() {
             </button>
           </div>
 
-          {view === "ticket" ? (
-            <div className={styles.stage}>
+          <div className={styles.stage}>
+            {view === "email" && <p className={styles.hint}>{dirty ? t.design.previewEmailStale : t.design.previewEmailHint}</p>}
+            {preview === "error" ? (
+              <div className={styles.frameLoading}>
+                <Button type="button" variant="secondary" onClick={() => setPreview(null)}>
+                  {t.common.retry}
+                </Button>
+              </div>
+            ) : preview === null ? (
+              <div className={styles.frameLoading}>{t.common.loading}</div>
+            ) : view === "ticket" ? (
               <TicketCard
                 design={design}
                 organization={organization.name}
                 title={event.title}
                 when={formatEventDate(event, locale)}
                 where={`${event.venue_name}, ${event.city}`}
-                type={sampleType}
+                type={event.ticket_types[0]?.name ?? t.design.sampleTicket}
                 holder={user.name}
-                qr={saved.meta.sample_qr}
-                code={saved.meta.sample_code}
+                qr={preview.qr}
+                code={preview.code}
               />
-            </div>
-          ) : (
-            <div className={styles.stage}>
-              <p className={styles.hint}>{dirty ? t.design.previewEmailStale : t.design.previewEmailHint}</p>
-              {emailFailed ? (
-                <div className={styles.frameLoading}>
-                  <Button type="button" variant="secondary" onClick={() => setEmailFailed(false)}>
-                    {t.common.retry}
-                  </Button>
-                </div>
-              ) : email === null ? (
-                <div className={styles.frameLoading}>{t.common.loading}</div>
-              ) : (
-                // Cadre isolé sans script : le HTML de l'e-mail ne peut rien exécuter dans la page.
-                <iframe className={styles.frame} title={t.design.previewFrame} sandbox="" srcDoc={email} />
-              )}
-              {canManage && (
-                <Button type="button" variant="secondary" disabled={busy} onClick={sendTest}>
-                  <EnvelopeSimple size={18} aria-hidden /> {t.design.sendTest}
-                </Button>
-              )}
-            </div>
-          )}
+            ) : (
+              // Cadre isolé sans script : le HTML de l'e-mail ne peut rien exécuter dans la page.
+              <iframe className={styles.frame} title={t.design.previewFrame} sandbox="" srcDoc={preview.html} />
+            )}
+            {view === "email" && canManage && (
+              <Button type="button" variant="secondary" disabled={busy} onClick={sendTest}>
+                <EnvelopeSimple size={18} aria-hidden /> {t.design.sendTest}
+              </Button>
+            )}
+          </div>
         </section>
       </div>
     </main>
@@ -505,7 +499,7 @@ function ImageControl({
         <img src={url} alt="" className={wide ? styles.bannerThumb : styles.logoThumb} />
       )}
       <div className={styles.imageButtons}>
-        <label className={`${buttonClass("secondary")} ${styles.fileButton}`}>
+        <label className={`${buttonClass("secondary")} ${events.fileButton}`}>
           {choose}
           <input
             type="file"

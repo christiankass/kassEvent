@@ -16,6 +16,7 @@ use App\Modules\Payments\Http\Controllers\WebhookController;
 use App\Modules\Tenancy\Http\Controllers\OrganizationController;
 use App\Modules\Ticketing\Http\Controllers\PublicOrderController;
 use App\Modules\Ticketing\Http\Controllers\SalesController;
+use App\Modules\Ticketing\Http\Controllers\TicketPreviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
@@ -85,7 +86,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/events', [EventController::class, 'index'])->name('events.index');
                 Route::get('/events/{id}', [EventController::class, 'show'])->whereUuid('id')->name('events.show');
                 Route::get('/events/{id}/design', [EventDesignController::class, 'show'])->whereUuid('id')->name('events.design.show');
-                Route::get('/events/{id}/design/preview', [EventDesignController::class, 'preview'])->whereUuid('id')->name('events.design.preview');
+                Route::get('/events/{id}/design/preview', [TicketPreviewController::class, 'show'])->whereUuid('id')->name('events.design.preview');
             });
 
             Route::middleware('can:events.manage')->group(function () {
@@ -102,7 +103,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                     ->whereUuid('id')->whereIn('image', ['logo', 'banner'])->name('events.design.upload');
                 Route::delete('/events/{id}/design/{image}', [EventDesignController::class, 'removeImage'])
                     ->whereUuid('id')->whereIn('image', ['logo', 'banner'])->name('events.design.remove-image');
-                Route::post('/events/{id}/design/test', [EventDesignController::class, 'test'])
+                Route::post('/events/{id}/design/test', [TicketPreviewController::class, 'send'])
                     ->middleware('throttle:design-test')->whereUuid('id')->name('events.design.test');
 
                 Route::post('/events/{id}/ticket-types', [TicketTypeController::class, 'store'])->whereUuid('id')->name('ticket-types.store');

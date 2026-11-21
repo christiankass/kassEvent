@@ -60,8 +60,8 @@ class EventDesignTest extends TestCase
             ->assertJsonPath('data.kind', 'ticket')
             ->assertJsonPath('data.primary_color', '#0B3B3C')
             ->assertJsonPath('data.headline_text', 'Billet d\'entrée')
-            ->assertJsonPath('data.colors.on_primary', '#FFFFFF')
-            ->assertJsonPath('meta.templates.mariage.kind', 'invitation');
+            ->assertJsonPath('meta.templates.mariage.kind', 'invitation')
+            ->assertJsonPath('meta.headlines.invitation', 'Vous êtes invité(e)');
 
         $this->assertSame(0, app(TenantContext::class)->run($this->organization->id, fn () => EventDesign::count()));
     }
@@ -71,10 +71,11 @@ class EventDesignTest extends TestCase
         $this->putJson("/api/v1/events/{$this->event}/design", $this->design(), $this->headers())
             ->assertOk()
             ->assertJsonPath('data.primary_color', '#6B1E3A')
-            ->assertJsonPath('data.headline_text', 'Vous êtes invité(e)')
-            // Texte lisible calculé : blanc sur bordeaux, encre sur or.
-            ->assertJsonPath('data.colors.on_primary', '#FFFFFF')
-            ->assertJsonPath('data.colors.on_accent', '#0E1B1C');
+            ->assertJsonPath('data.headline_text', 'Vous êtes invité(e)');
+
+        // Texte lisible calculé pour l'e-mail : blanc sur bordeaux, encre sur or.
+        $colors = app(TenantContext::class)->run($this->organization->id, fn () => EventDesign::sole()->colors());
+        $this->assertSame(['on_primary' => '#FFFFFF', 'on_accent' => '#0E1B1C', 'stub' => '#F9F1E4'], $colors);
 
         $this->putJson("/api/v1/events/{$this->event}/design", $this->design(['headline' => 'Nous nous marions !']), $this->headers())
             ->assertJsonPath('data.headline_text', 'Nous nous marions !');
@@ -114,8 +115,12 @@ class EventDesignTest extends TestCase
         $upload('logo', UploadedFile::fake()->image('logo2.png', 200, 200))->assertOk();
         $this->assertCount(1, Storage::disk('public')->allFiles("designs/{$this->organization->id}"));
 
-        $upload('banner', UploadedFile::fake()->image('bandeau.jpg', 1200, 300))->assertOk()->assertJsonPath('data.banner', 'custom');
-        $this->assertCount(2, Storage::disk('public')->allFiles("designs/{$this->organization->id}"));
+        $upload('banner', UploadedFile::fake()->image('bandeau.jpg', 2400, 800))->assertOk()->assertJsonPath('data.banner', 'custom');
+        $files = Storage::disk('public')->allFiles("designs/{$this->organization->id}");
+        $this->assertCount(2, $files);
+        // Réduite à l'envoi : elle part dans chaque e-mail de billets.
+        $banner = collect($files)->first(fn ($file) => str_ends_with($file, '.jpg'));
+        $this->assertSame([1200, 400], array_slice(getimagesizefromstring(Storage::disk('public')->get($banner)), 0, 2));
 
         // Jamais de SVG ni de fichier qui n'est pas une image.
         $upload('logo', UploadedFile::fake()->create('logo.svg', 2, 'image/svg+xml'))->assertJsonValidationErrors('image');

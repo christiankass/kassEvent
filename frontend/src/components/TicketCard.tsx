@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { FONT_STACKS, type TicketDesign } from "@/lib/designs";
+import { FONT_STACKS, ticketColors, type TicketDesign } from "@/lib/designs";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { ticketFontVariables } from "@/lib/ticket-fonts";
@@ -25,12 +25,13 @@ type Props = {
  */
 export function TicketCard({ design, organization, title, when, where, type, holder, qr, code }: Props) {
   const { t } = useI18n();
+  const colors = ticketColors(design);
   const style = {
     "--t-primary": design.primary_color,
-    "--t-on-primary": design.colors.on_primary,
+    "--t-on-primary": colors.onPrimary,
     "--t-accent": design.accent_color,
-    "--t-on-accent": design.colors.on_accent,
-    "--t-stub": design.colors.stub,
+    "--t-on-accent": colors.onAccent,
+    "--t-stub": colors.stub,
     "--t-display": FONT_STACKS[design.font],
   } as CSSProperties;
 

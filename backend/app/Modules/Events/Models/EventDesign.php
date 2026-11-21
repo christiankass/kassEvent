@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Models;
 
+use App\Modules\Events\Support\Color;
 use App\Modules\Events\Support\DesignTemplates;
 use App\Modules\Tenancy\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,24 +26,25 @@ class EventDesign extends Model
     public const KINDS = [self::TICKET, self::INVITATION];
 
     /** Polices proposées : famille Google Fonts et polices de repli présentes partout (e-mails). */
-    private const FONT_FAMILIES = [
+    public const FONTS = [
         'fraunces' => ['Fraunces:wght@700', "'Fraunces', Georgia, serif"],
         'playfair' => ['Playfair+Display:wght@700', "'Playfair Display', Georgia, serif"],
         'instrument' => ['Instrument+Sans:wght@700', "'Instrument Sans', Helvetica, Arial, sans-serif"],
         'script' => ['Great+Vibes', "'Great Vibes', 'Brush Script MT', cursive"],
     ];
 
-    public const FONTS = ['fraunces', 'playfair', 'instrument', 'script'];
-
     public const BANNERS = ['none', 'cover', 'custom'];
 
-    /** Apparence par défaut d'un événement qui n'a pas encore été personnalisé (non enregistrée). */
+    /** @return array<string, string> réglages d'un événement pas encore personnalisé */
+    public static function defaults(): array
+    {
+        return ['template' => DesignTemplates::DEFAULT, ...DesignTemplates::get(DesignTemplates::DEFAULT), 'banner' => 'none'];
+    }
+
+    /** Apparence par défaut, non enregistrée. */
     public static function defaultFor(Event $event): self
     {
-        $design = new self(['template' => DesignTemplates::DEFAULT, ...DesignTemplates::get(DesignTemplates::DEFAULT), 'banner' => 'none']);
-        $design->event_id = $event->id;
-
-        return $design->setRelation('event', $event);
+        return (new self(['event_id' => $event->id, ...self::defaults()]))->setRelation('event', $event);
     }
 
     /** @return BelongsTo<Event, $this> */
@@ -56,19 +58,24 @@ class EventDesign extends Model
         return $this->kind === self::INVITATION;
     }
 
+    /** @return array{on_primary: string, on_accent: string, stub: string} couleurs de texte lisibles et fond de la zone du QR code */
+    public function colors(): array
+    {
+        return [
+            'on_primary' => Color::textOn($this->primary_color),
+            'on_accent' => Color::textOn($this->accent_color),
+            'stub' => Color::pale($this->accent_color),
+        ];
+    }
+
     public function fontStack(): string
     {
-        return self::FONT_FAMILIES[$this->font][1];
+        return self::FONTS[$this->font][1];
     }
 
     public function fontUrl(): string
     {
-        return 'https://fonts.googleapis.com/css2?family='.self::FONT_FAMILIES[$this->font][0].'&display=swap';
-    }
-
-    public function logoUrl(): ?string
-    {
-        return $this->logo_path ? Event::mediaDisk()->url($this->logo_path) : null;
+        return 'https://fonts.googleapis.com/css2?family='.self::FONTS[$this->font][0].'&display=swap';
     }
 
     /** Chemin de l'image de bannière effectivement affichée (affiche de l'événement ou image dédiée). */
@@ -81,10 +88,8 @@ class EventDesign extends Model
         };
     }
 
-    public function bannerUrl(): ?string
+    public static function url(?string $path): ?string
     {
-        $path = $this->bannerPath();
-
         return $path ? Event::mediaDisk()->url($path) : null;
     }
 

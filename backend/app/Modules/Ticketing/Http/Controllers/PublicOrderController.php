@@ -90,8 +90,9 @@ final class PublicOrderController
 
     private function resource(Order $order): OrderResource
     {
-        $order->loadMissing(['event.organization', 'event.design', 'items', 'latestPayment']);
+        $order->loadMissing(['event.organization', 'items', 'latestPayment']);
 
-        return new OrderResource($order->isPaid() ? $order->loadMissing('tickets.item') : $order);
+        // Billets et apparence choisie par l'organisateur : seulement une fois la commande payée.
+        return new OrderResource($order->isPaid() ? $order->loadMissing(['tickets.item', 'event.design']) : $order);
     }
 }

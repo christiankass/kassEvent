@@ -2,15 +2,13 @@
 
 namespace App\Modules\Events\Http\Resources;
 
-use App\Modules\Events\Models\Event;
 use App\Modules\Events\Models\EventDesign;
-use App\Modules\Events\Support\Color;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Apparence d'un billet, avec les couleurs de texte déjà calculées pour rester lisibles
- * (blanc ou encre selon la couleur choisie). Utilisée par l'atelier et par la page de commande.
+ * Apparence d'un billet, pour l'atelier et la page de commande. Les couleurs de texte lisibles
+ * sont calculées par le site (lib/designs.ts), comme par l'e-mail (EventDesign::colors()).
  *
  * @mixin EventDesign
  */
@@ -30,14 +28,9 @@ final class EventDesignResource extends JsonResource
             'message' => $this->message,
             'footer' => $this->footer,
             'banner' => $this->banner,
-            'banner_url' => $this->bannerUrl(),
-            'custom_banner_url' => $this->banner_path ? Event::mediaDisk()->url($this->banner_path) : null,
-            'logo_url' => $this->logoUrl(),
-            'colors' => [
-                'on_primary' => Color::textOn($this->primary_color),
-                'on_accent' => Color::textOn($this->accent_color),
-                'stub' => Color::pale($this->accent_color),
-            ],
+            'banner_url' => EventDesign::url($this->bannerPath()),
+            'custom_banner_url' => EventDesign::url($this->banner_path),
+            'logo_url' => EventDesign::url($this->logo_path),
         ];
     }
 }

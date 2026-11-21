@@ -44,7 +44,7 @@ final class OrderResource extends JsonResource
                 'organization' => ['name' => $event->organization->name],
             ],
             // Apparence des billets choisie par l'organisateur (atelier), sinon celle de kassEvent.
-            'design' => EventDesignResource::make($event->ticketDesign()),
+            'design' => $this->isPaid() ? EventDesignResource::make($event->ticketDesign()) : null,
             'items' => $this->items->map(fn ($item) => [
                 'name' => $item->name,
                 'quantity' => $item->quantity,

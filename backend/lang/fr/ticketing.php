@@ -21,7 +21,7 @@ return [
     'mail' => [
         'subject_invitation' => 'Votre invitation pour :event',
         'intro_invitation' => '{1} Voici votre invitation pour « :event ». Présentez le QR code à l\'entrée, sur votre téléphone ou imprimé.|[2,*] Voici vos :count invitations pour « :event ». Chaque invité présente son propre QR code à l\'entrée.',
-        'guest' => 'Invité(e) :',
+        'holder_invitation' => 'Invité(e) :',
         'view_invitation' => 'Voir mon invitation en ligne',
         'subject' => 'Vos billets pour :event',
         'greeting' => 'Bonjour :name,',

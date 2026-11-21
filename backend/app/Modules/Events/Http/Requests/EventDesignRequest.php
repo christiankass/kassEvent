@@ -20,7 +20,7 @@ final class EventDesignRequest extends FormRequest
             'kind' => ['required', Rule::in(EventDesign::KINDS)],
             'primary_color' => ['required', 'string', self::HEX],
             'accent_color' => ['required', 'string', self::HEX],
-            'font' => ['required', Rule::in(EventDesign::FONTS)],
+            'font' => ['required', Rule::in(array_keys(EventDesign::FONTS))],
             'headline' => ['nullable', 'string', 'max:60'],
             'message' => ['nullable', 'string', 'max:280'],
             'footer' => ['nullable', 'string', 'max:200'],
