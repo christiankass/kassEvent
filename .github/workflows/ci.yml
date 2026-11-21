@@ -67,7 +67,7 @@ jobs:
       - name: Vérifie docker-compose.yml
         run: docker compose config -q
 
-  docker:
+  docker-image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
