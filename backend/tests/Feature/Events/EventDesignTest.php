@@ -87,6 +87,9 @@ class EventDesignTest extends TestCase
             'primary_color' => 'red;background:url(x)', 'font' => 'Comic Sans', 'template' => 'autre', 'kind' => 'flyer',
             'message' => str_repeat('a', 281),
         ]), $this->headers())->assertJsonValidationErrors(['primary_color', 'font', 'template', 'kind', 'message']);
+        // Espaces et retour à la ligne autour du code : retirés avant la validation, la colonne garde 7 caractères.
+        $this->putJson("/api/v1/events/{$this->event}/design", $this->design(['accent_color' => "#ffffff\n"]), $this->headers())
+            ->assertOk()->assertJsonPath('data.accent_color', '#FFFFFF');
     }
 
     public function test_a_banner_needs_an_image(): void

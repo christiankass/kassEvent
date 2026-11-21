@@ -10,7 +10,7 @@ use Illuminate\Validation\Rule;
 /** Apparence du billet : couleurs en hexadécimal (« #0B3B3C »), textes courts, choix dans des listes fermées. */
 final class EventDesignRequest extends FormRequest
 {
-    private const HEX = 'regex:/^#[0-9A-Fa-f]{6}$/';
+    private const HEX = 'regex:/^#[0-9A-Fa-f]{6}\z/';
 
     /** @return array<string, mixed> */
     public function rules(): array

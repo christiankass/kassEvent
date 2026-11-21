@@ -3,6 +3,9 @@
     $src = fn (string $data, string $name, string $mime) => isset($message)
         ? $message->embedData($data, $name, $mime)
         : 'data:'.$mime.';base64,'.base64_encode($data);
+    // Logo et bannière intégrés une seule fois, puis réutilisés sur chaque billet.
+    $logoSrc = isset($images['logo']) ? $src(...$images['logo']) : null;
+    $bannerSrc = isset($images['banner']) ? $src(...$images['banner']) : null;
     $colors = $look['colors'];
     $display = $design->fontStack();
     $invitation = $design->isInvitation();
@@ -31,15 +34,15 @@
     @foreach ($tickets as $ticket)
     <tr><td style="padding-bottom:20px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-radius:20px;overflow:hidden;background:#FFFFFF;border:1px solid #E3DDD2;">
-            @isset($images['banner'])
+            @if ($bannerSrc)
             <tr><td style="padding:0;line-height:0;">
-                <img src="{{ $src(...$images['banner']) }}" width="560" alt="" style="display:block;width:100%;height:auto;max-height:200px;object-fit:cover;">
+                <img src="{{ $bannerSrc }}" width="560" alt="" style="display:block;width:100%;height:auto;max-height:200px;object-fit:cover;">
             </td></tr>
-            @endisset
+            @endif
             <tr><td bgcolor="{{ $design->primary_color }}" style="background:{{ $design->primary_color }};padding:18px 20px;color:{{ $colors['on_primary'] }};">
-                @isset($images['logo'])
-                <img src="{{ $src(...$images['logo']) }}" height="40" alt="{{ $event->organization->name }}" style="display:block;height:40px;width:auto;max-width:160px;margin-bottom:10px;border-radius:6px;">
-                @endisset
+                @if ($logoSrc)
+                <img src="{{ $logoSrc }}" height="40" alt="{{ $event->organization->name }}" style="display:block;height:40px;width:auto;max-width:160px;margin-bottom:10px;border-radius:6px;">
+                @endif
                 <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;">
                     <span style="background:{{ $design->accent_color }};color:{{ $colors['on_accent'] }};padding:3px 8px;border-radius:9999px;">{{ $look['headline_text'] }}</span>
                     <span style="margin-left:6px;">{{ $event->organization->name }}</span>
@@ -67,9 +70,11 @@
     </td></tr>
     @endforeach
 
+    @if ($url)
     <tr><td align="center" style="padding:4px 4px 16px;">
         <a href="{{ $url }}" style="display:inline-block;background:#0B3B3C;color:#FFFFFF;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:10px;">{{ __($invitation ? 'ticketing.mail.view_invitation' : 'ticketing.mail.view') }}</a>
     </td></tr>
+    @endif
     <tr><td style="padding:0 4px;font-size:13px;line-height:1.5;color:#5B6E6C;">
         {{ __('ticketing.mail.keep') }}
     </td></tr>

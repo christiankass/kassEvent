@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Atelier de personnalisation des billets et invitations d'un événement
@@ -34,7 +35,7 @@ final class EventDesignController
 
     public function update(EventDesignRequest $request, string $id): JsonResponse
     {
-        $design = $this->design($id);
+        $design = $this->storedDesign($id);
         $design->fill($request->toAttributes());
 
         $error = match ($design->banner) {
@@ -55,16 +56,23 @@ final class EventDesignController
     public function upload(Request $request, string $id, string $image): JsonResponse
     {
         $request->validate(['image' => self::IMAGES[$image]]);
-        $design = $this->design($id);
+        $design = $this->storedDesign($id);
         $disk = Event::mediaDisk();
         $column = "{$image}_path";
         $previous = $design->{$column};
 
-        $design->{$column} = $disk->putFile("designs/{$design->event->organization_id}", $request->file('image'));
+        $path = $disk->putFile("designs/{$design->event->organization_id}", $request->file('image'));
+        $design->{$column} = $path;
         if ($image === 'banner') {
             $design->banner = 'custom';
         }
-        $design->save();
+        try {
+            $design->save();
+        } catch (Throwable $e) {
+            $disk->delete($path); // pas de fichier orphelin si l'enregistrement échoue
+
+            throw $e;
+        }
 
         if ($previous) {
             $disk->delete($previous);
@@ -113,6 +121,18 @@ final class EventDesignController
     private function design(string $id): EventDesign
     {
         return Event::with('design')->findOrFail($id)->ticketDesign();
+    }
+
+    /**
+     * Apparence enregistrée, créée avec les réglages par défaut si besoin. createOrFirst résiste
+     * à deux premières modifications simultanées (event_id unique).
+     */
+    private function storedDesign(string $id): EventDesign
+    {
+        $event = Event::findOrFail($id);
+        $defaults = EventDesign::defaultFor($event)->only(['template', 'kind', 'primary_color', 'accent_color', 'font', 'banner']);
+
+        return EventDesign::createOrFirst(['event_id' => $event->id], $defaults)->setRelation('event', $event);
     }
 
     private function respond(EventDesign $design): JsonResponse

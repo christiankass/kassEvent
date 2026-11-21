@@ -435,7 +435,7 @@ const fr = {
     reset: "Annuler les modifications",
     sendTest: "M'envoyer un e-mail d'exemple",
     readOnly: "Vous pouvez voir l'apparence des billets, mais pas la modifier.",
-    sampleHolder: "Nom de l'invité",
+    sampleTicket: "Standard",
   },
   sales: {
     title: "Ventes",
@@ -901,7 +901,7 @@ const en: Dictionary = {
     reset: "Discard changes",
     sendTest: "Send me a sample email",
     readOnly: "You can see how tickets look, but not change it.",
-    sampleHolder: "Guest name",
+    sampleTicket: "Standard",
   },
   sales: {
     title: "Sales",

@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Apparence des billets (ou invitations) d'un événement : modèle, couleurs, police, textes, logo
  * et bannière. Le QR code, lui, reste toujours noir sur blanc pour rester lisible au scan.
  */
-#[Fillable(['template', 'kind', 'primary_color', 'accent_color', 'font', 'headline', 'message', 'footer', 'banner'])]
+#[Fillable(['event_id', 'template', 'kind', 'primary_color', 'accent_color', 'font', 'headline', 'message', 'footer', 'banner'])]
 class EventDesign extends Model
 {
     use BelongsToOrganization, HasUuids;

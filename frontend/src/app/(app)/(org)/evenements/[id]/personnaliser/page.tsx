@@ -57,6 +57,7 @@ export default function DesignStudioPage() {
   const [view, setView] = useState<"ticket" | "email">("ticket");
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
   const [email, setEmail] = useState<string | null>(null);
+  const [emailFailed, setEmailFailed] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -75,12 +76,12 @@ export default function DesignStudioPage() {
   const loadEmail = useCallback(() => {
     api<{ data: { html: string } }>(`/events/${id}/design/preview`, { organizationId })
       .then(({ data }) => setEmail(data.html))
-      .catch((e) => setNotice({ tone: "error", text: actionErrorMessage(e, t) }));
-  }, [id, organizationId, t]);
+      .catch(() => setEmailFailed(true));
+  }, [id, organizationId]);
 
   useEffect(() => {
-    if (view === "email" && email === null) loadEmail();
-  }, [view, email, loadEmail]);
+    if (view === "email" && email === null && !emailFailed) loadEmail();
+  }, [view, email, emailFailed, loadEmail]);
 
   const dirty = useMemo(
     () => !!saved && !!draft && JSON.stringify(normalize(settingsOf(saved.data))) !== JSON.stringify(normalize(draft)),
@@ -164,7 +165,7 @@ export default function DesignStudioPage() {
   const chooseTemplate = (name: (typeof TEMPLATES)[number]) =>
     setDraft((current) => (current ? { ...current, template: name, ...saved.meta.templates[name] } : current));
 
-  const sampleType = event.ticket_types[0]?.name ?? "Standard";
+  const sampleType = event.ticket_types[0]?.name ?? t.design.sampleTicket;
 
   return (
     <main className={`${app.main} ${styles.page}`}>
@@ -392,7 +393,13 @@ export default function DesignStudioPage() {
           ) : (
             <div className={styles.stage}>
               <p className={styles.hint}>{dirty ? t.design.previewEmailStale : t.design.previewEmailHint}</p>
-              {email === null ? (
+              {emailFailed ? (
+                <div className={styles.frameLoading}>
+                  <Button type="button" variant="secondary" onClick={() => setEmailFailed(false)}>
+                    {t.common.retry}
+                  </Button>
+                </div>
+              ) : email === null ? (
                 <div className={styles.frameLoading}>{t.common.loading}</div>
               ) : (
                 // Cadre isolé sans script : le HTML de l'e-mail ne peut rien exécuter dans la page.
