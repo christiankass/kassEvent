@@ -59,6 +59,7 @@ import { formatEventDate, type EventData } from "@/lib/events";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { loadCanvasFonts, ticketFontVariables } from "@/lib/ticket-fonts";
+import { prepareImage } from "@/lib/images";
 import { CanvasStage, fitText, type StageHandle } from "./CanvasStage";
 import styles from "./studio.module.css";
 
@@ -328,7 +329,8 @@ export default function Studio({ event, studio: initial, organizationId, organiz
   }
 
   /** Envoie une photo, puis la pose : dans l'emplacement choisi, sinon au milieu de la page. */
-  async function sendPhoto(file: File) {
+  async function sendPhoto(original: File) {
+      const file = await prepareImage(original);
       const body = new FormData();
       body.append("image", file);
       const { data } = await api<{ data: { name: string } }>(`/events/${event.id}/studio/assets`, { method: "POST", organizationId, body });

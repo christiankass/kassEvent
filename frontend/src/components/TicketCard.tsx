@@ -39,7 +39,7 @@ export function TicketCard({ design, organization, title, when, where, type, hol
     <article className={`${styles.ticket} ${ticketFontVariables}`} style={style}>
       {design.banner_url && (
         // eslint-disable-next-line @next/next/no-img-element -- image de l'organisateur servie par kassEvent
-        <img src={design.banner_url} alt="" className={styles.banner} />
+        <img src={design.banner_url} alt="" className={styles.banner} onError={(e) => (e.currentTarget.hidden = true)} />
       )}
       <header className={styles.head}>
         {design.logo_url && (

@@ -12,6 +12,7 @@ import { publicEventUrl, ticketPrice, type EventData } from "@/lib/events";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
+import { prepareImage } from "@/lib/images";
 import { PageSkeleton } from "../../../PageSkeleton";
 import app from "../../../app.module.css";
 import { EventForm, StatusBadge, TicketForm } from "../forms";
@@ -300,12 +301,11 @@ export default function EventPage() {
                       const file = e.target.files?.[0];
                       e.target.value = "";
                       if (!file) return;
-                      const body = new FormData();
-                      body.append("cover", file);
-                      void act(
-                        () => api<{ data: EventData }>(`/events/${event.id}/cover`, { method: "POST", organizationId, body }),
-                        t.events.coverSaved,
-                      );
+                      void act(async () => {
+                        const body = new FormData();
+                        body.append("cover", await prepareImage(file));
+                        return api<{ data: EventData }>(`/events/${event.id}/cover`, { method: "POST", organizationId, body });
+                      }, t.events.coverSaved);
                     }}
                   />
                 </label>

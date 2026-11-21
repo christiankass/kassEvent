@@ -66,3 +66,16 @@ jobs:
       - run: cp backend/.env.example backend/.env && cp .env.example .env
       - name: Vérifie docker-compose.yml
         run: docker compose config -q
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image PHP
+        run: docker build -f docker/php/Dockerfile -t kassevent-api .
+      - name: GD lit le JPEG et le WebP, et écrit du texte (photos, affiches, billets du studio)
+        run: |
+          docker run --rm kassevent-api php -r '$g = gd_info(); exit($g["JPEG Support"] && $g["WebP Support"] && $g["FreeType Support"] ? 0 : 1);'
+          docker run --rm kassevent-api php -r 'exit(ini_parse_quantity(ini_get("upload_max_filesize")) >= 10 * 1024 * 1024 ? 0 : 1);'
+      - name: Configuration Nginx
+        run: docker run --rm --add-host api:127.0.0.1 --add-host web:127.0.0.1 -v "$PWD/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t
