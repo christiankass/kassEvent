@@ -15,6 +15,8 @@ export type TicketType = {
   price: number;
   free: boolean;
   quantity: number;
+  /** Places restantes : ni vendues, ni réservées par une commande en attente. */
+  available: number;
   max_per_order: number;
   sales_start_at: string | null;
   sales_end_at: string | null;

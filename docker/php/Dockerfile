@@ -1,7 +1,7 @@
 FROM php:8.3-fpm-alpine
 
-RUN apk add --no-cache icu-dev libzip-dev postgresql-dev $PHPIZE_DEPS \
-    && docker-php-ext-install intl pdo_pgsql pcntl zip opcache bcmath \
+RUN apk add --no-cache icu-dev libzip-dev libpng-dev postgresql-dev $PHPIZE_DEPS \
+    && docker-php-ext-install intl pdo_pgsql pcntl zip opcache bcmath gd \
     && pecl install redis && docker-php-ext-enable redis \
     && apk del $PHPIZE_DEPS
 

@@ -19,6 +19,11 @@ Les routes qui agissent dans une organisation passent par le middleware `tenant`
 (en-tête `X-Organization-Id`) ; une organisation inaccessible renvoie `404`.
 Hors requête HTTP (jobs, commandes), utiliser `app(TenantContext::class)->run($organizationId, fn () => ...)`.
 
+Exception unique : `tenant_keys` (module Tenancy, `TenantKeys`) n'a ni RLS ni trait. C'est un index global
+« identifiant aléatoire → organisation » pour les requêtes qui arrivent sans organisation (lien de commande
+de l'acheteur, notifications pawaPay et Stripe). Il ne sert qu'à ouvrir le bon contexte : la ligne elle-même
+est ensuite lue sous les deux verrous, et l'accès est encore contrôlé (clé de la commande, statut redemandé au prestataire).
+
 Les tests tournent sur PostgreSQL avec un rôle sans `BYPASSRLS` (voir `phpunit.xml` et la CI).
 
 ## Connexion (module Identity)
@@ -26,3 +31,11 @@ Les tests tournent sur PostgreSQL avec un rôle sans `BYPASSRLS` (voir `phpunit.
 Le site Next.js se connecte par cookie de session (Sanctum SPA) : il appelle `GET /sanctum/csrf-cookie`,
 puis `POST /api/v1/auth/login` en envoyant ses cookies (`credentials: "include"`) et l'en-tête `X-XSRF-TOKEN`.
 Aucun jeton n'est stocké dans le navigateur. L'en-tête `Accept-Language` (fr ou en) choisit la langue des messages.
+
+## Paiements (modules Ticketing et Payments)
+
+- Ticketing : commandes sans compte (places réservées `ORDER_HOLD_MINUTES`, 45 minutes au plus avec les nouveaux essais),
+  billets émis au paiement et envoyés par e-mail (file `notifications`).
+- Payments : pawaPay (mobile money) et Stripe Checkout (carte), ou mode `simulated` sans compte (refusé en production).
+  Une notification de prestataire ne valide jamais rien seule : le statut est redemandé au prestataire, montant et devise contrôlés.
+- Un paiement réussi émet `PaymentSucceeded`, écouté par Ticketing (`ConfirmOrder`).

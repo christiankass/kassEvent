@@ -222,6 +222,11 @@
 
 /* Bouton de paiement : le seul bouton jaune de l'interface (DESIGN.md). */
 .buy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
   min-height: 48px;
   padding: 0 24px;
   font: 700 16px/1 var(--f-body), system-ui, sans-serif;
@@ -230,6 +235,11 @@
   border: 0;
   border-radius: var(--r-md);
   white-space: nowrap;
+}
+
+.buy:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .buy:disabled {

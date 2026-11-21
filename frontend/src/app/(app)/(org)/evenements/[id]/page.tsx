@@ -15,6 +15,7 @@ import { useOrganization } from "@/lib/organization-context";
 import { PageSkeleton } from "../../../PageSkeleton";
 import app from "../../../app.module.css";
 import { EventForm, StatusBadge, TicketForm } from "../forms";
+import { SalesPanel } from "./SalesPanel";
 import styles from "../events.module.css";
 
 type Notice = { tone: "success" | "error"; text: string };
@@ -26,6 +27,7 @@ export default function EventPage() {
   const { organization, permissions } = useOrganization();
   const organizationId = organization.id;
   const canManage = permissions.includes("events.manage");
+  const canViewSales = permissions.includes("orders.view");
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -92,6 +94,8 @@ export default function EventPage() {
 
       <div className={styles.layout}>
         <div className={app.stack}>
+          {canViewSales && event.published_at && <SalesPanel eventId={event.id} />}
+
           <section aria-labelledby="tickets-title">
             <h2 id="tickets-title" className={app.sectionTitle}>
               {t.events.ticketsTitle}
