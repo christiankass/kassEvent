@@ -26,7 +26,13 @@ export async function prepareImage(file: File, maxSide = 2000): Promise<File> {
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    // Plus de mémoire pour le dessin (très grande photo) : mieux vaut un refus qu'une image vide.
+    bitmap.close();
+    throw new UnsupportedImageError();
+  }
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
 
   // Le JPEG reste en JPEG ; les autres formats peuvent avoir de la transparence : WebP (PNG sur les vieux Safari).
