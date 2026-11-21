@@ -46,7 +46,8 @@ final class CreateOrder
         }
 
         // Billets gratuits sur inscription : rien à payer, les billets partent tout de suite.
-        if ($order->wasRecentlyCreated && $order->total === 0) {
+        // Aussi sur un envoi répété : si la confirmation avait échoué, elle est retentée (sans doublon).
+        if ($order->total === 0 && $order->status === Order::PENDING) {
             $this->confirm->handle($order->id);
         }
 
@@ -65,7 +66,7 @@ final class CreateOrder
             // Après le verrou : un envoi identique simultané a attendu la fin du premier et le retrouve ici.
             $existing = $idempotencyKey !== null ? $this->existing($event, $idempotencyKey) : null;
             if ($existing !== null) {
-                return $existing;
+                return $this->replay($existing, $quantities, $buyer);
             }
 
             if ($ticketTypes->where('event_id', $event->id)->count() !== count($quantities)) {
@@ -124,6 +125,28 @@ final class CreateOrder
 
             return $order;
         });
+    }
+
+    /**
+     * Envoi répété : seulement pour la même commande (mêmes billets, même acheteur), et tant
+     * qu'elle peut encore être payée ; sinon la page d'achat recommence avec une nouvelle clé.
+     *
+     * @param  array<string, int>  $quantities
+     * @param  array{name: string, email: string}  $buyer
+     */
+    private function replay(Order $order, array $quantities, array $buyer): Order
+    {
+        $ordered = $order->items()->pluck('quantity', 'ticket_type_id')->all();
+        ksort($ordered);
+        ksort($quantities);
+        if ($ordered !== $quantities || $order->buyer_email !== $buyer['email']) {
+            throw ValidationException::withMessages(['idempotency_key' => __('ticketing.order_changed')]);
+        }
+        if ($order->isExpired()) {
+            throw ValidationException::withMessages(['items' => __('ticketing.order_expired')]);
+        }
+
+        return $order;
     }
 
     private function existing(Event $event, string $idempotencyKey): ?Order

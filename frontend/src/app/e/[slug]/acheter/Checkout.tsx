@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { ArrowLeft, LockSimple, Minus, Plus } from "@phosphor-icons/react";
 import { PaymentFields, paymentBody, type PaymentChoice } from "@/components/PaymentFields";
 import { Alert, Field, Wordmark } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { formatEventDate, formatPrice, ticketPrice, type PublicEvent } from "@/lib/events";
 import { useFormSubmit } from "@/lib/form";
 import { format } from "@/lib/i18n/dictionaries";
@@ -44,6 +44,11 @@ export function Checkout({ event }: { event: PublicEvent }) {
       const response = await api<{ data: Order; access_key: string }>(`/public/events/${event.slug}/orders`, {
         method: "POST",
         body: { ...body, idempotency_key: attempt.current.key },
+      }).catch((error: unknown) => {
+        // Réponse claire du serveur (refus, réservation expirée) : le prochain envoi est une nouvelle commande.
+        // Réseau coupé ou erreur serveur : la commande existe peut-être, on garde la clé.
+        if (error instanceof ApiError && error.status < 500) attempt.current = null;
+        throw error;
       });
       const redirect = response.data.payment?.redirect_url;
       // Carte : page de paiement sécurisée du prestataire, qui ramène ensuite sur la page de commande.

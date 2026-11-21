@@ -13,6 +13,7 @@ return [
     'order_paid' => 'Cette commande est déjà payée.',
     'order_expired' => 'La réservation a expiré. Recommencez votre commande.',
     'payment_already_started' => 'Un paiement vient d\'être lancé pour cette commande. Patientez quelques secondes.',
+    'order_changed' => 'Votre commande a changé depuis le premier envoi. Rechargez la page et recommencez.',
     'payment_in_progress' => 'Un paiement mobile money attend encore la réponse de l\'opérateur. Validez-le sur votre téléphone, ou patientez quelques minutes avant de réessayer.',
     'free_order' => 'Cette commande est gratuite : aucun paiement à faire.',
     'event_has_orders' => 'Des commandes existent pour cet événement : il ne peut plus être supprimé.',

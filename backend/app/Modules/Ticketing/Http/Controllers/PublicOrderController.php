@@ -34,8 +34,9 @@ final class PublicOrderController
 
             $order = $createOrder->handle($event, $request->quantities(), $request->buyer(), app()->getLocale(), $payment !== null, $request->idempotencyKey());
 
-            // Envoi répété : la commande existe déjà et son paiement est lancé, on la rend telle quelle.
-            if ($order->wasRecentlyCreated && $order->total > 0) {
+            // Envoi répété : la commande existe déjà ; on ne lance un paiement que si le premier envoi
+            // n'a pas pu le faire (au plus un en attente par commande, garanti par la base).
+            if ($order->total > 0 && ($order->wasRecentlyCreated || ($order->status === Order::PENDING && ! $order->latestPayment()->exists()))) {
                 $this->payments->start($order, $payment);
             }
 

@@ -13,6 +13,7 @@ return [
     'order_paid' => 'This order is already paid.',
     'order_expired' => 'Your reservation has expired. Please start your order again.',
     'payment_already_started' => 'A payment has just been started for this order. Please wait a few seconds.',
+    'order_changed' => 'Your order changed since it was first sent. Reload the page and start again.',
     'payment_in_progress' => 'A mobile money payment is still waiting for the operator\'s answer. Approve it on your phone, or wait a few minutes before trying again.',
     'free_order' => 'This order is free: nothing to pay.',
     'event_has_orders' => 'This event has orders: it can no longer be deleted.',

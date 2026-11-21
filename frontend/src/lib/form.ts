@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError } from "./api";
 import { formErrorMessage } from "./errors";
 import { useI18n } from "./i18n/I18nProvider";
@@ -19,6 +19,20 @@ export function useFormSubmit(onSubmit: (form: FormData) => Promise<void>, { nav
   const [error, setError] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
+  const release = () => {
+    busy.current = false;
+    setPending(false);
+  };
+
+  // Retour arrière depuis la page suivante (page de carte) : le navigateur peut restaurer cette page
+  // telle quelle, formulaire verrouillé ; on le libère.
+  useEffect(() => {
+    const restore = (event: PageTransitionEvent) => {
+      if (event.persisted) release();
+    };
+    window.addEventListener("pageshow", restore);
+    return () => window.removeEventListener("pageshow", restore);
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,11 +48,6 @@ export function useFormSubmit(onSubmit: (form: FormData) => Promise<void>, { nav
       setError(e);
       release();
     }
-  }
-
-  function release() {
-    busy.current = false;
-    setPending(false);
   }
 
   return {
