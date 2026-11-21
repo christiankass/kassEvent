@@ -5,6 +5,7 @@ use App\Modules\Access\Http\Controllers\InvitationLinkController;
 use App\Modules\Access\Http\Controllers\MemberController;
 use App\Modules\Access\Http\Middleware\RequireTwoFactorForMoney;
 use App\Modules\Events\Http\Controllers\EventController;
+use App\Modules\Events\Http\Controllers\EventDesignController;
 use App\Modules\Events\Http\Controllers\PublicEventController;
 use App\Modules\Events\Http\Controllers\TicketTypeController;
 use App\Modules\Identity\Http\Controllers\AuthController;
@@ -83,6 +84,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('can:events.view')->group(function () {
                 Route::get('/events', [EventController::class, 'index'])->name('events.index');
                 Route::get('/events/{id}', [EventController::class, 'show'])->whereUuid('id')->name('events.show');
+                Route::get('/events/{id}/design', [EventDesignController::class, 'show'])->whereUuid('id')->name('events.design.show');
+                Route::get('/events/{id}/design/preview', [EventDesignController::class, 'preview'])->whereUuid('id')->name('events.design.preview');
             });
 
             Route::middleware('can:events.manage')->group(function () {
@@ -92,6 +95,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('/events/{id}/publish', [EventController::class, 'publish'])->whereUuid('id')->name('events.publish');
                 Route::post('/events/{id}/unpublish', [EventController::class, 'unpublish'])->whereUuid('id')->name('events.unpublish');
                 Route::post('/events/{id}/cover', [EventController::class, 'cover'])->whereUuid('id')->name('events.cover');
+
+                // Atelier : apparence des billets et invitations.
+                Route::put('/events/{id}/design', [EventDesignController::class, 'update'])->whereUuid('id')->name('events.design.update');
+                Route::post('/events/{id}/design/{image}', [EventDesignController::class, 'upload'])
+                    ->whereUuid('id')->whereIn('image', ['logo', 'banner'])->name('events.design.upload');
+                Route::delete('/events/{id}/design/{image}', [EventDesignController::class, 'removeImage'])
+                    ->whereUuid('id')->whereIn('image', ['logo', 'banner'])->name('events.design.remove-image');
+                Route::post('/events/{id}/design/test', [EventDesignController::class, 'test'])
+                    ->middleware('throttle:design-test')->whereUuid('id')->name('events.design.test');
 
                 Route::post('/events/{id}/ticket-types', [TicketTypeController::class, 'store'])->whereUuid('id')->name('ticket-types.store');
                 Route::patch('/ticket-types/{id}', [TicketTypeController::class, 'update'])->whereUuid('id')->name('ticket-types.update');

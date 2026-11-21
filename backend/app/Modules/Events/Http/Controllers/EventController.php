@@ -86,7 +86,7 @@ final class EventController
      */
     public function destroy(string $id): Response
     {
-        $event = Event::findOrFail($id);
+        $event = Event::with('design')->findOrFail($id);
 
         if ($event->isPublished()) {
             throw ValidationException::withMessages(['event' => __('events.delete_published')]);
@@ -99,8 +99,9 @@ final class EventController
             $event->ticketTypes()->delete();
             $event->forceDelete();
         });
-        if ($event->cover_path) {
-            Event::mediaDisk()->delete($event->cover_path);
+        $images = array_filter([$event->cover_path, $event->design?->logo_path, $event->design?->banner_path]);
+        if ($images !== []) {
+            Event::mediaDisk()->delete($images);
         }
 
         return response()->noContent();

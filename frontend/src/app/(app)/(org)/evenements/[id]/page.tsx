@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowSquareOut, ImageSquare, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, ImageSquare, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { Alert, Button, buttonClass } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -256,6 +256,16 @@ export default function EventPage() {
                 </a>
               )}
             </div>
+          </section>
+
+          <section className={app.panel} aria-labelledby="design-title">
+            <h2 id="design-title" className={app.sectionTitle}>
+              {t.events.designTitle}
+            </h2>
+            <p className={styles.sectionLede}>{t.events.designLede}</p>
+            <Link href={`/evenements/${event.id}/personnaliser`} className={buttonClass("secondary")}>
+              <PaintBrush size={18} aria-hidden /> {t.events.designOpen}
+            </Link>
           </section>
 
           <section className={app.panel} aria-labelledby="cover-title">

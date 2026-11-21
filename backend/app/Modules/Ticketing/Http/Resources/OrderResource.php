@@ -2,6 +2,7 @@
 
 namespace App\Modules\Ticketing\Http\Resources;
 
+use App\Modules\Events\Http\Resources\EventDesignResource;
 use App\Modules\Payments\Support\Phone;
 use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Support\QrCode;
@@ -42,6 +43,8 @@ final class OrderResource extends JsonResource
                 'city' => $event->city,
                 'organization' => ['name' => $event->organization->name],
             ],
+            // Apparence des billets choisie par l'organisateur (atelier), sinon celle de kassEvent.
+            'design' => EventDesignResource::make($event->ticketDesign()),
             'items' => $this->items->map(fn ($item) => [
                 'name' => $item->name,
                 'quantity' => $item->quantity,

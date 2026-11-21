@@ -38,7 +38,7 @@ export class ApiError extends Error {
   }
 }
 
-type Options = { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; organizationId?: string };
+type Options = { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; body?: unknown; organizationId?: string };
 
 function readXsrfToken(): string | undefined {
   const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);

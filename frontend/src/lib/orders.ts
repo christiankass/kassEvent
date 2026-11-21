@@ -1,4 +1,5 @@
 import type { Currency } from "./api";
+import type { TicketDesign } from "./designs";
 
 export const OPERATORS = ["vodacom", "orange", "airtel"] as const;
 export type Operator = (typeof OPERATORS)[number];
@@ -40,6 +41,8 @@ export type Order = {
     city: string;
     organization: { name: string };
   };
+  /** Apparence des billets choisie par l'organisateur (atelier). */
+  design: TicketDesign;
   items: { name: string; quantity: number; unit_price: number }[];
   payment: {
     method: PaymentMethod;

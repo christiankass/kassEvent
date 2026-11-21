@@ -19,6 +19,10 @@ return [
     'quantity_below_taken' => ':count ticket(s) already sold or reserved: the quantity cannot be lower.',
     'two_factor_required' => 'Turn on two-factor authentication to see the organization\'s sales and money.',
     'mail' => [
+        'subject_invitation' => 'Your invitation to :event',
+        'intro_invitation' => '{1} Here is your invitation to ":event". Show the QR code at the entrance, on your phone or printed.|[2,*] Here are your :count invitations to ":event". Each guest shows their own QR code at the entrance.',
+        'guest' => 'Guest:',
+        'view_invitation' => 'View my invitation online',
         'subject' => 'Your tickets for :event',
         'greeting' => 'Hello :name,',
         'intro' => '{1} Here is your ticket for ":event". Show the QR code at the entrance, on your phone or printed.|[2,*] Here are your :count tickets for ":event". Each person shows their own QR code at the entrance.',

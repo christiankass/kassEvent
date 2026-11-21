@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { CheckCircle, DeviceMobile, Printer, WarningCircle } from "@phosphor-icons/react";
+import { TicketCard } from "@/components/TicketCard";
 import { PaymentFields, paymentBody, type PaymentChoice } from "@/components/PaymentFields";
 import { Alert, Wordmark } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -89,7 +90,7 @@ function OrderState({ order, orderKey, onUpdate }: { order: Order; orderKey: str
     return (
       <section className={`${styles.card} ${styles.success}`} aria-live="polite">
         <CheckCircle size={40} weight="fill" aria-hidden className={styles.icon} />
-        <h1 className={styles.title}>{t.order.paidTitle}</h1>
+        <h1 className={styles.title}>{order.design.kind === "invitation" ? t.order.invitationTitle : t.order.paidTitle}</h1>
         <p>{format(t.order.paidBody, { email: order.buyer_email })}</p>
         <button type="button" className={styles.secondary} onClick={() => window.print()}>
           <Printer size={18} aria-hidden /> {t.order.print}
@@ -233,45 +234,26 @@ function failureMessage(code: string | null, t: Dictionary): string {
   return (code && failures[code]) || failures.other;
 }
 
-/** Billets payés : le billet signature (en-tête vert, ligne perforée, QR code sur fond jaune pâle). */
+/** Billets payés, aux couleurs choisies par l'organisateur dans l'atelier. */
 function Tickets({ order }: { order: Order }) {
-  const { t, locale } = useI18n();
+  const { locale } = useI18n();
   const when = formatEventDate(order.event, locale);
 
   return (
     <ol className={styles.tickets}>
       {order.tickets.map((ticket) => (
-        <li key={ticket.code} className={styles.ticket}>
-          <div className={styles.ticketHead}>
-            <span className={styles.organizer}>{order.event.organization.name}</span>
-            <span className={styles.eventTitle}>{order.event.title}</span>
-          </div>
-          <dl className={styles.ticketGrid}>
-            <div>
-              <dt>{t.order.ticketWhen}</dt>
-              <dd className={styles.capitalize}>{when}</dd>
-            </div>
-            <div>
-              <dt>{t.order.ticketWhere}</dt>
-              <dd>
-                {order.event.venue_name}, {order.event.city}
-              </dd>
-            </div>
-            <div>
-              <dt>{t.order.ticketType}</dt>
-              <dd>{ticket.name}</dd>
-            </div>
-            <div>
-              <dt>{t.order.ticketHolder}</dt>
-              <dd>{ticket.holder_name}</dd>
-            </div>
-          </dl>
-          <div className={styles.stub}>
-            {/* QR code généré par kassEvent (SVG en data URL) : pas d'optimisation d'image à faire. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={ticket.qr} alt={format(t.order.qrAlt, { code: ticket.code })} width={200} height={200} className={styles.qr} />
-            <span className={styles.code}>{ticket.code}</span>
-          </div>
+        <li key={ticket.code}>
+          <TicketCard
+            design={order.design}
+            organization={order.event.organization.name}
+            title={order.event.title}
+            when={when}
+            where={`${order.event.venue_name}, ${order.event.city}`}
+            type={ticket.name}
+            holder={ticket.holder_name}
+            qr={ticket.qr}
+            code={ticket.code}
+          />
         </li>
       ))}
     </ol>

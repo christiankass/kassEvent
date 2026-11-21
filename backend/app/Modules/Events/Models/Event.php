@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
@@ -56,6 +57,18 @@ class Event extends Model
     public function ticketTypes(): HasMany
     {
         return $this->hasMany(TicketType::class)->orderBy('position')->orderBy('created_at');
+    }
+
+    /** @return HasOne<EventDesign, $this> apparence des billets, absente tant qu'elle n'a pas été personnalisée */
+    public function design(): HasOne
+    {
+        return $this->hasOne(EventDesign::class);
+    }
+
+    /** Apparence à appliquer aux billets : celle de l'atelier, sinon celle de kassEvent par défaut. */
+    public function ticketDesign(): EventDesign
+    {
+        return $this->design?->setRelation('event', $this) ?? EventDesign::defaultFor($this);
     }
 
     public function isPublished(): bool

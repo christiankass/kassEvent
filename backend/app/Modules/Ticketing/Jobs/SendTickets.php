@@ -27,7 +27,7 @@ final class SendTickets implements ShouldQueue
     public function handle(TenantContext $context): void
     {
         $context->run($this->organizationId, function () {
-            $order = Order::with(['event.organization', 'tickets.item'])->findOrFail($this->orderId);
+            $order = Order::with(['event.organization', 'event.design', 'tickets.item'])->findOrFail($this->orderId);
 
             Mail::to($order->buyer_email, $order->buyer_name)
                 ->locale($order->locale)

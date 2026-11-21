@@ -19,6 +19,10 @@ return [
     'quantity_below_taken' => 'Déjà :count billet(s) vendus ou réservés : la quantité ne peut pas être inférieure.',
     'two_factor_required' => 'Activez la double authentification pour voir les ventes et l\'argent de l\'organisation.',
     'mail' => [
+        'subject_invitation' => 'Votre invitation pour :event',
+        'intro_invitation' => '{1} Voici votre invitation pour « :event ». Présentez le QR code à l\'entrée, sur votre téléphone ou imprimé.|[2,*] Voici vos :count invitations pour « :event ». Chaque invité présente son propre QR code à l\'entrée.',
+        'guest' => 'Invité(e) :',
+        'view_invitation' => 'Voir mon invitation en ligne',
         'subject' => 'Vos billets pour :event',
         'greeting' => 'Bonjour :name,',
         'intro' => '{1} Voici votre billet pour « :event ». Présentez le QR code à l\'entrée, sur votre téléphone ou imprimé.|[2,*] Voici vos :count billets pour « :event ». Chaque personne présente son propre QR code à l\'entrée.',
