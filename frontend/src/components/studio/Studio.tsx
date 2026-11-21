@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowArcLeft,
   ArrowArcRight,
@@ -33,11 +33,12 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { Alert, buttonClass } from "@/components/ui";
-import { api, API_URL } from "@/lib/api";
+import { api, apiBlob } from "@/lib/api";
 import {
   CANVAS_FONTS,
   FIELDS,
   FORMATS,
+  USAGES,
   canvasProblem,
   constrainQr,
   isTextual,
@@ -52,6 +53,7 @@ import {
   type Usage,
 } from "@/lib/canvas";
 import { OCCASIONS, TEMPLATE_IDS, buildTemplate, templateOccasion, type Occasion, type TemplateContext, type TemplateId } from "@/lib/canvas-templates";
+import { textOn } from "@/lib/designs";
 import { actionErrorMessage } from "@/lib/errors";
 import { formatEventDate, type EventData } from "@/lib/events";
 import { format } from "@/lib/i18n/dictionaries";
@@ -107,21 +109,16 @@ export default function Studio({ event, studio: initial, organizationId, organiz
     }),
     [event, locale, initial.kind, s, organizationName],
   );
-  const samples: Record<FieldName, string> = {
-    holder: userName,
-    ticket_type: event.ticket_types[0]?.name ?? s.sample.ticketType,
-    code: SAMPLE_CODE,
-  };
+  const samples: Record<FieldName, string> = useMemo(
+    () => ({ holder: userName, ticket_type: event.ticket_types[0]?.name ?? s.sample.ticketType, code: SAMPLE_CODE }),
+    [userName, event.ticket_types, s],
+  );
 
   const [studio, setStudio] = useState(initial);
   const [docs, setDocs] = useState<Record<Usage, CanvasDoc>>(() => ({
     ticket: initial.ticket ?? buildTemplate("fleuve", "ticket", context),
     poster: initial.poster ?? buildTemplate("fleuve", "poster", context),
   }));
-  const [saved, setSaved] = useState<Record<Usage, string | null>>({
-    ticket: initial.ticket ? JSON.stringify(initial.ticket) : null,
-    poster: initial.poster ? JSON.stringify(initial.poster) : null,
-  });
   const [history, setHistory] = useState<Record<Usage, History>>({ ticket: { past: [], future: [] }, poster: { past: [], future: [] } });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>(initial[usage] ? "photos" : "templates");
@@ -136,7 +133,8 @@ export default function Studio({ event, studio: initial, organizationId, organiz
 
   const doc = docs[usage];
   const selected = doc.elements.find((element) => element.id === selectedId) ?? null;
-  const dirty = saved[usage] !== JSON.stringify(doc);
+  const saved = studio[usage];
+  const dirty = useMemo(() => JSON.stringify(saved) !== JSON.stringify(doc), [saved, doc]);
   const problem = canvasProblem(doc, usage);
   const used = useMemo(() => usedAssets(docs), [docs]);
   const library = useMemo(() => [...new Set([...assets, ...used])], [assets, used]);
@@ -151,11 +149,19 @@ export default function Studio({ event, studio: initial, organizationId, organiz
     const missing = library.filter((name) => !requested.current.has(name));
     missing.forEach((name) => requested.current.add(name));
     missing.forEach((name) =>
-      fetchImage(`/events/${event.id}/studio/assets/${name}`, organizationId)
+      apiBlob(`/events/${event.id}/studio/assets/${name}`, organizationId)
+        .then(decode)
         .then((image) => setImages((current) => ({ ...current, [name]: image })))
         .catch(() => undefined),
     );
   }, [library, event.id, organizationId]);
+
+  // Libère les images décodées en quittant le studio.
+  const imagesRef = useRef(images);
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+  useEffect(() => () => Object.values(imagesRef.current).forEach((image) => image && URL.revokeObjectURL(image.src)), []);
 
   // Page à la taille de l'espace disponible.
   useEffect(() => {
@@ -194,18 +200,24 @@ export default function Studio({ event, studio: initial, organizationId, organiz
     [docs, usage],
   );
 
+  /** Règles de chaque calque, quelle que soit la retouche : QR code lisible, texte jamais coupé. */
+  const normalize = useCallback(
+    (element: CanvasElement): CanvasElement =>
+      element.type === "qr" ? constrainQr(element, doc) : element.type === "text" && fonts ? fitText(element, fonts) : element,
+    [doc, fonts],
+  );
+
   const updateElement = useCallback(
-    (element: CanvasElement, mergeKey?: string) =>
-      change({ ...doc, elements: doc.elements.map((current) => (current.id === element.id ? element : current)) }, mergeKey),
-    [change, doc],
+    (element: CanvasElement, mergeKey?: string) => {
+      const next = normalize(element);
+      change({ ...doc, elements: doc.elements.map((current) => (current.id === next.id ? next : current)) }, mergeKey);
+    },
+    [change, doc, normalize],
   );
 
   const patch = (changes: Partial<CanvasElement>, key: string) => {
     if (!selected) return;
-    let next = { ...selected, ...changes } as CanvasElement;
-    if (next.type === "qr") next = constrainQr(next, doc);
-    if (next.type === "text" && fonts) next = fitText(next, fonts);
-    updateElement(next, `${selected.id}:${key}`);
+    updateElement({ ...selected, ...changes } as CanvasElement, `${selected.id}:${key}`);
   };
 
   const undo = useCallback(() => {
@@ -226,7 +238,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
 
   const add = (element: CanvasElement) => {
     const placed = { ...element, x: Math.round((doc.width - element.width) / 2), y: Math.round((doc.height - element.height) / 2) } as CanvasElement;
-    change({ ...doc, elements: [...doc.elements, placed.type === "qr" ? constrainQr(placed, doc) : placed] });
+    change({ ...doc, elements: [...doc.elements, normalize(placed)] });
     setSelectedId(element.id);
   };
 
@@ -286,9 +298,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
         const step = e.shiftKey ? 10 : 1;
         const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
         const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
-        let next = { ...selected, x: selected.x + dx, y: selected.y + dy } as CanvasElement;
-        if (next.type === "qr") next = constrainQr(next, doc);
-        updateElement(next, `${selected.id}:nudge`);
+        updateElement({ ...selected, x: selected.x + dx, y: selected.y + dy }, `${selected.id}:nudge`);
       } else if (e.key === "Escape") {
         setSelectedId(null);
       }
@@ -324,7 +334,8 @@ export default function Studio({ event, studio: initial, organizationId, organiz
       const { data } = await api<{ data: { name: string } }>(`/events/${event.id}/studio/assets`, { method: "POST", organizationId, body });
       requested.current.add(data.name);
       setAssets((current) => [...current, data.name]);
-      const image = await fetchImage(`/events/${event.id}/studio/assets/${data.name}`, organizationId);
+      // La photo est déjà dans le navigateur : pas besoin de la retélécharger.
+      const image = await decode(file);
       setImages((current) => ({ ...current, [data.name]: image }));
       place(data.name, image);
   }
@@ -334,12 +345,8 @@ export default function Studio({ event, studio: initial, organizationId, organiz
   /** L'affiche de l'événement, copiée dans les photos du studio. */
   const useCover = () =>
     run(async () => {
-      const response = await fetch(`${API_URL}/events/${event.id}/studio/assets/cover`, {
-        credentials: "include",
-        headers: { "X-Organization-Id": organizationId },
-      });
-      if (!response.ok) throw new Error("cover");
-      await sendPhoto(new File([await response.blob()], "affiche.jpg", { type: response.headers.get("Content-Type") ?? "image/jpeg" }));
+      const cover = await apiBlob(`/events/${event.id}/studio/assets/cover`, organizationId);
+      await sendPhoto(new File([cover], "affiche.jpg", { type: cover.type || "image/jpeg" }));
     });
 
   function place(name: string, image?: HTMLImageElement) {
@@ -370,7 +377,6 @@ export default function Studio({ event, studio: initial, organizationId, organiz
       const stored = data[usage]!;
       setStudio(data);
       setDocs((all) => ({ ...all, [usage]: stored }));
-      setSaved((all) => ({ ...all, [usage]: JSON.stringify(stored) }));
       setNotice({ tone: "success", text: usage === "ticket" ? s.savedTicket : s.savedPoster });
     });
 
@@ -384,12 +390,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
   /** Billet tel qu'un invité le reçoit, calculé par le serveur (QR code et nom compris). */
   const showPreview = () =>
     run(async () => {
-      const response = await fetch(`${API_URL}/events/${event.id}/studio/preview`, {
-        credentials: "include",
-        headers: { "X-Organization-Id": organizationId, "Accept-Language": locale },
-      });
-      if (!response.ok) throw new Error("preview");
-      setPreview(URL.createObjectURL(await response.blob()));
+      setPreview(URL.createObjectURL(await apiBlob(`/events/${event.id}/studio/preview`, organizationId)));
     });
 
   const download = () =>
@@ -428,7 +429,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
           <span className={styles.backLabel}>{t.design.back}</span>
         </Link>
         <div className={styles.usages} role="tablist" aria-label={s.usageLabel}>
-          {(["ticket", "poster"] as const).map((value) => (
+          {USAGES.map((value) => (
             <button
               key={value}
               type="button"
@@ -475,7 +476,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
           </span>
         )}
         {usage === "poster" && <span className={styles.badge}>{s.posterHint}</span>}
-        {dirty && canManage && <span className={styles.dirty}>{saved[usage] ? s.unsaved : s.notSaved}</span>}
+        {dirty && canManage && <span className={styles.dirty}>{saved ? s.unsaved : s.notSaved}</span>}
         {usage === "ticket" && studio.mode === "canvas" && canManage && (
           <button type="button" className={styles.linkButton} onClick={useClassic} disabled={busy}>
             {s.useClassic}
@@ -558,7 +559,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                             width: Math.min(width, doc.width - 80),
                             height,
                             rotation: 0,
-                            fill: contrastInk(doc.background.color),
+                            fill: textOn(doc.background.color),
                             align: "center",
                             lineHeight: 1.15,
                             text: s.textPresets[key],
@@ -638,22 +639,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                       <ImageSquare size={18} aria-hidden /> {s.useCover}
                     </button>
                   )}
-                  {library.length > 0 ? (
-                    <ul className={styles.photos}>
-                      {library.map((name) => (
-                        <li key={name}>
-                          <button type="button" className={styles.photo} onClick={() => place(name)} aria-label={s.placePhoto}>
-                            {images[name] && (
-                              // eslint-disable-next-line @next/next/no-img-element -- image locale déjà chargée
-                              <img src={images[name]!.src} alt="" />
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className={styles.hint}>{s.noPhotos}</p>
-                  )}
+                  <PhotoGrid names={library} images={images} label={s.placePhoto} onPick={place} />
                 </>
               )}
 
@@ -680,7 +666,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                             font: name === "code" ? "mono" : "instrument",
                             fontSize: name === "holder" ? 50 : 34,
                             bold: name === "holder",
-                            fill: contrastInk(doc.background.color),
+                            fill: textOn(doc.background.color),
                           })
                         }
                       >
@@ -716,28 +702,13 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                     onChange={(color) => color && change({ ...doc, background: { ...doc.background, color } }, "background:color")}
                   />
                   <p className={styles.label}>{s.backgroundImage}</p>
-                  {library.length > 0 ? (
-                    <ul className={styles.photos}>
-                      {library.map((name) => (
-                        <li key={name}>
-                          <button
-                            type="button"
-                            className={styles.photo}
-                            aria-pressed={doc.background.image === name}
-                            aria-label={s.setBackground}
-                            onClick={() => change({ ...doc, background: { ...doc.background, image: name } })}
-                          >
-                            {images[name] && (
-                              // eslint-disable-next-line @next/next/no-img-element -- image locale déjà chargée
-                              <img src={images[name]!.src} alt="" />
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className={styles.hint}>{s.noPhotos}</p>
-                  )}
+                  <PhotoGrid
+                    names={library}
+                    images={images}
+                    label={s.setBackground}
+                    selected={doc.background.image}
+                    onPick={(name) => change({ ...doc, background: { ...doc.background, image: name } })}
+                  />
                   {doc.background.image && (
                     <button type="button" className={buttonClass("secondary", styles.full)} onClick={() => change({ ...doc, background: { ...doc.background, image: null } })}>
                       <X size={18} aria-hidden /> {s.removeBackground}
@@ -930,7 +901,10 @@ function Inspector({ element, doc, textAreaRef, patch, onDuplicate, onRemove, on
             ))}
           </div>
           <ColorPicker label={s.textColor} value={element.fill} onChange={(fill) => patch({ fill }, "fill")} />
-          <Slider label={s.letterSpacing} min={-5} max={30} step={0.5} value={element.letterSpacing ?? 0} onChange={(letterSpacing) => patch({ letterSpacing }, "letterSpacing")} />
+          {/* Champs : écrits par le serveur, sans italique ni espacement des lettres. */}
+          {element.type === "text" && (
+            <Slider label={s.letterSpacing} min={-5} max={30} step={0.5} value={element.letterSpacing ?? 0} onChange={(letterSpacing) => patch({ letterSpacing }, "letterSpacing")} />
+          )}
           {element.type === "text" && (
             <Slider label={s.lineHeight} min={0.7} max={2.5} step={0.05} value={element.lineHeight ?? 1.2} onChange={(lineHeight) => patch({ lineHeight }, "lineHeight")} />
           )}
@@ -996,7 +970,7 @@ function Inspector({ element, doc, textAreaRef, patch, onDuplicate, onRemove, on
   );
 }
 
-function TemplateThumb({
+const TemplateThumb = memo(function TemplateThumb({
   id,
   usage,
   context,
@@ -1022,6 +996,43 @@ function TemplateThumb({
       </span>
       <span className={styles.templateName}>{label}</span>
     </button>
+  );
+});
+
+function PhotoGrid({
+  names,
+  images,
+  label,
+  selected,
+  onPick,
+}: {
+  names: string[];
+  images: Record<string, HTMLImageElement | undefined>;
+  label: string;
+  selected?: string | null;
+  onPick: (name: string) => void;
+}) {
+  const { t } = useI18n();
+  if (names.length === 0) return <p className={styles.hint}>{t.studio.noPhotos}</p>;
+  return (
+    <ul className={styles.photos}>
+      {names.map((name) => (
+        <li key={name}>
+          <button
+            type="button"
+            className={styles.photo}
+            aria-pressed={selected === undefined ? undefined : selected === name}
+            aria-label={label}
+            onClick={() => onPick(name)}
+          >
+            {images[name] && (
+              // eslint-disable-next-line @next/next/no-img-element -- image locale déjà chargée
+              <img src={images[name]!.src} alt="" />
+            )}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -1134,11 +1145,6 @@ function layerLabel(element: CanvasElement, s: ReturnType<typeof useI18n>["t"]["
   return s.types[element.type];
 }
 
-/** Encre lisible sur le fond : noir sur clair, blanc sur foncé. */
-function contrastInk(background: string): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(background.slice(i, i + 2), 16) / 255);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.55 ? "#0E1B1C" : "#FFFFFF";
-}
 
 function usedAssets(docs: Record<Usage, CanvasDoc>): string[] {
   return Object.values(docs).flatMap((doc) => [
@@ -1147,11 +1153,10 @@ function usedAssets(docs: Record<Usage, CanvasDoc>): string[] {
   ]);
 }
 
-async function fetchImage(path: string, organizationId: string): Promise<HTMLImageElement> {
-  const response = await fetch(`${API_URL}${path}`, { credentials: "include", headers: { "X-Organization-Id": organizationId } });
-  if (!response.ok) throw new Error("image");
+/** Image décodée depuis un fichier (URL blob locale : le canvas reste exportable). */
+async function decode(file: Blob): Promise<HTMLImageElement> {
   const image = new Image();
-  image.src = URL.createObjectURL(await response.blob());
+  image.src = URL.createObjectURL(file);
   await image.decode();
   return image;
 }

@@ -4,9 +4,8 @@ namespace App\Modules\Ticketing\Support;
 
 use App\Modules\Events\Models\Event;
 use App\Modules\Events\Models\EventDesign;
+use App\Modules\Events\Support\Color;
 use App\Modules\Ticketing\Models\Ticket;
-use BaconQrCode\Renderer\GDLibRenderer;
-use BaconQrCode\Writer;
 use GdImage;
 
 /**
@@ -25,6 +24,9 @@ final class TicketImage
         'mono' => ['JetBrainsMono-Regular', 'JetBrainsMono-Bold'],
     ];
 
+    /** Images fixes déjà décodées, par chemin : une commande de N billets ne lit le fond qu'une fois. */
+    private static array $backgrounds = [];
+
     /** Image du billet d'un participant (null : billet simple de l'atelier). */
     public static function forTicket(EventDesign $design, Ticket $ticket): ?string
     {
@@ -41,11 +43,12 @@ final class TicketImage
      */
     public static function render(EventDesign $design, string $code, array $values): ?string
     {
-        $background = $design->usesCanvas() ? Event::mediaDisk()->get($design->canvas_image_path) : null;
+        $background = self::background($design);
         if (! $background) {
             return null;
         }
-        $image = imagecreatefromstring($background);
+        $image = imagecreatetruecolor(imagesx($background), imagesy($background));
+        imagecopy($image, $background, 0, 0, 0, 0, imagesx($background), imagesy($background));
         imagealphablending($image, true);
 
         foreach ($design->canvas['elements'] as $element) {
@@ -62,16 +65,30 @@ final class TicketImage
         return (string) ob_get_clean();
     }
 
+    private static function background(EventDesign $design): ?GdImage
+    {
+        if (! $design->usesCanvas()) {
+            return null;
+        }
+        $path = $design->canvas_image_path;
+        if (! array_key_exists($path, self::$backgrounds)) {
+            $data = Event::mediaDisk()->get($path);
+            // Un seul fond gardé : un worker enchaîne des commandes d'événements différents.
+            self::$backgrounds = [$path => $data ? (imagecreatefromstring($data) ?: null) : null];
+        }
+
+        return self::$backgrounds[$path];
+    }
+
     /** QR code sur fond blanc, avec sa marge de silence : il se scanne quelle que soit l'image autour. */
     private static function qr(GdImage $image, array $element, string $code): void
     {
         $size = (int) round($element['width']);
         $x = (int) round($element['x']);
         $y = (int) round($element['y']);
-        $qr = imagecreatefromstring((new Writer(new GDLibRenderer($size, 2)))->writeString($code));
+        $qr = imagecreatefromstring(QrCode::png($code, $size));
 
-        imagefilledrectangle($image, $x, $y, $x + $size - 1, $y + $size - 1, imagecolorallocate($image, 255, 255, 255));
-        imagecopyresampled($image, $qr, $x, $y, 0, 0, $size, $size, imagesx($qr), imagesy($qr));
+        imagecopy($image, $qr, $x, $y, 0, 0, imagesx($qr), imagesy($qr));
     }
 
     /**
@@ -106,7 +123,7 @@ final class TicketImage
         $x = $element['x'] + $lx * cos($angle) - $ly * sin($angle);
         $y = $element['y'] + $lx * sin($angle) + $ly * cos($angle);
 
-        [$r, $g, $b] = sscanf($element['fill'], '#%02x%02x%02x');
+        [$r, $g, $b] = Color::rgb($element['fill']);
         $alpha = (int) round(127 * (1 - $element['opacity']));
         imagettftext($image, $points($px), -$element['rotation'], (int) round($x), (int) round($y), imagecolorallocatealpha($image, $r, $g, $b, $alpha), $font, $text);
     }

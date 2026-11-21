@@ -253,6 +253,8 @@ function Tickets({ order, design, orderKey }: { order: Order; design: TicketDesi
               alt={format(t.order.ticketImageAlt, { holder: ticket.holder_name, code: ticket.code })}
               width={1080}
               height={1350}
+              loading="lazy"
+              decoding="async"
             />
           </li>
         ))}
@@ -296,8 +298,8 @@ function Summary({ order }: { order: Order }) {
         <span className={`${styles.muted} ${styles.capitalize}`}>{formatEventDate(order.event, locale)}</span>
       </p>
       <ul className={styles.lines}>
-        {order.items.map((item) => (
-          <li key={item.name}>
+        {order.items.map((item, index) => (
+          <li key={`${index}-${item.name}`}>
             <span>
               {item.quantity} × {item.name}
             </span>

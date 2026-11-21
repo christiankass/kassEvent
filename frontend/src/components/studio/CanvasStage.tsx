@@ -4,7 +4,6 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import Konva from "konva";
 import { Ellipse, Group, Image as KonvaImage, Layer, Line, Rect, Shape, Stage, Star, Text, Transformer } from "react-konva";
 import {
-  constrainQr,
   isDynamic,
   isTextual,
   type CanvasDoc,
@@ -82,11 +81,15 @@ export const CanvasStage = forwardRef<StageHandle, Props>(function CanvasStage(
       ];
       hidden.forEach((node) => node.hide());
       try {
-        const drawn = stage.toCanvas({ pixelRatio: doc.width / stage.width() });
-        const canvas = document.createElement("canvas");
-        canvas.width = doc.width;
-        canvas.height = doc.height;
-        canvas.getContext("2d")!.drawImage(drawn, 0, 0, doc.width, doc.height);
+        let canvas = stage.toCanvas({ pixelRatio: doc.width / stage.width() });
+        // Arrondis : la page doit faire exactement le format attendu par le serveur.
+        if (canvas.width !== doc.width || canvas.height !== doc.height) {
+          const exact = document.createElement("canvas");
+          exact.width = doc.width;
+          exact.height = doc.height;
+          exact.getContext("2d")!.drawImage(canvas, 0, 0, doc.width, doc.height);
+          canvas = exact;
+        }
         return await new Promise<Blob>((resolve, reject) =>
           canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("export"))), type, 0.92),
         );
@@ -112,8 +115,6 @@ export const CanvasStage = forwardRef<StageHandle, Props>(function CanvasStage(
     if (isTextual(next) && Math.abs(scaleX - scaleY) < 0.001 && scaleX !== 1) {
       next = { ...next, fontSize: Math.max(6, round(next.fontSize * scaleY)) };
     }
-    if (next.type === "qr") next = constrainQr(next, doc);
-    if (next.type === "text") next = fitText(next, fonts);
     onChange?.(next);
   }
 
@@ -225,7 +226,7 @@ function ElementShape({
           fill={element.fill}
           align={element.align ?? "left"}
           lineHeight={element.lineHeight ?? 1.2}
-          letterSpacing={element.letterSpacing ?? 0}
+          letterSpacing={element.type === "text" ? (element.letterSpacing ?? 0) : 0}
           wrap={element.type === "field" ? "none" : "word"}
           ellipsis={element.type === "field"}
         />
@@ -305,8 +306,14 @@ function ShapeNode({ element }: { element: ShapeElement }) {
 
 /** QR code d'exemple : le vrai est ajouté pour chaque billet, toujours noir sur blanc. */
 function QrSample({ size }: { size: number }) {
+  const ref = useRef<Konva.Shape>(null);
+  // Mis en cache : pas 600 petits carrés redessinés à chaque image d'un glisser.
+  useEffect(() => {
+    ref.current?.cache();
+  }, [size]);
   return (
     <Shape
+      ref={ref}
       width={size}
       height={size}
       sceneFunc={(context) => {

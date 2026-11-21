@@ -173,6 +173,12 @@ export default function DesignStudioPage() {
       <h1 className={app.title}>{t.design.title}</h1>
       <p className={app.lede}>{format(t.design.lede, { title: event.title })}</p>
       {!canManage && <p className={app.lede}>{t.design.readOnly}</p>}
+      {saved.mode === "canvas" && (
+        <Alert tone="success">
+          {t.design.canvasActive}{" "}
+          <Link href={`/evenements/${event.id}/studio`}>{t.design.openStudio}</Link>
+        </Alert>
+      )}
 
       <div className={app.notice} aria-live="polite">
         {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}

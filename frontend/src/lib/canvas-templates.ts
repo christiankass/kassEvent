@@ -95,7 +95,7 @@ function ticketStub(ctx: TemplateContext, o: { card: string; ink: string; muted:
     text({ x: 110, y: top + 60, width: 520, height: 36 }, ctx.guestLabel.toUpperCase(), { fontSize: 26, bold: true, letterSpacing: 3, fill: o.muted }),
     field({ x: 110, y: top + 104, width: 540, height: 64 }, "holder", { font: o.font ?? "instrument", fontSize: 50, bold: true, fill: o.ink }),
     field({ x: 110, y: top + 186, width: 540, height: 44 }, "ticket_type", { fontSize: 34, fill: o.ink }),
-    field({ x: 110, y: top + 254, width: 540, height: 40 }, "code", { font: "mono", fontSize: 30, fill: o.muted, letterSpacing: 2 }),
+    field({ x: 110, y: top + 254, width: 540, height: 40 }, "code", { font: "mono", fontSize: 30, fill: o.muted }),
     qr(1020 - 50 - 260, top + 50, 260),
   ];
 }
@@ -210,7 +210,7 @@ const TEMPLATES: Record<TemplateId, Template> = {
             text({ x: 120, y: 950, width: 520, height: 36 }, ctx.guestLabel, { font: "playfair", fontSize: 30, italic: true, fill: "#7A6A4F" }),
             field({ x: 120, y: 1000, width: 520, height: 80 }, "holder", { font: "script", fontSize: 70, fill: "#3B2F2F" }),
             field({ x: 120, y: 1110, width: 520, height: 44 }, "ticket_type", { font: "playfair", fontSize: 32, fill: "#3B2F2F" }),
-            field({ x: 120, y: 1170, width: 520, height: 40 }, "code", { font: "mono", fontSize: 26, fill: "#7A6A4F", letterSpacing: 2 }),
+            field({ x: 120, y: 1170, width: 520, height: 40 }, "code", { font: "mono", fontSize: 26, fill: "#7A6A4F" }),
             qr(700, 930, 260),
           ])
         : page(usage, "#FBF6EE", [
@@ -332,7 +332,7 @@ const TEMPLATES: Record<TemplateId, Template> = {
             text({ x: 120, y: 700, width: 840, height: 90 }, ctx.venue, { font: "playfair", fontSize: 30, italic: true, fill: "#BFB49A", align: "center" }),
             field({ x: 140, y: 930, width: 520, height: 70 }, "holder", { font: "playfair", fontSize: 54, bold: true, fill: gold }),
             field({ x: 140, y: 1020, width: 520, height: 44 }, "ticket_type", { font: "playfair", fontSize: 32, fill: "#F5E9C8" }),
-            field({ x: 140, y: 1080, width: 520, height: 40 }, "code", { font: "mono", fontSize: 26, fill: "#BFB49A", letterSpacing: 2 }),
+            field({ x: 140, y: 1080, width: 520, height: 40 }, "code", { font: "mono", fontSize: 26, fill: "#BFB49A" }),
             qr(700, 900, 240),
           ])
         : page(usage, "#0A0A0A", [

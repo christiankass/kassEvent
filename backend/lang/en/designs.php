@@ -7,6 +7,7 @@ return [
     ],
     'banner_needs_cover' => 'Add a poster to the event first to use it as a banner.',
     'banner_needs_custom' => 'Upload a banner image first.',
+    'image_too_large' => 'Image too large: 40 megapixels at most.',
     'sample_reference' => 'SAMPLE',
     'sample_ticket' => 'Standard',
     'test_sent' => 'Sample email sent to :email.',

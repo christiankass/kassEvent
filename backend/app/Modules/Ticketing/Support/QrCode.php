@@ -16,8 +16,8 @@ final class QrCode
         return (new Writer(new ImageRenderer(new RendererStyle(240, 2), new SvgImageBackEnd)))->writeString($content);
     }
 
-    public static function png(string $content): string
+    public static function png(string $content, int $size = 360): string
     {
-        return (new Writer(new GDLibRenderer(360, 2)))->writeString($content);
+        return (new Writer(new GDLibRenderer($size, 2)))->writeString($content);
     }
 }

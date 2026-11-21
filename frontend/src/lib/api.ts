@@ -98,6 +98,20 @@ export async function api<T>(path: string, options: Options = {}, retried = fals
   return data as T;
 }
 
+/** Fichier de l'API (image) : même connexion et mêmes erreurs que `api`. */
+export async function apiBlob(path: string, organizationId?: string): Promise<Blob> {
+  const headers: Record<string, string> = { "Accept-Language": document.documentElement.lang || "fr" };
+  if (organizationId) headers["X-Organization-Id"] = organizationId;
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
+  } catch {
+    throw new ApiError(0, "network");
+  }
+  if (!response.ok) throw new ApiError(response.status, "");
+  return response.blob();
+}
+
 export type Role = "owner" | "admin" | "event_manager" | "finance" | "check_in_agent" | "viewer";
 
 export type Member = { id: string; name: string; email: string; role: Role | null };

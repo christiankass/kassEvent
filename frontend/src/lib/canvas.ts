@@ -64,7 +64,6 @@ export type StudioData = {
   kind: "ticket" | "invitation";
   ticket: CanvasDoc | null;
   poster: CanvasDoc | null;
-  ticket_image_url: string | null;
 };
 
 export function newId(): string {

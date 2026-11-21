@@ -435,6 +435,8 @@ const fr = {
     sendTest: "M'envoyer un e-mail d'exemple",
     readOnly: "Vous pouvez voir l'apparence des billets, mais pas la modifier.",
     sampleTicket: "Standard",
+    canvasActive: "Les billets envoyés utilisent le design du studio. Enregistrer ici les fera revenir au billet simple.",
+    openStudio: "Ouvrir le studio",
   },
   studio: {
     usageLabel: "Ce que vous créez",
@@ -1001,6 +1003,8 @@ const en: Dictionary = {
     sendTest: "Send me a sample email",
     readOnly: "You can see how tickets look, but not change it.",
     sampleTicket: "Standard",
+    canvasActive: "Tickets sent use the studio design. Saving here switches them back to the simple ticket.",
+    openStudio: "Open the studio",
   },
   studio: {
     usageLabel: "What you are designing",

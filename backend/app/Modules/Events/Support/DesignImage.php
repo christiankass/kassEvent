@@ -5,6 +5,7 @@ namespace App\Modules\Events\Support;
 use App\Modules\Events\Models\Event;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Logo et bannière de l'atelier, réduits une fois à l'envoi : ils partent dans chaque e-mail de
@@ -13,10 +14,20 @@ use Illuminate\Support\Str;
  */
 final class DesignImage
 {
+    /** Au-delà, le décodage par GD demanderait des centaines de Mo de mémoire (image très compressée). */
+    private const MAX_PIXELS = 40_000_000;
+
     /** @return string chemin enregistré sur le disque des médias */
     public static function store(UploadedFile $file, string $directory, int $maxWidth, int $maxHeight, int $quality = 85): string
     {
-        $source = imagecreatefromstring((string) file_get_contents($file->getRealPath()));
+        $size = @getimagesize($file->getRealPath());
+        if ($size === false || $size[0] * $size[1] > self::MAX_PIXELS) {
+            throw ValidationException::withMessages(['image' => __('designs.image_too_large')]);
+        }
+        $source = @imagecreatefromstring((string) file_get_contents($file->getRealPath()));
+        if ($source === false) {
+            throw ValidationException::withMessages(['image' => __('validation.image', ['attribute' => 'image'])]);
+        }
         [$width, $height] = [imagesx($source), imagesy($source)];
         $scale = min(1, $maxWidth / $width, $maxHeight / $height);
 

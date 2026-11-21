@@ -47,7 +47,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::get('/public/orders/{id}', [PublicOrderController::class, 'show'])
         ->middleware('throttle:order')->whereUuid('id')->name('public.orders.show');
     Route::get('/public/orders/{id}/tickets/{code}', [PublicOrderController::class, 'ticketImage'])
-        ->middleware('throttle:order')->whereUuid('id')->where('code', '[0-9A-Z-]{12,14}')->name('public.orders.ticket-image');
+        ->middleware('throttle:order-tickets')->whereUuid('id')->where('code', '[0-9A-Z-]{12,14}')->name('public.orders.ticket-image');
     Route::post('/public/orders/{id}/payments', [PublicOrderController::class, 'pay'])
         ->middleware('throttle:checkout')->whereUuid('id')->name('public.orders.pay');
 

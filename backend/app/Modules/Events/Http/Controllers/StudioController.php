@@ -26,11 +26,10 @@ final class StudioController
 
         return response()->json([
             'data' => [
-                'mode' => $design->usesCanvas() ? 'canvas' : 'classic',
+                'mode' => $design->modeName(),
                 'kind' => $design->kind,
                 'ticket' => $design->canvas,
                 'poster' => $design->poster_canvas,
-                'ticket_image_url' => EventDesign::url($design->canvas_image_path),
             ],
             'meta' => ['formats' => CanvasDocument::FORMATS, 'fields' => CanvasDocument::FIELDS],
         ]);
@@ -120,13 +119,10 @@ final class StudioController
     /** @return array<string, mixed> */
     private function document(Request $request, Event $event, string $usage): array
     {
-        $directory = EventDesign::studioDirectory($event);
+        // Une seule lecture du dossier, au lieu d'une requête au stockage par image du document.
+        $names = array_flip(array_map('basename', Event::mediaDisk()->files(EventDesign::studioDirectory($event))));
 
-        return CanvasDocument::validate(
-            json_decode($request->input('canvas'), true),
-            $usage,
-            fn (string $name) => Event::mediaDisk()->exists("{$directory}/{$name}"),
-        );
+        return CanvasDocument::validate(json_decode($request->input('canvas'), true), $usage, fn (string $name) => isset($names[$name]));
     }
 
     private function saveOrDiscard(EventDesign $design, string $path): void

@@ -93,17 +93,6 @@ final class CanvasDocument
         return ['width' => $width, 'height' => $height, 'background' => $background, 'elements' => $elements];
     }
 
-    /** Noms des images utilisées par le document (fond et calques). @return list<string> */
-    public static function assets(?array $document): array
-    {
-        if (! $document) {
-            return [];
-        }
-        $names = array_map(fn ($element) => $element['asset'] ?? null, $document['elements']);
-
-        return array_values(array_filter([$document['background']['image'] ?? null, ...$names]));
-    }
-
     /** @return array<string, mixed> */
     private static function element(array $element, callable $assetExists, callable $fail): array
     {

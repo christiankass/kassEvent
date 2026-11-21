@@ -71,6 +71,12 @@ class EventDesign extends Model
         return $this->mode === 'canvas' && $this->canvas && $this->canvas_image_path;
     }
 
+    /** Billet effectivement envoyé : « canvas » (studio) ou « classic » (atelier). */
+    public function modeName(): string
+    {
+        return $this->usesCanvas() ? 'canvas' : 'classic';
+    }
+
     protected function casts(): array
     {
         return ['canvas' => 'array', 'poster_canvas' => 'array'];

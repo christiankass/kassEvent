@@ -43,7 +43,8 @@ final class Color
     }
 
     /** @return array{int, int, int} */
-    private static function rgb(string $hex): array
+    /** @return array{int, int, int} */
+    public static function rgb(string $hex): array
     {
         return [hexdec(substr($hex, 1, 2)), hexdec(substr($hex, 3, 2)), hexdec(substr($hex, 5, 2))];
     }
