@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowSquareOut, ImageSquare, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, ImageSquare, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { Alert, Button, buttonClass } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -15,6 +15,7 @@ import { useOrganization } from "@/lib/organization-context";
 import { PageSkeleton } from "../../../PageSkeleton";
 import app from "../../../app.module.css";
 import { EventForm, StatusBadge, TicketForm } from "../forms";
+import { SalesPanel } from "./SalesPanel";
 import styles from "../events.module.css";
 
 type Notice = { tone: "success" | "error"; text: string };
@@ -26,6 +27,7 @@ export default function EventPage() {
   const { organization, permissions } = useOrganization();
   const organizationId = organization.id;
   const canManage = permissions.includes("events.manage");
+  const canViewSales = permissions.includes("orders.view");
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -92,6 +94,8 @@ export default function EventPage() {
 
       <div className={styles.layout}>
         <div className={app.stack}>
+          {canViewSales && event.published_at && <SalesPanel eventId={event.id} />}
+
           <section aria-labelledby="tickets-title">
             <h2 id="tickets-title" className={app.sectionTitle}>
               {t.events.ticketsTitle}
@@ -252,6 +256,16 @@ export default function EventPage() {
                 </a>
               )}
             </div>
+          </section>
+
+          <section className={app.panel} aria-labelledby="design-title">
+            <h2 id="design-title" className={app.sectionTitle}>
+              {t.events.designTitle}
+            </h2>
+            <p className={styles.sectionLede}>{t.events.designLede}</p>
+            <Link href={`/evenements/${event.id}/personnaliser`} className={buttonClass("secondary")}>
+              <PaintBrush size={18} aria-hidden /> {t.events.designOpen}
+            </Link>
           </section>
 
           <section className={app.panel} aria-labelledby="cover-title">

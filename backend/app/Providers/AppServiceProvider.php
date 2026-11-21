@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Tenancy\Support\TenantContext;
+use App\Modules\Ticketing\Actions\ConfirmOrder;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
@@ -50,6 +52,16 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('invitation', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
         // Page publique : rendue par le serveur Next.js, dont toutes les requêtes partagent une adresse.
         RateLimiter::for('public', fn (Request $request) => Limit::perMinute(1200)->by($request->ip()));
+        // Commandes et paiements : un réseau mobile partage souvent une adresse IP entre beaucoup d'acheteurs.
+        RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        // Page de commande, consultée toutes les quelques secondes pendant un paiement mobile money.
+        RateLimiter::for('order', fn (Request $request) => Limit::perMinute(60)->by($request->ip().'|'.$request->route('id')));
+        // E-mail d'exemple de l'atelier : envoyé à soi-même, quelques fois seulement.
+        RateLimiter::for('design-test', fn (Request $request) => Limit::perMinute(3)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('webhooks', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
+
+        // Un paiement réussi (module Payments) confirme la commande et émet les billets (module Ticketing).
+        Event::listen(PaymentSucceeded::class, [ConfirmOrder::class, 'onPaymentSucceeded']);
 
         // Les workers gardent leur connexion PostgreSQL ouverte : chaque job repart d'un contexte vide,
         // quelle qu'ait été l'issue du précédent. (En file « sync », le job tourne dans la requête

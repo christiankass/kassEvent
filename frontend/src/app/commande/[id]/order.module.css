@@ -1,0 +1,268 @@
+.page {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.header {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  color: var(--fleuve);
+}
+
+.main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+  display: grid;
+  gap: 20px;
+}
+
+.reference {
+  margin: 0;
+  font-family: var(--f-code), monospace;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.card {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 24px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.card p {
+  margin: 0;
+}
+
+.success {
+  border-color: color-mix(in srgb, var(--ok) 50%, var(--line));
+}
+
+.waiting {
+  border-color: color-mix(in srgb, var(--billet) 80%, var(--line));
+  background: color-mix(in srgb, var(--billet) 10%, var(--surface));
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(24px, 6vw, 32px);
+  font-weight: 800;
+  color: var(--fleuve);
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--fleuve);
+}
+
+.icon {
+  color: var(--ok);
+}
+
+.iconWarn {
+  color: var(--warn);
+}
+
+.iconErr {
+  color: var(--err);
+}
+
+.strong {
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.demo {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--info) 10%, var(--surface));
+  color: var(--fg);
+  font-size: 14px;
+}
+
+/* Téléphone qui « sonne » pendant l'attente de validation. */
+.phone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 9999px;
+  background: var(--billet);
+  color: var(--billet-ink);
+}
+
+.pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 3px solid var(--billet);
+  animation: pulse 1.6s ease-out infinite;
+}
+
+@keyframes pulse {
+  from { transform: scale(1); opacity: 0.9; }
+  to { transform: scale(1.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse { animation: none; }
+}
+
+.primary,
+.secondary,
+.payButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: var(--r-md);
+  font: 700 16px/1.2 var(--f-body), system-ui, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary {
+  background: var(--fleuve);
+  color: var(--on-fleuve);
+  border: 0;
+}
+
+.secondary {
+  background: var(--surface);
+  color: var(--fleuve);
+  border: 1px solid var(--line-strong);
+}
+
+/* Bouton de paiement : le seul bouton jaune de l'interface (DESIGN.md). */
+.payButton {
+  width: 100%;
+  background: var(--billet);
+  color: var(--billet-ink);
+  border: 0;
+}
+
+.payButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.payButton:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.retry {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.details {
+  width: 100%;
+}
+
+.details summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  color: var(--fleuve);
+  cursor: pointer;
+}
+
+.details[open] summary {
+  margin-bottom: 12px;
+}
+
+/* Billet signature (DESIGN.md) */
+.tickets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 20px;
+}
+
+.capitalize {
+  display: inline-block;
+}
+
+.capitalize::first-letter {
+  text-transform: uppercase;
+}
+
+.summary {
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.summaryEvent {
+  margin: 12px 0;
+}
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.totalLine {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-weight: 700;
+}
+
+.amount {
+  font-family: var(--f-data), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.footer {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+@media print {
+  .header,
+  .card,
+  .summary,
+  .reference,
+  .demo,
+  .footer {
+    display: none;
+  }
+
+  .page {
+    background: #ffffff;
+  }
+}

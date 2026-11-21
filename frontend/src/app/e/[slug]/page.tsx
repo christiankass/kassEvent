@@ -1,30 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cache } from "react";
 import { CalendarBlank, MapPin } from "@phosphor-icons/react/dist/ssr";
 import { ShareButtons } from "@/components/ShareButtons";
 import { Wordmark } from "@/components/ui";
-import { formatEventDate, publicEventUrl, SERVER_API_URL, ticketPrice, type PublicEvent } from "@/lib/events";
+import { formatEventDate, publicEventUrl, ticketPrice } from "@/lib/events";
 import { dictionaries, format } from "@/lib/i18n/dictionaries";
 import { resolveLocale } from "@/lib/i18n/server";
+import { fetchPublicEvent as fetchEvent } from "@/lib/public-event";
 import styles from "./public.module.css";
 
 
 type Props = { params: Promise<{ slug: string }> };
-
-/** Une seule requête par affichage, partagée entre la page et ses métadonnées. */
-const fetchEvent = cache(async (slug: string): Promise<PublicEvent | null> => {
-  if (!/^[a-z0-9-]{1,100}$/.test(slug)) return null;
-  const response = await fetch(`${SERVER_API_URL}/public/events/${slug}`, {
-    headers: { Accept: "application/json" },
-    // Pas de cache : une page retirée de la vente disparaît aussitôt.
-    cache: "no-store",
-  });
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`API ${response.status}`);
-  return (await response.json()).data;
-});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const event = await fetchEvent((await params).slug);
@@ -51,6 +38,7 @@ export default async function PublicEventPage({ params }: Props) {
   const t = dictionaries[locale];
   const price = (minor: number) => ticketPrice(minor, event.currency, locale, t);
   const cheapest = Math.min(...event.ticket_types.map((ticket) => ticket.price));
+  const canBuy = event.ticket_types.some((ticket) => ticket.on_sale && ticket.available > 0);
   // La fin est déjà à l'heure du lieu : on la lit comme une heure UTC pour l'afficher telle quelle.
   const sameDay = event.ends_at?.slice(0, 10) === event.starts_at.slice(0, 10);
   const end = event.ends_at
@@ -119,7 +107,15 @@ export default async function PublicEventPage({ params }: Props) {
                   <div className={styles.ticketMain}>
                     <span className={styles.ticketName}>{ticket.name}</span>
                     {ticket.description && <span className={styles.muted}>{ticket.description}</span>}
-                    {!ticket.on_sale && <span className={styles.offSale}>{t.publicEvent.notOnSale}</span>}
+                    {!ticket.on_sale ? (
+                      <span className={styles.offSale}>{t.publicEvent.notOnSale}</span>
+                    ) : ticket.available === 0 ? (
+                      <span className={styles.offSale}>{t.publicEvent.soldOut}</span>
+                    ) : (
+                      ticket.available <= 10 && (
+                        <span className={styles.offSale}>{format(t.publicEvent.left, { count: String(ticket.available) })}</span>
+                      )
+                    )}
                   </div>
                   <span className={styles.ticketPrice}>{price(ticket.price)}</span>
                 </li>
@@ -143,7 +139,7 @@ export default async function PublicEventPage({ params }: Props) {
         </div>
       </main>
 
-      {/* Barre d'achat toujours visible sur téléphone (DESIGN.md) ; la vente ouvre avec les paiements. */}
+      {/* Barre d'achat toujours visible sur téléphone (DESIGN.md). */}
       <div className={styles.buyBar}>
         <div className={styles.buyInner}>
           {event.ticket_types.length > 0 && (
@@ -151,9 +147,15 @@ export default async function PublicEventPage({ params }: Props) {
               {format(t.publicEvent.from, { price: price(cheapest) })}
             </span>
           )}
-          <button type="button" className={styles.buy} disabled>
-            {t.publicEvent.buy}
-          </button>
+          {canBuy ? (
+            <Link href={`/e/${event.slug}/acheter`} className={styles.buy}>
+              {t.publicEvent.buy}
+            </Link>
+          ) : (
+            <button type="button" className={styles.buy} disabled>
+              {t.publicEvent.soldOut}
+            </button>
+          )}
         </div>
       </div>
 

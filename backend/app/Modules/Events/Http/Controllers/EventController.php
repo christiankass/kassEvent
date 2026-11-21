@@ -6,6 +6,7 @@ use App\Modules\Events\Http\Requests\EventRequest;
 use App\Modules\Events\Http\Resources\EventResource;
 use App\Modules\Events\Models\Event;
 use App\Modules\Events\Support\LocalDateTime;
+use App\Modules\Ticketing\Support\Inventory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -24,7 +25,9 @@ final class EventController
             ->orderBy('starts_at')
             ->get();
 
-        return EventResource::collection($events);
+        $taken = Inventory::taken($events->flatMap->ticketTypes->pluck('id'));
+
+        return EventResource::collection($events->map(fn (Event $event) => EventResource::make($event)->withAvailability($taken)));
     }
 
     public function store(EventRequest $request): JsonResponse
@@ -36,7 +39,7 @@ final class EventController
 
     public function show(string $id): EventResource
     {
-        return EventResource::make(Event::with('ticketTypes')->findOrFail($id));
+        return EventResource::make(Event::with('ticketTypes')->findOrFail($id))->withAvailability();
     }
 
     /**
@@ -73,28 +76,32 @@ final class EventController
 
             $event->update($attributes);
 
-            return EventResource::make($event);
+            return EventResource::make($event)->withAvailability();
         });
     }
 
     /**
-     * Seul un brouillon se supprime, et pour de bon (aucune vente ne s'y rattache) :
-     * billets et affiche partent avec lui. Un événement publié s'annulera (participants prévenus).
+     * Seul un brouillon sans commande se supprime, et pour de bon : billets et affiche partent avec lui.
+     * Un événement publié s'annulera (participants prévenus).
      */
     public function destroy(string $id): Response
     {
-        $event = Event::findOrFail($id);
+        $event = Event::with('design')->findOrFail($id);
 
         if ($event->isPublished()) {
             throw ValidationException::withMessages(['event' => __('events.delete_published')]);
+        }
+        if (Inventory::eventHasOrders($event->id)) {
+            throw ValidationException::withMessages(['event' => __('ticketing.event_has_orders')]);
         }
 
         DB::transaction(function () use ($event) {
             $event->ticketTypes()->delete();
             $event->forceDelete();
         });
-        if ($event->cover_path) {
-            Event::mediaDisk()->delete($event->cover_path);
+        $images = array_filter([$event->cover_path, $event->design?->logo_path, $event->design?->banner_path]);
+        if ($images !== []) {
+            Event::mediaDisk()->delete($images);
         }
 
         return response()->noContent();
@@ -115,16 +122,16 @@ final class EventController
 
         $event->forceFill(['status' => Event::PUBLISHED, 'published_at' => $event->published_at ?? now()])->save();
 
-        return EventResource::make($event);
+        return EventResource::make($event)->withAvailability();
     }
 
-    /** Retire la page de vente (avant toute vente : les ventes arrivent avec les paiements). */
+    /** Retire la page de vente : la vente s'arrête, les billets déjà vendus restent valables. */
     public function unpublish(string $id): EventResource
     {
         $event = Event::with('ticketTypes')->findOrFail($id);
         $event->forceFill(['status' => Event::DRAFT])->save();
 
-        return EventResource::make($event);
+        return EventResource::make($event)->withAvailability();
     }
 
     /** Affiche de l'événement (JPEG, PNG ou WebP, 5 Mo au plus). */
@@ -143,6 +150,6 @@ final class EventController
             $disk->delete($previous);
         }
 
-        return EventResource::make($event);
+        return EventResource::make($event)->withAvailability();
     }
 }

@@ -16,6 +16,9 @@ final class Roles
 {
     public const OWNER = 'owner';
 
+    /** Rôles qui touchent à l'argent : double authentification obligatoire pour voir ventes et versements. */
+    public const TWO_FACTOR_REQUIRED = [self::OWNER, 'admin', 'finance'];
+
     public const PERMISSIONS = [
         'organization.update',
         'members.manage',

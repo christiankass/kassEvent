@@ -10,7 +10,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /** @mixin TicketType */
 final class TicketTypeResource extends JsonResource
 {
-    public function __construct(TicketType $resource, private readonly ?string $timezone = null)
+    /** @param  int  $taken  places vendues ou réservées par une commande en attente */
+    public function __construct(TicketType $resource, private readonly ?string $timezone = null, private readonly int $taken = 0)
     {
         parent::__construct($resource);
     }
@@ -27,6 +28,7 @@ final class TicketTypeResource extends JsonResource
             'price' => $this->price,
             'free' => $this->isFree(),
             'quantity' => $this->quantity,
+            'available' => max(0, $this->quantity - $this->taken),
             'max_per_order' => $this->max_per_order,
             'sales_start_at' => LocalDateTime::fromUtc($this->sales_start_at, $timezone),
             'sales_end_at' => LocalDateTime::fromUtc($this->sales_end_at, $timezone),
