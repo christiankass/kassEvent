@@ -19,6 +19,8 @@ final class SyncScansRequest extends FormRequest
             'scans.*.scanned_at' => ['nullable', 'date'],
             'scans.*.gate' => ['nullable', 'string', 'max:40'],
             'scans.*.offline' => ['sometimes', 'boolean'],
+            // Hors ligne : l'agent a-t-il laissé entrer la personne ?
+            'scans.*.admitted' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Modules\CheckIn\Models\TicketCheckIn;
 use App\Modules\CheckIn\Models\TicketScan;
 use App\Modules\Events\Models\Event;
 use App\Modules\Ticketing\Models\Ticket;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,19 +21,21 @@ use Illuminate\Support\Str;
  */
 final class CheckInDesk
 {
+    /** Un scan hors ligne ne peut pas dater de plus d'un jour avant le début de l'événement (ou avant maintenant). */
+    private const EARLIEST_BEFORE_START_HOURS = 24;
+
     /**
-     * @param  array{id: string, code: string, scanned_at?: string|null, gate?: string|null, offline?: bool}  $scan
+     * @param  array{id: string, code: string, scanned_at?: string|null, gate?: string|null, offline?: bool, admitted?: bool}  $scan
      * @return array<string, mixed>
      */
     public function record(Event $event, User $agent, array $scan): array
     {
-        $existing = TicketScan::where('event_id', $event->id)->where('client_id', $scan['id'])->first();
+        $existing = $this->find($event, $scan['id']);
         if ($existing) {
             return $this->describe($event, $existing);
         }
 
-        $now = Carbon::now();
-        $scannedAt = isset($scan['scanned_at']) ? Carbon::parse($scan['scanned_at']) : $now;
+        $offline = (bool) ($scan['offline'] ?? false);
         $code = self::normalize($scan['code']);
         $ticket = $code === '' ? null : Ticket::where('code', $code)->first();
 
@@ -41,27 +44,34 @@ final class CheckInDesk
             $ticket->event_id !== $event->id => TicketScan::OTHER_EVENT,
             default => TicketScan::VALID,
         };
+        // Seul un scan hors ligne peut avoir été refusé par l'agent ; en ligne, le serveur décide.
+        $admitted = ! $offline || ($scan['admitted'] ?? true);
 
-        $record = DB::transaction(function () use ($event, $agent, $scan, $ticket, $result, $scannedAt, $now) {
-            $record = TicketScan::create([
-                'event_id' => $event->id,
-                'ticket_id' => $ticket?->id,
-                'user_id' => $agent->id,
-                'client_id' => $scan['id'],
-                'code' => Str::limit($scan['code'], 64, ''),
-                'result' => $result,
-                'gate' => $scan['gate'] ?? null,
-                'offline' => (bool) ($scan['offline'] ?? false),
-                // Une horloge de téléphone en avance ne doit pas faire gagner un scan.
-                'scanned_at' => $scannedAt->greaterThan($now) ? $now : $scannedAt,
-            ]);
+        try {
+            $record = DB::transaction(function () use ($event, $agent, $scan, $ticket, $result, $offline, $admitted) {
+                $record = TicketScan::create([
+                    'event_id' => $event->id,
+                    'ticket_id' => $ticket?->id,
+                    'user_id' => $agent->id,
+                    'client_id' => $scan['id'],
+                    'code' => Str::limit($scan['code'], 64, ''),
+                    'result' => $result,
+                    'gate' => $scan['gate'] ?? null,
+                    'offline' => $offline,
+                    'admitted' => $admitted,
+                    'scanned_at' => $this->scannedAt($event, $offline ? ($scan['scanned_at'] ?? null) : null),
+                ]);
 
-            if ($result === TicketScan::VALID && ! $this->claim($record)) {
-                $record->update(['result' => TicketScan::ALREADY_USED]);
-            }
+                if ($result === TicketScan::VALID && (! $admitted || ! $this->claim($record))) {
+                    $record->update(['result' => TicketScan::ALREADY_USED]);
+                }
 
-            return $record;
-        });
+                return $record;
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Le même scan, envoyé deux fois en même temps (réponse en ligne trop lente puis synchro).
+            $record = $this->find($event, $scan['id']) ?? throw new \LogicException('Scan introuvable après un doublon.');
+        }
 
         return $this->describe($event, $record);
     }
@@ -74,31 +84,54 @@ final class CheckInDesk
         return strlen($clean) <= 20 ? $clean : '';
     }
 
+    private function find(Event $event, string $clientId): ?TicketScan
+    {
+        return TicketScan::where('event_id', $event->id)->where('client_id', $clientId)->first();
+    }
+
+    /**
+     * Heure qui départage les scans : celle du serveur en ligne ; hors ligne, celle du téléphone,
+     * ni dans le futur ni bien avant l'événement (une horloge déréglée ne fait pas gagner un scan).
+     */
+    private function scannedAt(Event $event, ?string $claimed): Carbon
+    {
+        $now = Carbon::now();
+        if ($claimed === null) {
+            return $now;
+        }
+
+        $earliest = Carbon::instance($event->starts_at->lessThan($now) ? $event->starts_at : $now)->subHours(self::EARLIEST_BEFORE_START_HOURS);
+        $time = Carbon::parse($claimed);
+
+        return match (true) {
+            $time->greaterThan($now) => $now,
+            $time->lessThan($earliest) => $earliest,
+            default => $time,
+        };
+    }
+
     /**
      * Inscrit l'entrée du billet si ce scan est le premier, y compris face à un scan plus tardif déjà
      * enregistré. La base arbitre deux scans simultanés (une seule ligne par billet).
      */
     private function claim(TicketScan $scan): bool
     {
-        $row = DB::selectOne(<<<'SQL'
+        $won = DB::selectOne(<<<'SQL'
             INSERT INTO ticket_check_ins (id, organization_id, event_id, ticket_id, scan_id, scanned_at, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, now(), now())
             ON CONFLICT (ticket_id) DO UPDATE
                 SET scan_id = EXCLUDED.scan_id, scanned_at = EXCLUDED.scanned_at, updated_at = now()
                 WHERE ticket_check_ins.scanned_at > EXCLUDED.scanned_at
-            RETURNING (SELECT scan_id FROM ticket_check_ins old WHERE old.ticket_id = ?) AS displaced
-            SQL, [
-            (string) Str::uuid7(), $scan->organization_id, $scan->event_id, $scan->ticket_id, $scan->id, $scan->scanned_at, $scan->ticket_id,
-        ]);
+            RETURNING scan_id
+            SQL, [(string) Str::uuid7(), $scan->organization_id, $scan->event_id, $scan->ticket_id, $scan->id, $scan->scanned_at]);
 
-        if ($row === null) {
+        if ($won === null) {
             return false;
         }
 
         // Un scan plus tardif avait été accepté : il devient « déjà utilisé ».
-        if ($row->displaced) {
-            TicketScan::whereKey($row->displaced)->update(['result' => TicketScan::ALREADY_USED]);
-        }
+        TicketScan::where('ticket_id', $scan->ticket_id)->where('result', TicketScan::VALID)
+            ->whereKeyNot($scan->id)->update(['result' => TicketScan::ALREADY_USED]);
 
         return true;
     }
@@ -107,21 +140,24 @@ final class CheckInDesk
     private function describe(Event $event, TicketScan $scan): array
     {
         $ticket = $scan->ticket_id ? Ticket::with('item')->find($scan->ticket_id) : null;
-        $checkIn = $ticket ? TicketCheckIn::with('scan')->where('ticket_id', $ticket->id)->first() : null;
+        $ours = $ticket && $ticket->event_id === $event->id;
+        $checkIn = $ours ? TicketCheckIn::with('scan.user')->where('ticket_id', $ticket->id)->first() : null;
 
-        $result = $scan->result;
-        if ($ticket && $ticket->event_id === $event->id) {
-            $result = $checkIn?->scan_id === $scan->id ? TicketScan::VALID : TicketScan::ALREADY_USED;
-        }
+        $result = match (true) {
+            ! $ours => $scan->result,
+            $checkIn?->scan_id === $scan->id => TicketScan::VALID,
+            // Refusé hors ligne alors que personne n'est entré avec ce billet : il reste valable.
+            ! $scan->admitted && $checkIn === null => TicketScan::VALID,
+            default => TicketScan::ALREADY_USED,
+        };
 
         return [
             'id' => $scan->client_id,
             'result' => $result,
-            'ticket' => $ticket && $result !== TicketScan::OTHER_EVENT ? self::ticket($ticket) : null,
+            'admitted' => $scan->admitted,
+            'ticket' => $ours ? self::ticket($ticket) : null,
             'first_scan' => $result === TicketScan::ALREADY_USED && $checkIn ? self::firstScan($checkIn->scan) : null,
-            'other_event' => $result === TicketScan::OTHER_EVENT
-                ? Event::whereKey($ticket?->event_id)->value('title')
-                : null,
+            'other_event' => $result === TicketScan::OTHER_EVENT ? Event::whereKey($ticket?->event_id)->value('title') : null,
         ];
     }
 
@@ -141,7 +177,7 @@ final class CheckInDesk
         return [
             'scanned_at' => $scan->scanned_at->toIso8601ZuluString(),
             'gate' => $scan->gate,
-            'agent' => $scan->user_id ? User::whereKey($scan->user_id)->value('name') : null,
+            'agent' => $scan->user?->name,
         ];
     }
 }

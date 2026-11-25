@@ -154,7 +154,7 @@ class CheckInTest extends TestCase
         Sanctum::actingAs($this->agent);
         $list = $this->getJson("/api/v1/events/{$this->eventId}/check-in", ['X-Organization-Id' => $this->organization->id])->assertOk();
         $this->assertSame(1, $list->json('checked_in'));
-        $entry = collect($list->json('tickets'))->firstWhere('hash', hash('sha256', $this->codes[0]));
+        $entry = collect($list->json('tickets'))->firstWhere('hash', hash_pbkdf2('sha256', $this->codes[0], $list->json('fingerprint.salt'), $list->json('fingerprint.iterations')));
         $this->assertSame('Porte B', $entry['first_scan']['gate']);
         $this->inTenant(function () use ($online) {
             $this->assertDatabaseCount('ticket_check_ins', 1);
@@ -176,6 +176,40 @@ class CheckInTest extends TestCase
         $this->inTenant(fn () => $this->assertDatabaseCount('ticket_scans', 2));
     }
 
+    public function test_online_scans_use_the_server_clock_and_offline_times_are_bounded(): void
+    {
+        // En ligne, l'heure annoncée par le téléphone est ignorée.
+        $online = $this->one($this->codes[0], ['scanned_at' => now()->subHours(5)->toIso8601ZuluString()]);
+        $this->scan([$online])->assertJsonPath('data.0.result', 'valid');
+        $this->inTenant(fn () => $this->assertDatabaseHas('ticket_scans', ['client_id' => $online['id'], 'scanned_at' => now()->format('Y-m-d H:i:s')]));
+
+        // Hors ligne, une horloge très en retard est ramenée à la veille de l'événement : elle gagne
+        // contre les scans de la journée, pas contre l'historique.
+        $old = $this->one($this->codes[1], ['scanned_at' => '2020-01-01T00:00:00Z', 'offline' => true]);
+        $this->scan([$old])->assertJsonPath('data.0.result', 'valid');
+        $this->inTenant(fn () => $this->assertDatabaseMissing('ticket_scans', ['client_id' => $old['id'], 'scanned_at' => '2020-01-01 00:00:00']));
+    }
+
+    public function test_a_person_refused_offline_does_not_count_as_entered(): void
+    {
+        // Liste pas à jour : l'agent a refusé le billet hors ligne.
+        $refused = $this->one($this->codes[0], ['offline' => true, 'admitted' => false, 'scanned_at' => now()->subMinutes(5)->toIso8601ZuluString()]);
+        $this->scan([$refused])->assertJsonPath('data.0.result', 'valid')->assertJsonPath('data.0.admitted', false);
+
+        // La personne revient : elle entre normalement.
+        $this->scan([$this->one($this->codes[0])])->assertJsonPath('data.0.result', 'valid');
+        $this->scan([$refused])->assertJsonPath('data.0.result', 'already_used');
+        $this->inTenant(fn () => $this->assertDatabaseCount('ticket_check_ins', 1));
+    }
+
+    public function test_the_same_scan_sent_twice_counts_once(): void
+    {
+        $scan = $this->one($this->codes[0]);
+        $this->scan([$scan])->assertJsonPath('data.0.result', 'valid');
+        $this->scan([[...$scan, 'offline' => true]])->assertJsonPath('data.0.result', 'valid');
+        $this->inTenant(fn () => $this->assertDatabaseCount('ticket_scans', 1));
+    }
+
     public function test_a_phone_clock_ahead_cannot_win(): void
     {
         $future = $this->one($this->codes[0], ['scanned_at' => now()->addHour()->toIso8601ZuluString(), 'offline' => true]);
@@ -193,7 +227,12 @@ class CheckInTest extends TestCase
             ->assertJsonPath('checked_in', 0);
 
         $this->assertStringNotContainsString($this->codes[0], $response->getContent());
-        $this->assertEqualsCanonicalizing(array_map(fn ($code) => hash('sha256', $code), $this->codes), array_column($response->json('tickets'), 'hash'));
+        $salt = $response->json('fingerprint.salt');
+        $iterations = $response->json('fingerprint.iterations');
+        $this->assertEqualsCanonicalizing(
+            array_map(fn ($code) => hash_pbkdf2('sha256', $code, $salt, $iterations), $this->codes),
+            array_column($response->json('tickets'), 'hash'),
+        );
     }
 
     public function test_only_members_who_scan_can_check_in(): void

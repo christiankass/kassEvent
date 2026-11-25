@@ -5,6 +5,7 @@ namespace App\Modules\CheckIn\Http\Controllers;
 use App\Modules\CheckIn\Http\Requests\SyncScansRequest;
 use App\Modules\CheckIn\Models\TicketCheckIn;
 use App\Modules\CheckIn\Support\CheckInDesk;
+use App\Modules\CheckIn\Support\TicketFingerprint;
 use App\Modules\Events\Models\Event;
 use App\Modules\Ticketing\Models\Ticket;
 use Illuminate\Http\JsonResponse;
@@ -14,16 +15,17 @@ final class CheckInController
 {
     /**
      * Liste des billets à garder sur le téléphone pour scanner sans réseau. Les codes n'y figurent
-     * pas en clair : seulement leur empreinte SHA-256. Une liste copiée ne permet pas de fabriquer un billet.
+     * pas en clair, seulement leur empreinte (voir TicketFingerprint), avec le sel et le nombre de tours
+     * qui permettent au téléphone de calculer celle du code qu'il lit.
      */
     public function show(string $id): JsonResponse
     {
         $event = Event::findOrFail($id);
 
-        $checkIns = TicketCheckIn::with('scan')->where('event_id', $event->id)->get()->keyBy('ticket_id');
+        $checkIns = TicketCheckIn::with('scan.user')->where('event_id', $event->id)->get()->keyBy('ticket_id');
         $tickets = Ticket::with('item')->where('event_id', $event->id)->orderBy('id')->get()
             ->map(fn (Ticket $ticket) => [
-                'hash' => hash('sha256', $ticket->code),
+                'hash' => TicketFingerprint::of($ticket),
                 ...CheckInDesk::ticket($ticket),
                 'first_scan' => ($checkIn = $checkIns->get($ticket->id)) ? CheckInDesk::firstScan($checkIn->scan) : null,
             ]);
@@ -36,6 +38,7 @@ final class CheckInController
                 'timezone' => $event->timezone,
                 'venue_name' => $event->venue_name,
             ],
+            'fingerprint' => ['salt' => TicketFingerprint::salt($event->id), 'iterations' => TicketFingerprint::ITERATIONS],
             'tickets' => $tickets,
             'checked_in' => $checkIns->count(),
             'generated_at' => now()->toIso8601ZuluString(),

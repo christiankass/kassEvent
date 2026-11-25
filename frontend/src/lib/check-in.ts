@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, ApiError } from "./api";
 
 /**
  * Contrôle d'entrée. Le téléphone garde la liste des billets de l'événement (empreintes SHA-256,
@@ -14,26 +14,33 @@ export type FirstScan = { scanned_at: string; gate: string | null; agent: string
 export type ServerScan = {
   id: string;
   result: ScanResult;
+  admitted: boolean;
   ticket: TicketInfo | null;
   first_scan: FirstScan | null;
   other_event: string | null;
 };
 
 export type CheckInList = {
+  /** Paramètres pour calculer l'empreinte du code lu (PBKDF2-SHA256), comme le serveur. */
+  fingerprint: { salt: string; iterations: number };
   event: { id: string; title: string; starts_at_utc: string; timezone: string; venue_name: string };
   tickets: (TicketInfo & { hash: string; first_scan: FirstScan | null })[];
   checked_in: number;
   generated_at: string;
 };
 
-/** Scan fait sur ce téléphone, en attente d'envoi. `local` : le résultat affiché à l'agent. */
-export type PendingScan = { id: string; code: string; scanned_at: string; gate: string | null; offline: boolean; local: ScanResult };
+/** Scan fait sur ce téléphone, en attente d'envoi. `admitted` : l'agent a laissé entrer la personne. */
+export type PendingScan = { id: string; code: string; scanned_at: string; gate: string | null; offline: boolean; admitted: boolean };
 
 /** Résultat affiché. « unverified » : hors ligne et liste jamais téléchargée sur ce téléphone. */
-export type Verdict = Omit<ServerScan, "result"> & { result: ScanResult | "unverified"; offline: boolean };
+export type Verdict = Omit<ServerScan, "result" | "admitted"> & { result: ScanResult | "unverified"; offline: boolean };
 
-/** Billet entré dans un autre scan que celui affiché comme valide : risque de double entrée. */
-export type Conflict = { id: string; ticket: TicketInfo | null; first_scan: FirstScan | null };
+/**
+ * Ce que la synchronisation révèle d'un scan hors ligne :
+ * « double » : accepté ici alors que le billet était déjà entré ailleurs (double entrée) ;
+ * « refused » : refusé ici (liste pas à jour) alors que le billet était bon.
+ */
+export type Conflict = { id: string; kind: "double" | "refused"; ticket: TicketInfo | null; first_scan: FirstScan | null };
 
 /** Contenu d'un QR code ou code saisi à la main, ramené au code du billet (comme le serveur). */
 export function normalizeCode(raw: string): string {
@@ -41,9 +48,12 @@ export function normalizeCode(raw: string): string {
   return clean.length <= 20 ? clean : "";
 }
 
-export async function fingerprint(code: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+/** Empreinte du code, calculée comme le serveur (PBKDF2-SHA256, sel de l'événement). */
+export async function fingerprint(code: string, { salt, iterations }: CheckInList["fingerprint"]): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(code), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: encoder.encode(salt), iterations }, key, 256);
+  return Array.from(new Uint8Array(bits), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // --- Stockage sur le téléphone (IndexedDB) ---------------------------------------------------
@@ -104,10 +114,29 @@ export async function saveDesk(organizationId: string, eventId: string, desk: De
   }
 }
 
-/** À la déconnexion : la liste contient les noms des participants, elle ne reste pas sur le téléphone. */
+/**
+ * À la déconnexion : les listes contiennent les noms des participants, elles ne restent pas sur
+ * le téléphone. Les scans pas encore envoyés sont gardés : ils partiront à la prochaine ouverture du scan.
+ */
 export async function clearDesks(): Promise<void> {
   try {
-    await withStore("readwrite", (store) => store.clear());
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      const store = tx.objectStore(STORE);
+      const cursor = store.openCursor();
+      cursor.onsuccess = () => {
+        const current = cursor.result;
+        if (!current) return;
+        const desk = current.value as Desk;
+        if (desk.pending.length > 0) current.update({ list: null, local: {}, pending: desk.pending });
+        else current.delete();
+        current.continue();
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
   } catch {
     // Rien à effacer.
   }
@@ -127,7 +156,7 @@ export function decideOffline(desk: Desk, hash: string, id: string): Verdict {
 }
 
 /** Envoie des scans et renvoie le résultat qui fait foi pour chacun. */
-export function sendScans(organizationId: string, eventId: string, scans: Omit<PendingScan, "local">[], signal?: AbortSignal) {
+export function sendScans(organizationId: string, eventId: string, scans: PendingScan[], signal?: AbortSignal) {
   return api<{ data: ServerScan[] }>(`/events/${eventId}/check-in/scans`, {
     method: "POST",
     organizationId,
@@ -138,6 +167,11 @@ export function sendScans(organizationId: string, eventId: string, scans: Omit<P
 
 export function downloadList(organizationId: string, eventId: string) {
   return api<CheckInList>(`/events/${eventId}/check-in`, { organizationId });
+}
+
+/** Réseau absent, trop lent ou serveur en panne : le téléphone décide seul. Les autres refus sont à montrer. */
+export function isOutage(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 0 || error.status === 429 || error.status >= 500);
 }
 
 /** Personnes à laisser entrer avec ce billet : le titulaire et ses accompagnants. */

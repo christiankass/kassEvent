@@ -217,6 +217,11 @@
   color: #fff;
 }
 
+.conflict[data-kind="refused"] {
+  background: #f59e0b;
+  color: #2a1a00;
+}
+
 .conflict p {
   margin: 4px 0 0;
 }

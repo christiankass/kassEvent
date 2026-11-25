@@ -12,17 +12,11 @@ use Illuminate\Support\Facades\Schema;
  *   plus tard par un téléphone resté hors ligne. client_id rend l'envoi idempotent.
  * - ticket_check_ins : une ligne par billet entré, celle du premier scan (le premier scan fait foi,
  *   même s'il arrive après un autre parce que son téléphone était hors ligne).
- * - tickets.companions : nombre d'accompagnants admis avec le billet (invitations d'événements privés).
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('tickets', function (Blueprint $table) {
-            $table->unsignedSmallInteger('companions')->default(0)->after('holder_name');
-            $table->index(['event_id', 'id']);
-        });
-
         Schema::create('ticket_scans', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('organization_id')->constrained()->cascadeOnDelete();
@@ -34,6 +28,9 @@ return new class extends Migration
             $table->string('result', 20); // valid, already_used, invalid, other_event
             $table->string('gate', 40)->nullable();
             $table->boolean('offline')->default(false);
+            // Hors ligne, l'agent a refusé la personne (liste pas à jour, billet inconnu) : le scan est
+            // gardé pour l'historique mais ne compte pas comme entrée.
+            $table->boolean('admitted')->default(true);
             $table->timestamp('scanned_at'); // heure du scan sur le téléphone, jamais dans le futur
             $table->timestamps();
 
@@ -60,9 +57,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('ticket_check_ins');
         Schema::dropIfExists('ticket_scans');
-        Schema::table('tickets', function (Blueprint $table) {
-            $table->dropIndex(['event_id', 'id']);
-            $table->dropColumn('companions');
-        });
     }
 };

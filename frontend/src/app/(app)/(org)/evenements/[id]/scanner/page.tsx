@@ -11,6 +11,7 @@ import {
   decideOffline,
   downloadList,
   fingerprint,
+  isOutage,
   loadDesk,
   normalizeCode,
   saveDesk,
@@ -90,7 +91,7 @@ export default function ScannerPage() {
       });
       setError(null);
     } catch (e) {
-      if (!(e instanceof ApiError && e.status === 0)) setError(e);
+      if (!isOutage(e)) setError(e);
     }
     setDownloading(false);
   }, [organizationId, eventId, commit]);
@@ -101,17 +102,11 @@ export default function ScannerPage() {
     if (batch.length === 0) return;
     syncingRef.current = true;
     try {
-      const { data } = await sendScans(
-        organizationId,
-        eventId,
-        batch.map((scan) => ({ id: scan.id, code: scan.code, scanned_at: scan.scanned_at, gate: scan.gate, offline: scan.offline })),
-      );
+      const { data } = await sendScans(organizationId, eventId, batch);
       const found: Conflict[] = [];
       for (const result of data) {
-        const sent = batch.find((scan) => scan.id === result.id);
-        if (sent?.local === "valid" && result.result === "already_used") {
-          found.push({ id: result.id, ticket: result.ticket, first_scan: result.first_scan });
-        }
+        const kind = result.admitted ? (result.result === "already_used" ? "double" : null) : result.result === "valid" ? "refused" : null;
+        if (kind) found.push({ id: result.id, kind, ticket: result.ticket, first_scan: result.first_scan });
       }
       const done = new Set(data.map((result) => result.id));
       commit((d) => ({ ...d, pending: d.pending.filter((scan) => !done.has(scan.id)) }));
@@ -121,8 +116,14 @@ export default function ScannerPage() {
       }
       syncingRef.current = false;
       await refreshList();
-    } catch {
-      // Réseau encore absent : on réessaiera.
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 422) {
+        // Lot refusé tel quel : il ne passera jamais, on ne bloque pas les suivants.
+        const sent = new Set(batch.map((scan) => scan.id));
+        commit((d) => ({ ...d, pending: d.pending.filter((scan) => !sent.has(scan.id)) }));
+      }
+      // Panne de réseau : on réessaiera. Session expirée, accès retiré : l'agent doit le savoir.
+      if (!isOutage(e)) setError(e);
     }
     syncingRef.current = false;
   }, [organizationId, eventId, commit, refreshList]);
@@ -195,7 +196,8 @@ export default function ScannerPage() {
 
       const id = crypto.randomUUID();
       const scan = { id, code: raw.slice(0, 512), scanned_at: new Date(now).toISOString(), gate: gateRef.current.trim() || null };
-      const hash = code ? await fingerprint(code) : "";
+      const list = deskRef.current.list;
+      const hash = code && list ? await fingerprint(code, list.fingerprint) : "";
       const mine: FirstScan = { scanned_at: scan.scanned_at, gate: scan.gate, agent: user.name };
 
       let shown: Verdict | null = null;
@@ -203,11 +205,17 @@ export default function ScannerPage() {
         const controller = new AbortController();
         const timer = window.setTimeout(() => controller.abort(), ONLINE_TIMEOUT_MS);
         try {
-          const { data } = await sendScans(organizationId, eventId, [{ ...scan, offline: false }], controller.signal);
+          const { data } = await sendScans(organizationId, eventId, [{ ...scan, offline: false, admitted: true }], controller.signal);
           shown = { ...data[0], offline: false };
-          if (shown.result === "valid") commit((d) => ({ ...d, local: { ...d.local, [hash]: mine } }));
-        } catch {
+          if (shown.result === "valid" && hash) commit((d) => ({ ...d, local: { ...d.local, [hash]: mine } }));
+        } catch (e) {
           // Réseau trop lent ou coupé : la liste du téléphone décide, le scan partira plus tard.
+          if (!isOutage(e)) {
+            window.clearTimeout(timer);
+            setError(e);
+            busyRef.current = false;
+            return;
+          }
         }
         window.clearTimeout(timer);
       }
@@ -216,7 +224,7 @@ export default function ScannerPage() {
         shown = code ? decideOffline(deskRef.current, hash, id) : { id, result: "invalid", ticket: null, first_scan: null, other_event: null, offline: true };
         const verdict = shown;
         if (code) {
-          const pending: PendingScan = { ...scan, offline: true, local: verdict.result === "unverified" ? "invalid" : verdict.result };
+          const pending: PendingScan = { ...scan, offline: true, admitted: verdict.result === "valid" };
           commit((d) => ({
             ...d,
             pending: [...d.pending, pending],
@@ -275,12 +283,12 @@ export default function ScannerPage() {
       {error ? <Alert tone="error">{formErrorMessage(error, t)}</Alert> : null}
 
       {conflicts.map((conflict) => (
-        <div key={conflict.id} className={styles.conflict} role="alert">
+        <div key={conflict.id} className={styles.conflict} data-kind={conflict.kind} role="alert">
           <WarningOctagon size={28} weight="fill" aria-hidden />
           <div>
-            <strong>{t.scan.conflictTitle}</strong>
+            <strong>{conflict.kind === "double" ? t.scan.conflictTitle : t.scan.refusedTitle}</strong>
             <p>
-              {format(t.scan.conflictBody, {
+              {format(conflict.kind === "double" ? t.scan.conflictBody : t.scan.refusedBody, {
                 name: conflict.ticket?.holder_name ?? "—",
                 first: conflict.first_scan ? describeFirst(conflict.first_scan) : "",
               })}

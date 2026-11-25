@@ -730,6 +730,8 @@ const fr = {
     checkedOffline: "Vérifié hors ligne",
     conflictTitle: "Double entrée détectée",
     conflictBody: "{name} était déjà entré : {first}.",
+    refusedTitle: "Billet valide refusé hors ligne",
+    refusedBody: "Le billet de {name} est bon (acheté après le téléchargement de la liste). S'il revient, laissez-le entrer.",
     dismiss: "J'ai compris",
   },
   dashboard: {
@@ -1475,6 +1477,8 @@ const en: Dictionary = {
     checkedOffline: "Checked offline",
     conflictTitle: "Double entry detected",
     conflictBody: "{name} had already entered: {first}.",
+    refusedTitle: "Valid ticket refused offline",
+    refusedBody: "{name}'s ticket is fine (bought after the list was downloaded). If they come back, let them in.",
     dismiss: "Got it",
   },
   dashboard: {
