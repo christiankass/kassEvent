@@ -4,8 +4,12 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Modules\Payments\Events\PaymentSucceeded;
+use App\Modules\Payouts\Console\CompletePayout;
+use App\Modules\Payouts\Console\RunPayouts;
+use App\Modules\Payouts\Support\PayoutService;
 use App\Modules\Tenancy\Support\TenantContext;
 use App\Modules\Ticketing\Actions\ConfirmOrder;
+use App\Modules\Ticketing\Events\OrderPaid;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
@@ -60,10 +64,18 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('order-tickets', fn (Request $request) => Limit::perMinute(1200)->by($request->ip().'|'.$request->route('id')));
         // E-mail d'exemple de l'atelier : envoyé à soi-même, quelques fois seulement.
         RateLimiter::for('design-test', fn (Request $request) => Limit::perMinute(3)->by($request->user()?->id ?: $request->ip()));
+        // Compte de reversement (code de double authentification) et « Reverser maintenant ».
+        RateLimiter::for('payouts', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('webhooks', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
 
         // Un paiement réussi (module Payments) confirme la commande et émet les billets (module Ticketing).
         Event::listen(PaymentSucceeded::class, [ConfirmOrder::class, 'onPaymentSucceeded']);
+        // Une commande payée (module Ticketing) est inscrite au compte de perception (module Payouts).
+        Event::listen(OrderPaid::class, [PayoutService::class, 'onOrderPaid']);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([RunPayouts::class, CompletePayout::class]);
+        }
 
         // Les workers gardent leur connexion PostgreSQL ouverte : chaque job repart d'un contexte vide,
         // quelle qu'ait été l'issue du précédent. (En file « sync », le job tourne dans la requête

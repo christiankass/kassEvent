@@ -29,6 +29,8 @@ final class Roles
         'orders.view',
         'orders.refund',
         'payouts.view',
+        // Choisir où l'argent est reversé, et demander un reversement : propriétaire et finance seulement.
+        'payouts.manage',
         'checkin.scan',
         'reports.view',
     ];
@@ -38,9 +40,9 @@ final class Roles
     {
         return [
             self::OWNER => self::PERMISSIONS,
-            'admin' => array_values(array_diff(self::PERMISSIONS, ['billing.manage'])),
+            'admin' => array_values(array_diff(self::PERMISSIONS, ['billing.manage', 'payouts.manage'])),
             'event_manager' => ['events.view', 'events.manage', 'orders.view', 'checkin.scan', 'reports.view'],
-            'finance' => ['events.view', 'orders.view', 'orders.refund', 'payouts.view', 'billing.manage', 'reports.view'],
+            'finance' => ['events.view', 'orders.view', 'orders.refund', 'payouts.view', 'payouts.manage', 'billing.manage', 'reports.view'],
             'check_in_agent' => ['events.view', 'checkin.scan'],
             'viewer' => ['events.view', 'orders.view', 'reports.view'],
         ];
