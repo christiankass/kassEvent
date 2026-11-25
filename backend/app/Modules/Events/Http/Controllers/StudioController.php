@@ -31,7 +31,7 @@ final class StudioController
                 'ticket' => $design->canvas,
                 'poster' => $design->poster_canvas,
             ],
-            'meta' => ['formats' => CanvasDocument::FORMATS, 'fields' => CanvasDocument::FIELDS],
+            'meta' => ['formats' => CanvasDocument::FORMATS, 'usage_formats' => CanvasDocument::USAGE_FORMATS, 'fields' => CanvasDocument::FIELDS],
         ]);
     }
 
@@ -62,13 +62,9 @@ final class StudioController
     /** Enregistre le billet du studio et l'utilise désormais pour les billets envoyés. */
     public function saveTicket(Request $request, string $id): JsonResponse
     {
-        [$width, $height] = CanvasDocument::FORMATS[CanvasDocument::TICKET];
-        $request->validate([
-            'canvas' => ['required', 'string', 'max:500000'],
-            'image' => [...self::IMAGE_TYPES, 'max:10240', "dimensions:width={$width},height={$height}"],
-        ]);
         $design = EventDesign::editable($id);
         $canvas = $this->document($request, $design->event, CanvasDocument::TICKET);
+        ['width' => $width, 'height' => $height] = $canvas;
 
         $previous = $design->canvas_image_path;
         $path = DesignImage::store($request->file('image'), EventDesign::studioDirectory($design->event), $width, $height, 90);
@@ -84,14 +80,10 @@ final class StudioController
     /** Enregistre l'affiche du studio, qui devient l'affiche de l'événement (page de vente, partages). */
     public function savePoster(Request $request, string $id): JsonResponse
     {
-        [$width, $height] = CanvasDocument::FORMATS[CanvasDocument::POSTER];
-        $request->validate([
-            'canvas' => ['required', 'string', 'max:500000'],
-            'image' => [...self::IMAGE_TYPES, 'max:10240', "dimensions:width={$width},height={$height}"],
-        ]);
         $design = EventDesign::editable($id);
         $event = $design->event;
         $canvas = $this->document($request, $event, CanvasDocument::POSTER);
+        ['width' => $width, 'height' => $height] = $canvas;
 
         $previous = $event->cover_path;
         $path = DesignImage::store($request->file('image'), "events/{$event->organization_id}", $width, $height, 90);
@@ -116,13 +108,24 @@ final class StudioController
         return $this->show($id);
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Document vérifié, et image fixe exactement au format de sa page.
+     *
+     * @return array<string, mixed>
+     */
     private function document(Request $request, Event $event, string $usage): array
     {
+        $request->validate(['canvas' => ['required', 'string', 'max:500000'], 'image' => [...self::IMAGE_TYPES, 'max:10240']]);
+        $document = json_decode($request->input('canvas'), true);
+        $format = is_array($document) ? CanvasDocument::formatOf([$document['width'] ?? null, $document['height'] ?? null], $usage) : null;
+        if ($format !== null) {
+            [$width, $height] = CanvasDocument::FORMATS[$format];
+            $request->validate(['image' => ["dimensions:width={$width},height={$height}"]]);
+        }
         // Une seule lecture du dossier, au lieu d'une requête au stockage par image du document.
         $names = array_flip(array_map('basename', Event::mediaDisk()->files(EventDesign::studioDirectory($event))));
 
-        return CanvasDocument::validate(json_decode($request->input('canvas'), true), $usage, fn (string $name) => isset($names[$name]));
+        return CanvasDocument::validate($document, $usage, fn (string $name) => isset($names[$name]));
     }
 
     private function saveOrDiscard(EventDesign $design, string $path): void

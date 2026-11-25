@@ -6,14 +6,26 @@
 export const USAGES = ["ticket", "poster"] as const;
 export type Usage = (typeof USAGES)[number];
 
-/** Format de page de chaque usage, en pixels : billet 4:5 (téléphone, WhatsApp), affiche 1200 × 630 (partages). */
-export const FORMATS: Record<Usage, [number, number]> = { ticket: [1080, 1350], poster: [1200, 630] };
+/** Formats de page, en pixels : portrait 4:5 (téléphone, WhatsApp), carré, story 9:16, paysage (partages). */
+export const FORMATS = { portrait: [1080, 1350], square: [1080, 1080], story: [1080, 1920], landscape: [1200, 630] } as const satisfies Record<
+  string,
+  readonly [number, number]
+>;
+export type FormatId = keyof typeof FORMATS;
+
+/** Formats permis pour chaque usage, le premier par défaut. */
+export const USAGE_FORMATS: Record<Usage, FormatId[]> = { ticket: ["portrait", "square", "story"], poster: ["landscape", "portrait", "square", "story"] };
+
+/** Format d'une page (le format par défaut de l'usage si la taille est inconnue). */
+export function formatOf(doc: Pick<CanvasDoc, "width" | "height">, usage: Usage): FormatId {
+  return USAGE_FORMATS[usage].find((id) => FORMATS[id][0] === doc.width && FORMATS[id][1] === doc.height) ?? USAGE_FORMATS[usage][0];
+}
 
 /** Champs remplis pour chaque invité, au moment de l'envoi. */
 export const FIELDS = ["holder", "ticket_type", "code"] as const;
 export type FieldName = (typeof FIELDS)[number];
 
-export const CANVAS_FONTS = ["fraunces", "playfair", "instrument", "script", "mono"] as const;
+export const CANVAS_FONTS = ["fraunces", "playfair", "instrument", "poppins", "anton", "fredoka", "cinzel", "script", "pacifico", "mono"] as const;
 export type CanvasFont = (typeof CANVAS_FONTS)[number];
 
 export const MAX_ELEMENTS = 150;
@@ -44,11 +56,44 @@ export type ShapeElement = Box & {
   strokeWidth?: number;
   cornerRadius?: number;
 };
-/** Photo ; sans `asset`, un emplacement à remplir (invisible sur le billet envoyé). */
-export type ImageElement = Box & { type: "image"; asset: string | null; cornerRadius?: number };
+/**
+ * Photo ; sans `asset`, un emplacement à remplir (invisible sur le billet envoyé). `contain` : l'image
+ * entière dans le cadre (logo, photo détourée) ; `cover` : elle remplit le cadre, recadrée.
+ */
+export type ImageElement = Box & { type: "image"; asset: string | null; cornerRadius?: number; fit?: "cover" | "contain" };
 export type QrElement = Box & { type: "qr" };
+/** Pictogramme (date, heure, lieu…), dessiné d'un trait de la couleur choisie. */
+export type IconElement = Box & { type: "icon"; icon: IconName; fill: string };
 
-export type CanvasElement = TextElement | FieldElement | ShapeElement | ImageElement | QrElement;
+export const ICONS = [
+  "calendar",
+  "clock",
+  "pin",
+  "phone",
+  "globe",
+  "mail",
+  "ticket",
+  "music",
+  "mic",
+  "live",
+  "play",
+  "heart",
+  "rings",
+  "cake",
+  "gift",
+  "sparkle",
+  "trophy",
+  "cross",
+  "church",
+  "user",
+  "check",
+  "arrow",
+  "chevrons",
+  "quote",
+] as const;
+export type IconName = (typeof ICONS)[number];
+
+export type CanvasElement = TextElement | FieldElement | ShapeElement | ImageElement | QrElement | IconElement;
 export type ElementType = CanvasElement["type"];
 
 export type CanvasDoc = {
@@ -104,4 +149,31 @@ export function canvasProblem(doc: CanvasDoc, usage: Usage): "oneQr" | "tooMany"
   if (usage === "ticket" && qrs !== 1) return "oneQr";
   if (usage === "poster" && doc.elements.some((element) => element.type === "qr" || element.type === "field")) return "posterFields";
   return null;
+}
+
+/**
+ * Même page dans un autre format : chaque calque garde sa place relative (centre) et ses proportions,
+ * à l'échelle du côté le plus contraint ; le QR code reste conforme.
+ */
+export function resizeDoc(doc: CanvasDoc, width: number, height: number): CanvasDoc {
+  const sx = width / doc.width;
+  const sy = height / doc.height;
+  const scale = Math.min(sx, sy);
+  const target = { width, height };
+  const elements = doc.elements.map((element) => {
+    // Fonds pleine page (aplats, dégradés) : ils suivent toute la page.
+    const fullPage = element.type !== "text" && element.type !== "field" && element.type !== "qr" && element.width >= doc.width * 0.98 && element.height >= doc.height * 0.98;
+    const w = fullPage ? element.width * sx : element.width * scale;
+    const h = fullPage ? element.height * sy : element.height * scale;
+    const resized = {
+      ...element,
+      x: Math.round((element.x + element.width / 2) * sx - w / 2),
+      y: Math.round((element.y + element.height / 2) * sy - h / 2),
+      width: Math.max(1, Math.round(w)),
+      height: Math.max(1, Math.round(h)),
+      ...(isTextual(element) ? { fontSize: Math.max(6, Math.round(element.fontSize * scale)) } : {}),
+    } as CanvasElement;
+    return resized.type === "qr" ? constrainQr(resized, target) : resized;
+  });
+  return { ...doc, width, height, elements };
 }

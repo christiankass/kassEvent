@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: event.title,
       description,
       url: publicEventUrl(event.slug),
-      images: event.cover_url ? [{ url: event.cover_url, width: 1200, height: 630 }] : undefined,
+      images: event.cover_url ? [{ url: event.cover_url }] : undefined,
     },
   };
 }

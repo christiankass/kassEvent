@@ -1,4 +1,4 @@
-import { Great_Vibes, Playfair_Display } from "next/font/google";
+import { Anton, Cinzel, Fredoka, Great_Vibes, Pacifico, Playfair_Display, Poppins } from "next/font/google";
 import type { CanvasFont } from "./canvas";
 
 /**
@@ -7,8 +7,13 @@ import type { CanvasFont } from "./canvas";
  */
 const playfair = Playfair_Display({ subsets: ["latin"], weight: ["400", "700"], variable: "--f-playfair", preload: false });
 const script = Great_Vibes({ subsets: ["latin"], weight: ["400"], variable: "--f-script", preload: false });
+const anton = Anton({ subsets: ["latin"], weight: ["400"], variable: "--f-anton", preload: false });
+const poppins = Poppins({ subsets: ["latin"], weight: ["400", "800"], variable: "--f-poppins", preload: false });
+const fredoka = Fredoka({ subsets: ["latin"], weight: ["400", "700"], variable: "--f-fredoka", preload: false });
+const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700"], variable: "--f-cinzel", preload: false });
+const pacifico = Pacifico({ subsets: ["latin"], weight: ["400"], variable: "--f-pacifico", preload: false });
 
-export const ticketFontVariables = `${playfair.variable} ${script.variable}`;
+export const ticketFontVariables = [playfair, script, anton, poppins, fredoka, cinzel, pacifico].map((font) => font.variable).join(" ");
 
 /** Variable CSS de chaque police du studio (mêmes fichiers que ceux du serveur, resources/fonts). */
 const CANVAS_FONT_VARIABLES: Record<CanvasFont, string> = {
@@ -17,6 +22,11 @@ const CANVAS_FONT_VARIABLES: Record<CanvasFont, string> = {
   instrument: "--f-body",
   script: "--f-script",
   mono: "--f-code",
+  anton: "--f-anton",
+  poppins: "--f-poppins",
+  fredoka: "--f-fredoka",
+  cinzel: "--f-cinzel",
+  pacifico: "--f-pacifico",
 };
 
 /**

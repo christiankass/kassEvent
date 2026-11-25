@@ -22,6 +22,11 @@ final class TicketImage
         'instrument' => ['InstrumentSans-Regular', 'InstrumentSans-Bold'],
         'script' => ['GreatVibes-Regular', 'GreatVibes-Regular'],
         'mono' => ['JetBrainsMono-Regular', 'JetBrainsMono-Bold'],
+        'anton' => ['Anton-Regular', 'Anton-Regular'],
+        'poppins' => ['Poppins-Regular', 'Poppins-ExtraBold'],
+        'fredoka' => ['Fredoka-Regular', 'Fredoka-Bold'],
+        'cinzel' => ['Cinzel-Regular', 'Cinzel-Bold'],
+        'pacifico' => ['Pacifico-Regular', 'Pacifico-Regular'],
     ];
 
     /** Images fixes déjà décodées, par chemin : une commande de N billets ne lit le fond qu'une fois. */

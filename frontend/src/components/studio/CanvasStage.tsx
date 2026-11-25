@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Konva from "konva";
-import { Ellipse, Group, Image as KonvaImage, Layer, Line, Rect, Shape, Stage, Star, Text, Transformer } from "react-konva";
+import { Ellipse, Group, Image as KonvaImage, Layer, Line, Path, Rect, Shape, Stage, Star, Text, Transformer } from "react-konva";
 import {
   isDynamic,
   isTextual,
@@ -13,6 +13,7 @@ import {
   type TextElement,
   type ShapeElement,
 } from "@/lib/canvas";
+import { FILLED_ICONS, ICON_PATHS } from "@/lib/canvas-icons";
 
 export type StageHandle = {
   /** Image de la page au format exact ; `withDynamic` false : sans QR code, champs ni emplacements vides. */
@@ -238,24 +239,28 @@ function ElementShape({
       return <ShapeNode element={element} />;
     case "image": {
       const image = element.asset ? images[element.asset] : undefined;
-      if (image) return <KonvaImage image={image} width={width} height={height} cornerRadius={element.cornerRadius ?? 0} crop={cover(image, width, height).crop} />;
+      if (image) {
+        return element.fit === "contain" ? (
+          <KonvaImage image={image} {...contain(image, width, height)} cornerRadius={element.cornerRadius ?? 0} />
+        ) : (
+          <KonvaImage image={image} width={width} height={height} cornerRadius={element.cornerRadius ?? 0} crop={cover(image, width, height).crop} />
+        );
+      }
+      return <PhotoPlaceholder width={width} height={height} radius={element.cornerRadius ?? 0} label={element.asset ? null : `＋ ${element.name || photoLabel}`} />;
+    }
+    case "icon": {
+      const filled = FILLED_ICONS.has(element.icon);
       return (
-        <Group name={element.asset ? undefined : "placeholder"}>
-          <Rect width={width} height={height} cornerRadius={element.cornerRadius ?? 0} fill="#DCE7E5" stroke="#0B3B3C" strokeWidth={3} dash={[14, 10]} />
-          {!element.asset && (
-            <Text
-              width={width}
-              height={height}
-              text={`＋ ${element.name || photoLabel}`}
-              align="center"
-              verticalAlign="middle"
-              fontSize={Math.max(18, Math.min(width, height) / 10)}
-              fill="#0B3B3C"
-              fontStyle="bold"
-              padding={12}
-            />
-          )}
-        </Group>
+        <Path
+          data={ICON_PATHS[element.icon]}
+          scaleX={width / 24}
+          scaleY={height / 24}
+          fill={filled ? element.fill : undefined}
+          stroke={filled ? undefined : element.fill}
+          strokeWidth={2}
+          lineCap="round"
+          lineJoin="round"
+        />
       );
     }
     case "qr":
@@ -263,13 +268,51 @@ function ElementShape({
   }
 }
 
+/**
+ * Emplacement photo vide : silhouette sur fond teinté, pour voir la composition du modèle. Absent du
+ * billet enregistré ; sur une photo introuvable (`label` null), seul le cadre reste.
+ */
+function PhotoPlaceholder({ width, height, radius, label }: { width: number; height: number; radius: number; label: string | null }) {
+  const size = Math.min(width, height);
+  return (
+    <Group name={label ? "placeholder" : undefined}>
+      <Rect width={width} height={height} cornerRadius={radius} fill="#DCE7E5" fillLinearGradientStartPoint={{ x: 0, y: 0 }} fillLinearGradientEndPoint={{ x: 0, y: height }} fillLinearGradientColorStops={[0, "#E6EFED", 1, "#C5D7D3"]} />
+      <Group
+        clipFunc={(context) => {
+          context.beginPath();
+          context.roundRect(0, 0, width, height, Math.min(radius, size / 2));
+        }}
+      >
+        <Ellipse x={width / 2} y={height - size * 0.02} radiusX={size * 0.36} radiusY={size * 0.3} fill="#A9C2BD" />
+        <Ellipse x={width / 2} y={height - size * 0.52} radiusX={size * 0.17} radiusY={size * 0.19} fill="#A9C2BD" />
+      </Group>
+      <Rect width={width} height={height} cornerRadius={radius} stroke="#0B3B3C" strokeWidth={Math.max(2, size / 150)} dash={[14, 10]} />
+      {label && (
+        <Text
+          width={width}
+          height={height * 0.4}
+          text={label}
+          align="center"
+          verticalAlign="middle"
+          fontSize={Math.max(18, size / 11)}
+          fill="#0B3B3C"
+          fontStyle="bold"
+          padding={12}
+        />
+      )}
+    </Group>
+  );
+}
+
 function ShapeNode({ element }: { element: ShapeElement }) {
   const { width, height } = element;
-  const fill = element.fill2 && element.fill
+  // Seconde couleur seule : fondu du transparent vers elle (photo qui s'efface dans le fond).
+  const from = element.fill ?? (element.fill2 ? `${element.fill2}00` : null);
+  const fill = element.fill2 && from
     ? {
         fillLinearGradientStartPoint: { x: 0, y: element.type === "ellipse" || element.type === "star" ? -height / 2 : 0 },
         fillLinearGradientEndPoint: { x: 0, y: element.type === "ellipse" || element.type === "star" ? height / 2 : height },
-        fillLinearGradientColorStops: [0, element.fill, 1, element.fill2],
+        fillLinearGradientColorStops: [0, from, 1, element.fill2],
       }
     : { fill: element.fill ?? undefined };
   const stroke = { stroke: element.stroke ?? undefined, strokeWidth: element.stroke ? (element.strokeWidth ?? 2) : 0 };
@@ -343,6 +386,14 @@ function QrSample({ size }: { size: number }) {
       }}
     />
   );
+}
+
+/** Cadrage « contenir » : l'image entière, centrée dans le cadre. */
+function contain(image: HTMLImageElement, width: number, height: number) {
+  const ratio = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+  const w = image.naturalWidth * ratio;
+  const h = image.naturalHeight * ratio;
+  return { x: (width - w) / 2, y: (height - h) / 2, width: w, height: h };
 }
 
 /** Recadrage « remplir » : l'image couvre tout le cadre, centrée. */
