@@ -11,6 +11,7 @@ import {
   WhatsappLogo,
 } from "@phosphor-icons/react/dist/ssr";
 import { LocaleSwitch, Wordmark } from "@/components/ui";
+import ui from "@/components/ui.module.css";
 import { dictionaries } from "@/lib/i18n/dictionaries";
 import { resolveLocale } from "@/lib/i18n/server";
 import billetConcert from "@/assets/accueil/billet-concert.webp";
@@ -49,7 +50,7 @@ export default async function Home() {
             <Link href="/connexion" className={styles.login}>
               {t.login}
             </Link>
-            <Link href="/inscription" className={`${styles.cta} ${styles.headerCta}`}>
+            <Link href="/inscription" className={`${ui.button} ${styles.cta} ${styles.headerCta}`}>
               {t.register}
             </Link>
           </div>
@@ -66,11 +67,11 @@ export default async function Home() {
             </h1>
             <p className={styles.heroLede}>{t.hero.lede}</p>
             <p className={styles.heroActions}>
-              <Link href="/inscription" className={styles.cta}>
+              <Link href="/inscription" className={`${ui.button} ${styles.cta}`}>
                 {t.register}
                 <ArrowRight size={18} weight="bold" aria-hidden />
               </Link>
-              <Link href="/connexion" className={styles.ghost}>
+              <Link href="/connexion" className={`${ui.button} ${ui.secondary} ${styles.ghost}`}>
                 {t.login}
               </Link>
             </p>
@@ -178,14 +179,7 @@ export default async function Home() {
               {t.studio.title}
             </h2>
             <p className={styles.sectionLede}>{t.studio.body}</p>
-            <ul className={styles.points}>
-              {t.studio.points.map((p) => (
-                <li key={p}>
-                  <CheckCircle size={22} weight="fill" aria-hidden />
-                  {p}
-                </li>
-              ))}
-            </ul>
+            <Points items={t.studio.points} />
           </div>
           <div className={styles.studioShot}>
             <Image src={modelesAffiches} alt={t.studio.alt} sizes="(min-width: 1120px) 640px, 92vw" />
@@ -199,14 +193,7 @@ export default async function Home() {
               {t.private.title}
             </h2>
             <p className={styles.sectionLede}>{t.private.body}</p>
-            <ul className={styles.points}>
-              {t.private.points.map((p) => (
-                <li key={p}>
-                  <CheckCircle size={22} weight="fill" aria-hidden />
-                  {p}
-                </li>
-              ))}
-            </ul>
+            <Points items={t.private.points} />
           </div>
           <div className={styles.privateArt}>
             <div className={`${styles.phone} ${styles.phoneBack}`}>
@@ -235,7 +222,7 @@ export default async function Home() {
         <section className={styles.final} aria-labelledby="final-titre">
           <h2 id="final-titre">{t.final.title}</h2>
           <p>{t.final.body}</p>
-          <Link href="/inscription" className={styles.finalCta}>
+          <Link href="/inscription" className={`${ui.button} ${ui.secondary} ${styles.finalCta}`}>
             {t.register}
             <ArrowRight size={18} weight="bold" aria-hidden />
           </Link>
@@ -248,5 +235,18 @@ export default async function Home() {
         <p>© 2026 kassEvent</p>
       </footer>
     </div>
+  );
+}
+
+function Points({ items }: { items: string[] }) {
+  return (
+    <ul className={styles.points}>
+      {items.map((p) => (
+        <li key={p}>
+          <CheckCircle size={22} weight="fill" aria-hidden />
+          {p}
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -69,59 +69,41 @@
   white-space: nowrap;
 }
 
-/* Boutons */
+/* Boutons : base partagée .button de components/ui.module.css, ici seulement l'allure de la page */
 
-.cta,
-.ghost,
-.finalCta {
-  min-height: 48px;
-  padding: 0 22px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  border-radius: var(--r-md);
+.page .cta {
   font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
+  box-shadow: 0 6px 16px rgb(11 59 60 / 0.18);
   transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out;
 }
 
-.cta {
-  background: var(--fleuve);
-  color: var(--on-fleuve);
-  box-shadow: 0 6px 16px rgb(11 59 60 / 0.18);
-}
-
-.cta:hover {
+.page .cta:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 22px rgb(11 59 60 / 0.24);
 }
 
-.ghost {
-  color: var(--fleuve);
-  border: 1.5px solid var(--fleuve);
+.page .ghost,
+.page .finalCta {
+  font-weight: 700;
   background: var(--surface);
+  transition: background-color 150ms ease-out;
 }
 
-.ghost:hover {
+.page .ghost {
+  border: 1.5px solid var(--fleuve);
+}
+
+.page .ghost:hover,
+.page .finalCta:hover {
   background: var(--fleuve-soft);
 }
 
-.cta:active,
-.ghost:active,
-.finalCta:active {
-  transform: scale(0.98);
-}
-
-.cta:focus-visible,
-.ghost:focus-visible,
-.finalCta:focus-visible,
 .nav a:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
-.headerCta {
+.page .headerCta {
   display: none;
 }
 
@@ -589,16 +571,6 @@
   font-size: 18px;
 }
 
-.finalCta {
-  background: var(--surface);
-  color: var(--fleuve);
-}
-
-.finalCta:hover {
-  transform: translateY(-1px);
-  background: var(--fleuve-soft);
-}
-
 /* Pied de page */
 
 .footer {
@@ -625,11 +597,10 @@
 /* Téléphone large et tablette */
 
 @media (min-width: 560px) {
-  .headerCta {
+  .page .headerCta {
     display: inline-flex;
     min-height: 44px;
     padding: 0 16px;
-    font-size: 15px;
   }
 
   .heroPhone {
@@ -827,9 +798,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cta,
-  .ghost,
-  .finalCta,
+  .page .cta,
+  .page .ghost,
+  .page .finalCta,
   .cellShot {
     transition: none;
   }
