@@ -1,16 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ArrowLeft } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import type { EventData } from "@/lib/events";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
 import app from "../../../app.module.css";
 import { EventForm } from "../forms";
-import styles from "../events.module.css";
+import { WorkspaceNav } from "../WorkspaceNav";
 
 export default function NewEventPage() {
   const { t } = useI18n();
@@ -23,10 +21,9 @@ export default function NewEventPage() {
   }, [canManage, router]);
 
   return (
-    <main className={`${app.main} ${app.narrow}`}>
-      <Link href="/evenements" className={styles.back}>
-        <ArrowLeft size={18} aria-hidden /> {t.events.back}
-      </Link>
+    <>
+      <WorkspaceNav />
+      <main className={`${app.main} ${app.narrow}`}>
       <h1 className={app.title}>{t.events.newTitle}</h1>
       <p className={app.lede}>{t.events.newLede}</p>
       <EventForm
@@ -38,9 +35,11 @@ export default function NewEventPage() {
             organizationId: organization.id,
             body,
           });
-          router.push(`/evenements/${data.id}`);
+          // Le brouillon existe : on continue dans l'espace de travail, au studio.
+          router.push(`/evenements/${data.id}/studio`);
         }}
       />
-    </main>
+      </main>
+    </>
   );
 }

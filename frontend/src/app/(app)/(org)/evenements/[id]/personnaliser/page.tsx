@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, EnvelopeSimple, Ticket, Trash } from "@phosphor-icons/react";
+import { Check, EnvelopeSimple, Ticket, Trash } from "@phosphor-icons/react";
 import { TicketCard } from "@/components/TicketCard";
 import { Alert, Button, Field, TextArea, buttonClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -168,9 +168,6 @@ export default function DesignStudioPage() {
 
   return (
     <main className={`${app.main} ${styles.page}`}>
-      <Link href={`/evenements/${event.id}`} className={events.back}>
-        <ArrowLeft size={18} aria-hidden /> {t.design.back}
-      </Link>
       <h1 className={app.title}>{t.design.title}</h1>
       <p className={app.lede}>{format(t.design.lede, { title: event.title })}</p>
       {!canManage && <p className={app.lede}>{t.design.readOnly}</p>}

@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft } from "@phosphor-icons/react";
 import { Alert } from "@/components/ui";
 import { api } from "@/lib/api";
 import { formErrorMessage } from "@/lib/errors";
@@ -14,7 +12,6 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
 import { PageSkeleton } from "../../../../PageSkeleton";
 import app from "../../../../app.module.css";
-import events from "../../events.module.css";
 import { GuestList } from "./GuestList";
 import { SeatingBoard } from "./SeatingBoard";
 import styles from "./guests.module.css";
@@ -57,9 +54,6 @@ export default function GuestsPage() {
 
   return (
     <main className={app.main}>
-      <Link href={`/evenements/${event.id}`} className={events.back}>
-        <ArrowLeft size={18} aria-hidden /> {t.guests.back}
-      </Link>
       <h1 className={app.title}>{t.guests.title}</h1>
       <p className={app.lede}>{event.title}</p>
 
