@@ -863,3 +863,18 @@
     order: 4;
   }
 }
+
+/* Téléphone : filtres de la galerie sur une ligne qui défile. */
+@media (max-width: 760px) {
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .chip,
+  .chipSoft {
+    flex: none;
+  }
+}
