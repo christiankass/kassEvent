@@ -3,14 +3,18 @@
 namespace Tests\Feature\Communication;
 
 use App\Models\User;
+use App\Modules\Communication\Jobs\DeliverTickets;
 use App\Modules\Communication\Models\Delivery;
+use App\Modules\Communication\Support\WhatsAppNumber;
 use App\Modules\Tenancy\Models\Organization;
 use App\Modules\Tenancy\Support\TenantContext;
 use App\Modules\Ticketing\Mail\TicketsMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -140,6 +144,8 @@ class DeliveryTest extends TestCase
     {
         $this->order(['whatsapp' => '12345'])->assertUnprocessable()->assertJsonValidationErrors('whatsapp');
         $this->order(['whatsapp' => '0612345678'])->assertUnprocessable()->assertJsonValidationErrors('whatsapp');
+        $this->assertSame('243812345678', WhatsAppNumber::normalize('+243 081 234 5678'));
+        $this->assertSame('447700900123', WhatsAppNumber::normalize('+44 7700 900123'));
 
         $order = $this->order(['whatsapp' => '0812340000'])->assertCreated();
         $this->show($order)->assertJsonPath('data.deliveries.0.status', 'failed')
@@ -230,6 +236,71 @@ class DeliveryTest extends TestCase
         $this->assertSame(Delivery::READ, $this->delivery('whatsapp')->status);
         $status('failed', ['errors' => [['code' => 131050]]]);
         $this->assertSame(Delivery::READ, $this->delivery('whatsapp')->status);
+
+        // Nouvel envoi vers un autre numéro : un accusé tardif de l'ancien envoi ne le touche pas.
+        $this->deliver($order, ['channel' => 'whatsapp', 'whatsapp' => '0991234567'])->assertOk();
+        $this->assertSame(['wamid.3', 'wamid.4'], array_values($this->delivery('whatsapp')->messages));
+        $status('failed', ['errors' => [['code' => 131026]]]);
+        $this->assertSame(Delivery::SENT, $this->delivery('whatsapp')->status);
+    }
+
+    public function test_a_replaced_delivery_stops_the_retries_of_the_previous_one(): void
+    {
+        Queue::fake();
+        $order = $this->order(['whatsapp' => '0812345678'])->assertCreated();
+        $first = null;
+        Queue::assertPushed(DeliverTickets::class, function (DeliverTickets $job) use (&$first) {
+            $first = $job;
+
+            return true;
+        });
+
+        $this->travel(61)->minutes();
+        $this->deliver($order, ['channel' => 'whatsapp', 'whatsapp' => '0991234567'])->assertOk();
+        Queue::assertPushed(DeliverTickets::class, 2);
+
+        // Le nouvel essai de l'ancien job arrive : il ne fait rien.
+        app()->call([$first, 'handle']);
+        $this->assertSame(Delivery::QUEUED, $this->delivery('whatsapp')->status);
+        $this->assertNull($this->delivery('whatsapp')->messages);
+    }
+
+    public function test_large_orders_are_sent_a_few_messages_per_job(): void
+    {
+        config(['messaging.whatsapp.mode' => 'live', 'messaging.whatsapp.token' => 'wa-token', 'messaging.whatsapp.phone_number_id' => '1555']);
+        $sent = 0;
+        Http::fake([
+            'graph.facebook.com/*/1555/media' => Http::response(['id' => 'media-1']),
+            'graph.facebook.com/*/1555/messages' => function () use (&$sent) {
+                return Http::response(['messages' => [['id' => 'wamid.'.(++$sent)]]]);
+            },
+        ]);
+        Queue::fake();
+
+        $this->order(['items' => [['ticket_type_id' => $this->free, 'quantity' => 5]], 'whatsapp' => '0812345678'])->assertCreated();
+        Queue::assertPushed(DeliverTickets::class, 1);
+        $job = Queue::pushedJobs()[DeliverTickets::class][0]['job'];
+        app()->call([$job, 'handle']);
+
+        $this->assertSame(DeliverTickets::MESSAGES_PER_JOB, $sent);
+        $this->assertSame(Delivery::QUEUED, $this->delivery('whatsapp')->status);
+        Queue::assertPushed(DeliverTickets::class, 2); // la suite, dans un autre job
+    }
+
+    public function test_an_expired_meta_token_is_retried_not_blamed_on_the_buyer(): void
+    {
+        config(['messaging.whatsapp.mode' => 'live', 'messaging.whatsapp.token' => 'wa-token', 'messaging.whatsapp.phone_number_id' => '1555']);
+        Http::fake(['graph.facebook.com/*' => Http::response(['error' => ['code' => 190, 'message' => 'Token expired']], 401)]);
+        Queue::fake();
+        $this->order(['whatsapp' => '0812345678'])->assertCreated();
+        $job = Queue::pushedJobs()[DeliverTickets::class][0]['job'];
+
+        $this->expectException(RequestException::class);
+        try {
+            app()->call([$job, 'handle']);
+        } finally {
+            $this->assertSame(Delivery::QUEUED, $this->delivery('whatsapp')->status);
+        }
     }
 
     public function test_a_refusal_from_meta_fails_the_delivery_without_retrying(): void

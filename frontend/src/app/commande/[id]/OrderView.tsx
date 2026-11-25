@@ -53,6 +53,17 @@ export function OrderView() {
     return () => window.clearInterval(timer);
   }, [waiting, load]);
 
+  // Retour sur la page (depuis Messenger, par exemple) : statut des envois à jour.
+  const paid = order?.status === "paid";
+  useEffect(() => {
+    if (!paid) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
+  }, [paid, load]);
+
   const notFound = error instanceof ApiError && error.status === 404;
 
   return (

@@ -8,6 +8,7 @@ use App\Modules\Ticketing\Models\Ticket;
 use App\Modules\Ticketing\Support\ClassicTicketImage;
 use App\Modules\Ticketing\Support\TicketCode;
 use App\Modules\Ticketing\Support\TicketImage;
+use Illuminate\Support\Traits\Localizable;
 
 /**
  * Contenu des messages d'une commande payée, dans la langue de l'acheteur : un billet en image
@@ -16,6 +17,8 @@ use App\Modules\Ticketing\Support\TicketImage;
  */
 final class TicketMessages
 {
+    use Localizable;
+
     public readonly EventDesign $design;
 
     public readonly string $when;
@@ -39,9 +42,11 @@ final class TicketMessages
         return $this->order->tickets;
     }
 
+    /** Dans la langue de l'acheteur (titre par défaut du billet), pas dans celle du worker. */
     public function image(Ticket $ticket): string
     {
-        return TicketImage::forTicket($this->design, $ticket) ?? ClassicTicketImage::render($this->design, $ticket, $this->when);
+        return TicketImage::forTicket($this->design, $ticket)
+            ?? $this->withLocale($this->order->locale, fn () => ClassicTicketImage::render($this->design, $ticket, $this->when));
     }
 
     public function code(Ticket $ticket): string

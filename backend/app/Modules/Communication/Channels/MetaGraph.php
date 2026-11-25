@@ -13,9 +13,15 @@ final class MetaGraph
     /** Codes d'erreur de Meta qui signalent une limite de débit : à réessayer plus tard. */
     private const RATE_LIMITS = [4, 17, 32, 613, 80007, 130429, 131048, 131056];
 
+    /**
+     * Jeton expiré ou révoqué, permission manquante : panne de notre configuration, pas refus du
+     * destinataire. Signalée (journal d'erreurs) et retentée, jamais imputée à l'acheteur.
+     */
+    private const CONFIGURATION = [3, 10, 190, 200];
+
     public static function client(string $token): PendingRequest
     {
-        return Http::baseUrl((string) config('messaging.graph_url'))->withToken($token)->acceptJson()->timeout(20)->connectTimeout(5);
+        return Http::baseUrl((string) config('messaging.graph_url'))->withToken($token)->acceptJson()->timeout(15)->connectTimeout(5);
     }
 
     /**
@@ -28,10 +34,16 @@ final class MetaGraph
             return $response;
         }
         $code = (int) $response->json('error.code');
+        $exception = new RequestException($response);
+        if (in_array($code, self::CONFIGURATION, true) || in_array($response->status(), [401, 403], true)) {
+            report($exception);
+
+            throw $exception;
+        }
         if ($response->clientError() && $response->status() !== 429 && ! in_array($code, self::RATE_LIMITS, true)) {
             throw new DeliveryFailed('meta_'.($code ?: $response->status()));
         }
 
-        throw new RequestException($response);
+        throw $exception;
     }
 }

@@ -15,16 +15,20 @@ final class WhatsAppChannel implements DeliveryChannel
 {
     public function __construct(private readonly string $token, private readonly string $phoneNumberId) {}
 
-    public function send(Delivery $delivery, TicketMessages $messages): void
+    public function send(Delivery $delivery, TicketMessages $messages, int $limit): bool
     {
         $order = $messages->order;
         $template = config('messaging.whatsapp.templates.'.($messages->isInvitation() ? 'invitation' : 'ticket'));
         // Partie variable du bouton « Voir ma commande » : https://app.kassevent.com/commande/{{1}}
         $suffix = $order->id.'?cle='.urlencode($order->access_key);
 
+        $sent = 0;
         foreach ($messages->tickets() as $ticket) {
             if (isset($delivery->messages[$ticket->code])) {
                 continue;
+            }
+            if ($sent++ === $limit) {
+                return false;
             }
             $mediaId = MetaGraph::ok(MetaGraph::client($this->token)
                 ->attach('file', $messages->image($ticket), "billet-{$ticket->code}.jpg", ['Content-Type' => 'image/jpeg'])
@@ -51,6 +55,8 @@ final class WhatsAppChannel implements DeliveryChannel
             $delivery->messages = [...($delivery->messages ?? []), $ticket->code => (string) $messageId];
             $delivery->save();
         }
+
+        return true;
     }
 
     /** Meta refuse les retours à la ligne, tabulations et plus de 4 espaces de suite dans une variable. */

@@ -18,16 +18,20 @@ final class ChannelRegistry
                 ),
                 'messenger' => new MessengerChannel((string) config('messaging.messenger.page_token') ?: throw new RuntimeException('MESSENGER_PAGE_TOKEN manquant.')),
             },
-            default => throw new RuntimeException("Canal {$channel} désactivé."),
+            default => throw new DeliveryFailed('channel_disabled'),
         };
     }
 
-    /** « live », « simulated » (jamais en production : le canal est alors désactivé) ou « off ». */
+    /**
+     * « live », « simulated » (jamais en production : le canal est alors désactivé) ou « off ».
+     * Messenger réel sans nom de page : désactivé (le lien m.me ne mènerait nulle part).
+     */
     public static function mode(string $channel): string
     {
         $mode = config("messaging.{$channel}.mode");
 
         return match (true) {
+            $mode === 'live' && $channel === 'messenger' && ! config('messaging.messenger.page_username') => 'off',
             $mode === 'live' => 'live',
             $mode === 'simulated' && ! app()->isProduction() => 'simulated',
             default => 'off',

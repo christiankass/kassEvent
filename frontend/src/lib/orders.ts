@@ -22,8 +22,11 @@ export function guessOperator(phone: string): Operator | null {
 export type DeliveryChannel = "whatsapp" | "messenger";
 export type DeliveryStatus = "scheduled" | "awaiting_contact" | "queued" | "sent" | "delivered" | "read" | "failed";
 
-/** Envoi en cours : la page se met à jour d'elle-même. */
-export const DELIVERY_IN_PROGRESS: DeliveryStatus[] = ["scheduled", "awaiting_contact", "queued"];
+/**
+ * Envoi en cours : la page se met à jour d'elle-même. Pas « awaiting_contact » (Messenger) : la
+ * personne n'ouvrira peut-être jamais le lien ; la page se recharge quand elle revient de Messenger.
+ */
+export const DELIVERY_IN_PROGRESS: DeliveryStatus[] = ["scheduled", "queued"];
 
 export type OrderStatus = "pending" | "paid" | "expired" | "refund_due";
 

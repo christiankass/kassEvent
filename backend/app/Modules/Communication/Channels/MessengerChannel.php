@@ -13,10 +13,14 @@ use App\Modules\Communication\Support\TicketMessages;
  */
 final class MessengerChannel implements DeliveryChannel
 {
+    /** Messages encore permis pendant cet appel. */
+    private int $left = 0;
+
     public function __construct(private readonly string $pageToken) {}
 
-    public function send(Delivery $delivery, TicketMessages $messages): void
+    public function send(Delivery $delivery, TicketMessages $messages, int $limit): bool
     {
+        $this->left = $limit;
         $this->once($delivery, '_intro', fn () => $this->post($delivery, ['message' => json_encode(['text' => $messages->intro()])]));
 
         foreach ($messages->tickets() as $ticket) {
@@ -37,6 +41,8 @@ final class MessengerChannel implements DeliveryChannel
                 'buttons' => [['type' => 'web_url', 'url' => $messages->url(), 'title' => $messages->text('view')]],
             ],
         ]])]));
+
+        return isset($delivery->messages['_link']);
     }
 
     /** @param  array<string, string>  $body */
@@ -49,12 +55,13 @@ final class MessengerChannel implements DeliveryChannel
         ]))->json('message_id');
     }
 
-    /** N'envoie qu'une fois chaque message, même si l'envoi est retenté. */
+    /** N'envoie qu'une fois chaque message, même si l'envoi est retenté ; au plus $left par appel. */
     private function once(Delivery $delivery, string $key, callable $send): void
     {
-        if (isset($delivery->messages[$key])) {
+        if (isset($delivery->messages[$key]) || $this->left === 0) {
             return;
         }
+        $this->left--;
         $delivery->messages = [...($delivery->messages ?? []), $key => (string) $send()];
         $delivery->save();
     }

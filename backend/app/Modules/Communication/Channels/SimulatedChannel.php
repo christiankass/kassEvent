@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
  */
 final class SimulatedChannel implements DeliveryChannel
 {
-    public function send(Delivery $delivery, TicketMessages $messages): void
+    public function send(Delivery $delivery, TicketMessages $messages, int $limit): bool
     {
         if ($delivery->channel === Delivery::WHATSAPP && str_ends_with((string) $delivery->recipient, config('messaging.simulated_failure_suffix'))) {
             throw new DeliveryFailed('not_on_whatsapp');
@@ -28,5 +28,7 @@ final class SimulatedChannel implements DeliveryChannel
         }
         $delivery->messages = $sent;
         $delivery->save();
+
+        return true;
     }
 }

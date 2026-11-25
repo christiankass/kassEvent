@@ -48,7 +48,7 @@ class Delivery extends Model
 
     protected $guarded = ['id', 'organization_id'];
 
-    protected $hidden = ['recipient', 'link_secret'];
+    protected $hidden = ['recipient', 'link_secret', 'attempt'];
 
     protected function casts(): array
     {

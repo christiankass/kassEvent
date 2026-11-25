@@ -54,10 +54,11 @@ final class MetaWebhookController
         foreach ($changes as $change) {
             foreach ((array) data_get($change, 'value.statuses', []) as $status) {
                 $deliveryId = data_get($status, 'biz_opaque_callback_data');
+                $messageId = data_get($status, 'id');
                 $state = data_get($status, 'status');
-                if (is_string($deliveryId) && in_array($state, [Delivery::SENT, Delivery::DELIVERED, Delivery::READ, Delivery::FAILED], true)) {
+                if (is_string($deliveryId) && is_string($messageId) && in_array($state, [Delivery::SENT, Delivery::DELIVERED, Delivery::READ, Delivery::FAILED], true)) {
                     $code = data_get($status, 'errors.0.code');
-                    DeliveryService::recordStatus($deliveryId, $state, is_scalar($code) ? 'meta_'.$code : null);
+                    DeliveryService::recordStatus($deliveryId, $messageId, $state, is_scalar($code) ? 'meta_'.$code : null);
                 }
             }
         }

@@ -23,8 +23,12 @@ use Illuminate\Support\Str;
  */
 final class DeliveryService
 {
-    /** Un envoi en cours depuis moins longtemps n'est pas relancé (double clic, envoi lent). */
-    private const IN_PROGRESS_MINUTES = 10;
+    /**
+     * Un envoi en cours depuis moins longtemps n'est pas relancé (double clic, envoi lent) : plus que
+     * tous les nouveaux essais d'un job (environ 45 minutes). Au-delà, un envoi bloqué peut être refait ;
+     * le nouveau tirage arrête alors les essais restants de l'ancien.
+     */
+    private const IN_PROGRESS_MINUTES = 60;
 
     /** Envoi WhatsApp vers ce numéro : tout de suite si les billets sont émis, sinon au paiement. */
     public function whatsapp(Order $order, string $number): Delivery
@@ -96,11 +100,12 @@ final class DeliveryService
      * Accusé de Meta pour un message d'un envoi (WhatsApp : sent, delivered, read, failed).
      * Notification hors contexte : l'identifiant de l'envoi ouvre celui de son organisation.
      */
-    public static function recordStatus(string $deliveryId, string $status, ?string $failureCode = null): void
+    public static function recordStatus(string $deliveryId, string $messageId, string $status, ?string $failureCode = null): void
     {
-        TenantKeys::within($deliveryId, fn () => DB::transaction(function () use ($deliveryId, $status, $failureCode) {
+        TenantKeys::within($deliveryId, fn () => DB::transaction(function () use ($deliveryId, $messageId, $status, $failureCode) {
             $delivery = Delivery::lockForUpdate()->find($deliveryId);
-            if ($delivery === null) {
+            // Accusé d'un envoi précédent (autre numéro) : il ne concerne pas l'envoi actuel.
+            if ($delivery === null || ! in_array($messageId, $delivery->messages ?? [], true)) {
                 return;
             }
             if ($status === Delivery::FAILED && in_array($delivery->status, [Delivery::QUEUED, Delivery::SENT, Delivery::DELIVERED], true)) {
@@ -123,10 +128,11 @@ final class DeliveryService
     /** Une seule mise en file par demande, même si le paiement et la demande arrivent ensemble. */
     private function queue(Delivery $delivery): bool
     {
+        $attempt = (string) Str::uuid();
         $queued = Delivery::whereKey($delivery->id)->where('status', Delivery::SCHEDULED)
-            ->update(['status' => Delivery::QUEUED, 'updated_at' => now()]) === 1;
+            ->update(['status' => Delivery::QUEUED, 'attempt' => $attempt, 'updated_at' => now()]) === 1;
         if ($queued) {
-            DeliverTickets::dispatch($delivery->organization_id, $delivery->id)->afterCommit();
+            DeliverTickets::dispatch($delivery->organization_id, $delivery->id, $attempt)->afterCommit();
         }
 
         return $queued;
@@ -145,6 +151,6 @@ final class DeliveryService
     /** @return array<string, null> nouvel envoi : tout repart de zéro */
     private function reset(): array
     {
-        return ['messages' => null, 'failure_code' => null, 'sent_at' => null];
+        return ['messages' => null, 'failure_code' => null, 'sent_at' => null, 'attempt' => null];
     }
 }
