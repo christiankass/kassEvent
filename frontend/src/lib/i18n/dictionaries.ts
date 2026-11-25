@@ -1,4 +1,5 @@
 import { guestsEn, guestsFr } from "./guests";
+import { homeEn, homeFr } from "./landing";
 
 const fr = {
   brand: {
@@ -6,11 +7,7 @@ const fr = {
     headline: ["Vos billets, vos invités, ", "chaque entrée", "."],
     tagline: "Vendez vos billets en mobile money, envoyez vos invitations par WhatsApp et contrôlez chaque entrée.",
   },
-  home: {
-    lede: "Vendez vos billets en mobile money, envoyez vos invitations par WhatsApp et contrôlez chaque entrée, même sans réseau.",
-    register: "Créer un compte",
-    login: "Se connecter",
-  },
+  home: homeFr,
   common: {
     email: "Adresse e-mail",
     password: "Mot de passe",
@@ -867,11 +864,7 @@ const en: Dictionary = {
     headline: ["Your tickets, your guests, ", "every entry", "."],
     tagline: "Sell tickets with mobile money, send invitations on WhatsApp and check every guest in.",
   },
-  home: {
-    lede: "Sell tickets with mobile money, send invitations on WhatsApp and check every guest in, even offline.",
-    register: "Create an account",
-    login: "Sign in",
-  },
+  home: homeEn,
   common: {
     email: "Email address",
     password: "Password",
