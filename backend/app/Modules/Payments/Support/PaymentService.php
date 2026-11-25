@@ -157,7 +157,7 @@ final class PaymentService
     }
 
     /** Délai dépassé ou erreur du serveur : la demande a peut-être été enregistrée par le prestataire. */
-    private static function mayHaveReachedProvider(Throwable $e): bool
+    public static function mayHaveReachedProvider(Throwable $e): bool
     {
         return $e instanceof ConnectionException || ($e instanceof RequestException && $e->response->serverError());
     }

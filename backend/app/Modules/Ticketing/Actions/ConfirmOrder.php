@@ -3,6 +3,7 @@
 namespace App\Modules\Ticketing\Actions;
 
 use App\Modules\Payments\Events\PaymentSucceeded;
+use App\Modules\Ticketing\Events\OrderPaid;
 use App\Modules\Ticketing\Jobs\SendTickets;
 use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Support\Inventory;
@@ -48,6 +49,13 @@ final class ConfirmOrder
                         'holder_name' => $order->buyer_name,
                     ]);
                 }
+            }
+
+            if ($order->total > 0) {
+                event(new OrderPaid(
+                    $order->id, $order->organization_id, $order->reference, $order->event()->value('title'),
+                    $order->currency, $order->total, (int) $order->items->where('unit_price', '>', 0)->sum('quantity'),
+                ));
             }
 
             SendTickets::dispatch($order->organization_id, $order->id)->afterCommit();

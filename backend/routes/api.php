@@ -14,6 +14,9 @@ use App\Modules\Identity\Http\Controllers\PasswordResetController;
 use App\Modules\Identity\Http\Controllers\TwoFactorController;
 use App\Modules\Identity\Http\Middleware\RequireSession;
 use App\Modules\Payments\Http\Controllers\WebhookController;
+use App\Modules\Payouts\Http\Controllers\PayoutAccountController;
+use App\Modules\Payouts\Http\Controllers\PayoutController;
+use App\Modules\Payouts\Http\Controllers\PayoutWebhookController;
 use App\Modules\Tenancy\Http\Controllers\OrganizationController;
 use App\Modules\Ticketing\Http\Controllers\PublicOrderController;
 use App\Modules\Ticketing\Http\Controllers\SalesController;
@@ -54,6 +57,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Notifications des prestataires de paiement (adresses à déclarer chez pawaPay et Stripe).
     Route::prefix('webhooks')->name('webhooks.')->middleware('throttle:webhooks')->group(function () {
         Route::post('/pawapay', [WebhookController::class, 'pawapay'])->name('pawapay');
+        Route::post('/pawapay/payouts', PayoutWebhookController::class)->name('pawapay.payouts');
         Route::post('/stripe', [WebhookController::class, 'stripe'])->name('stripe');
     });
 
@@ -128,6 +132,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // Ventes : double authentification obligatoire pour les rôles qui touchent à l'argent.
             Route::middleware(['can:orders.view', RequireTwoFactorForMoney::class])->group(function () {
                 Route::get('/events/{id}/orders', [SalesController::class, 'index'])->whereUuid('id')->name('events.orders.index');
+            });
+
+            // Compte de perception et reversements, sous la même protection.
+            Route::middleware(['can:payouts.view', RequireTwoFactorForMoney::class])->group(function () {
+                Route::get('/payouts', [PayoutController::class, 'index'])->name('payouts.index');
+
+                Route::middleware('can:payouts.manage')->group(function () {
+                    Route::post('/payouts', [PayoutController::class, 'store'])->middleware('throttle:payouts')->name('payouts.store');
+                    Route::put('/payouts/account', [PayoutAccountController::class, 'update'])->middleware('throttle:payouts')->name('payouts.account.update');
+                });
             });
 
             Route::middleware('can:members.manage')->group(function () {
