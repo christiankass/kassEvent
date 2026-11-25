@@ -25,16 +25,6 @@
   gap: 10px 16px;
 }
 
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  color: var(--fleuve);
-  font-weight: 600;
-  text-decoration: none;
-}
-
 .usages {
   display: inline-grid;
   grid-auto-flow: column;
@@ -806,7 +796,6 @@
     padding: 8px 12px 24px;
   }
 
-  .backLabel,
   .toolButton span {
     display: none;
   }

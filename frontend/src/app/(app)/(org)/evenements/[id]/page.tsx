@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowSquareOut, Armchair, FrameCorners, QrCode, ImageSquare, MagicWand, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ArrowSquareOut, Armchair, QrCode, ImageSquare, PencilSimple, Trash } from "@phosphor-icons/react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { Alert, Button, buttonClass } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -90,9 +90,6 @@ export default function EventPage() {
 
   return (
     <main className={app.main}>
-      <Link href="/evenements" className={styles.back}>
-        <ArrowLeft size={18} aria-hidden /> {t.events.back}
-      </Link>
       <div className={styles.titleRow}>
         <h1 className={app.title}>{event.title}</h1>
         <StatusBadge status={event.status} />
@@ -288,24 +285,6 @@ export default function EventPage() {
                   <ArrowSquareOut size={18} aria-hidden /> {t.events.preview}
                 </a>
               )}
-            </div>
-          </section>
-
-          <section className={app.panel} aria-labelledby="design-title">
-            <h2 id="design-title" className={app.sectionTitle}>
-              {t.events.designTitle}
-            </h2>
-            <p className={styles.sectionLede}>{t.events.designLede}</p>
-            <div className={styles.buttons}>
-              <Link href={`/evenements/${event.id}/studio`} className={buttonClass("primary")}>
-                <MagicWand size={18} aria-hidden /> {t.events.studioTicket}
-              </Link>
-              <Link href={`/evenements/${event.id}/studio?format=poster`} className={buttonClass("secondary")}>
-                <FrameCorners size={18} aria-hidden /> {t.events.studioPoster}
-              </Link>
-              <Link href={`/evenements/${event.id}/personnaliser`} className={buttonClass("secondary")}>
-                <PaintBrush size={18} aria-hidden /> {t.events.designOpen}
-              </Link>
             </div>
           </section>
 

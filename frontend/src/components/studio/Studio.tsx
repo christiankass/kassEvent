@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowArcLeft,
   ArrowArcRight,
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   Circle,
   Copy,
@@ -478,10 +476,6 @@ export default function Studio({ event, studio: initial, organizationId, organiz
   return (
     <div ref={rootRef} className={`${styles.studio} ${ticketFontVariables}`}>
       <header className={styles.toolbar}>
-        <Link href={`/evenements/${event.id}`} className={styles.back}>
-          <ArrowLeft size={18} aria-hidden />
-          <span className={styles.backLabel}>{t.design.back}</span>
-        </Link>
         <div className={styles.usages} role="tablist" aria-label={s.usageLabel}>
           {USAGES.map((value) => (
             <button
