@@ -37,7 +37,7 @@ final class TicketImage
     {
         return self::render($design, $ticket->code, [
             'holder' => $ticket->holder_name,
-            'ticket_type' => $ticket->item->name,
+            'ticket_type' => $ticket->label(),
             'code' => TicketCode::format($ticket->code),
         ]);
     }

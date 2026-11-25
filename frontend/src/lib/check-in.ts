@@ -8,7 +8,8 @@ import { api } from "./api";
 
 export type ScanResult = "valid" | "already_used" | "invalid" | "other_event";
 
-export type TicketInfo = { holder_name: string; ticket_type: string | null; companions: number };
+/** seat : table de l'invité (événement privé avec plan de salle). */
+export type TicketInfo = { holder_name: string; ticket_type: string | null; companions: number; seat?: string | null };
 export type FirstScan = { scanned_at: string; gate: string | null; agent: string | null };
 
 export type ServerScan = {
@@ -182,7 +183,7 @@ export function decideOffline(desk: Desk, hash: string, id: string): Verdict {
   if (!desk.list) return { ...base, result: "unverified" };
   const entry = lookup(desk.list, hash);
   if (!entry) return { ...base, result: "invalid" };
-  const ticket = { holder_name: entry.holder_name, ticket_type: entry.ticket_type, companions: entry.companions };
+  const ticket = { holder_name: entry.holder_name, ticket_type: entry.ticket_type, companions: entry.companions, seat: entry.seat ?? null };
   const first = entry.first_scan ?? desk.local[hash] ?? null;
   return first ? { ...base, result: "already_used", ticket, first_scan: first } : { ...base, result: "valid", ticket };
 }

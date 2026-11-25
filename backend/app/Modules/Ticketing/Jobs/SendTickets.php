@@ -9,7 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
 
-/** Envoie les billets d'une commande payée à l'acheteur, dans sa langue. */
+/** Envoie les billets d'une commande payée à l'acheteur, dans sa langue (rien pour un invité sans e-mail). */
 final class SendTickets implements ShouldQueue
 {
     use Queueable;
@@ -28,6 +28,9 @@ final class SendTickets implements ShouldQueue
     {
         $context->run($this->organizationId, function () {
             $order = Order::with(['event.organization', 'event.design', 'tickets.item'])->findOrFail($this->orderId);
+            if ($order->buyer_email === null || ! $order->isPaid()) {
+                return;
+            }
 
             Mail::to($order->buyer_email, $order->buyer_name)
                 ->locale($order->locale)

@@ -94,12 +94,14 @@ export function Deliveries({ order, orderKey, onUpdate }: { order: Order; orderK
           </Channel>
         )}
 
-        <Channel icon={<EnvelopeSimple size={24} aria-hidden />} name={d.email} tone="email" status={emailSent ? <span role="status">{d.emailSent}</span> : null}>
-          <button type="button" className={styles.linkButton} disabled={pending} onClick={() => void send("email")}>
-            {format(d.emailResend, { email: order.buyer_email })}
-          </button>
-          <ChannelError message={generalError("email")} />
-        </Channel>
+        {order.buyer_email && (
+          <Channel icon={<EnvelopeSimple size={24} aria-hidden />} name={d.email} tone="email" status={emailSent ? <span role="status">{d.emailSent}</span> : null}>
+            <button type="button" className={styles.linkButton} disabled={pending} onClick={() => void send("email")}>
+              {format(d.emailResend, { email: order.buyer_email })}
+            </button>
+            <ChannelError message={generalError("email")} />
+          </Channel>
+        )}
       </ul>
     </section>
   );

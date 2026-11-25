@@ -11,6 +11,9 @@ use App\Modules\Events\Http\Controllers\EventDesignController;
 use App\Modules\Events\Http\Controllers\PublicEventController;
 use App\Modules\Events\Http\Controllers\StudioController;
 use App\Modules\Events\Http\Controllers\TicketTypeController;
+use App\Modules\Guests\Http\Controllers\GuestController;
+use App\Modules\Guests\Http\Controllers\PublicGuestController;
+use App\Modules\Guests\Http\Controllers\SeatingController;
 use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\PasswordResetController;
 use App\Modules\Identity\Http\Controllers\TwoFactorController;
@@ -58,6 +61,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->middleware('throttle:deliveries')->whereUuid('id')->name('public.orders.deliver');
     Route::post('/public/orders/{id}/payments', [PublicOrderController::class, 'pay'])
         ->middleware('throttle:checkout')->whereUuid('id')->name('public.orders.pay');
+
+    // Réponse d'un invité (événement privé) par son lien personnel, sans compte.
+    Route::get('/public/guests/{id}', [PublicGuestController::class, 'show'])
+        ->middleware('throttle:rsvp')->whereUuid('id')->name('public.guests.show');
+    Route::post('/public/guests/{id}/rsvp', [PublicGuestController::class, 'respond'])
+        ->middleware('throttle:rsvp-answer')->whereUuid('id')->name('public.guests.rsvp');
 
     // Notifications des prestataires de paiement (adresses à déclarer chez pawaPay et Stripe).
     Route::prefix('webhooks')->name('webhooks.')->middleware('throttle:webhooks')->group(function () {
@@ -108,6 +117,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/events/{id}/studio/assets/{name}', [StudioController::class, 'asset'])
                     ->whereUuid('id')->where('name', 'cover|[A-Za-z0-9]{40}\.(png|jpg)')->name('events.studio.asset');
                 Route::get('/events/{id}/studio/preview', [TicketPreviewController::class, 'canvas'])->whereUuid('id')->name('events.studio.preview');
+
+                // Invités, réponses et plan de salle.
+                Route::get('/events/{id}/guests', [GuestController::class, 'index'])->whereUuid('id')->name('events.guests.index');
             });
 
             Route::middleware('can:events.manage')->group(function () {
@@ -131,6 +143,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('/events/{id}/studio/ticket', [StudioController::class, 'saveTicket'])->whereUuid('id')->name('events.studio.ticket');
                 Route::post('/events/{id}/studio/poster', [StudioController::class, 'savePoster'])->whereUuid('id')->name('events.studio.poster');
                 Route::post('/events/{id}/studio/classic', [StudioController::class, 'useClassic'])->whereUuid('id')->name('events.studio.classic');
+
+                // Invités : ajout (à la main ou import), envoi des invitations.
+                Route::post('/events/{id}/guests', [GuestController::class, 'store'])->whereUuid('id')->name('events.guests.store');
+                Route::post('/events/{id}/guests/email', [GuestController::class, 'email'])
+                    ->middleware('throttle:guest-emails')->whereUuid('id')->name('events.guests.email');
+                Route::patch('/guests/{id}', [GuestController::class, 'update'])->whereUuid('id')->name('guests.update');
+                Route::delete('/guests/{id}', [GuestController::class, 'destroy'])->whereUuid('id')->name('guests.destroy');
+                Route::post('/guests/{id}/sent', [GuestController::class, 'sent'])->whereUuid('id')->name('guests.sent');
+
+                // Plan de salle : capacité (tables calculées), tables, placement des invités.
+                Route::put('/events/{id}/seating', [SeatingController::class, 'plan'])->whereUuid('id')->name('events.seating.plan');
+                Route::post('/events/{id}/seating/auto', [SeatingController::class, 'auto'])->whereUuid('id')->name('events.seating.auto');
+                Route::post('/events/{id}/tables', [SeatingController::class, 'storeTable'])->whereUuid('id')->name('events.tables.store');
+                Route::patch('/tables/{id}', [SeatingController::class, 'updateTable'])->whereUuid('id')->name('tables.update');
+                Route::delete('/tables/{id}', [SeatingController::class, 'destroyTable'])->whereUuid('id')->name('tables.destroy');
+                Route::put('/guests/{id}/table', [SeatingController::class, 'assign'])->whereUuid('id')->name('guests.table');
 
                 Route::post('/events/{id}/ticket-types', [TicketTypeController::class, 'store'])->whereUuid('id')->name('ticket-types.store');
                 Route::patch('/ticket-types/{id}', [TicketTypeController::class, 'update'])->whereUuid('id')->name('ticket-types.update');

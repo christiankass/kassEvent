@@ -43,7 +43,7 @@ final class TicketsMail extends Mailable
                 'when' => $event->starts_at->timezone($event->timezone)->locale(app()->getLocale())->translatedFormat('l j F Y, H:i'),
                 'tickets' => $this->order->tickets->map(fn ($ticket) => [
                     'code' => TicketCode::format($ticket->code),
-                    'type' => $ticket->item->name,
+                    'type' => $ticket->label(),
                     'holder' => $ticket->holder_name,
                     // Billet du studio : une image complète par billet ; sinon le billet simple et son QR code.
                     'image' => TicketImage::forTicket($design, $ticket),
@@ -77,6 +77,6 @@ final class TicketsMail extends Mailable
     /** Clé de traduction, au vocabulaire de l'invitation quand l'organisateur l'a choisi. */
     private function key(string $name): string
     {
-        return 'ticketing.mail.'.$name.($this->order->event->ticketDesign()->isInvitation() ? '_invitation' : '');
+        return 'ticketing.mail.'.$name.($this->order->usesInvitationWording() ? '_invitation' : '');
     }
 }

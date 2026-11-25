@@ -36,6 +36,7 @@ final class OrderResource extends JsonResource
             'buyer_email' => $this->buyer_email,
             'expires_at' => $this->expires_at->toIso8601String(),
             'paid_at' => $this->paid_at?->toIso8601String(),
+            'invitation' => $this->usesInvitationWording(),
             'event' => [
                 'slug' => $event->slug,
                 'title' => $event->title,
@@ -76,8 +77,10 @@ final class OrderResource extends JsonResource
             ],
             'tickets' => $this->isPaid() ? $this->tickets->map(fn ($ticket) => [
                 'code' => TicketCode::format($ticket->code),
-                'name' => $ticket->item->name,
+                'name' => $ticket->label(),
                 'holder_name' => $ticket->holder_name,
+                'companions' => (int) $ticket->companions,
+                'seat' => $ticket->seat,
                 'qr' => 'data:image/svg+xml;base64,'.base64_encode(QrCode::svg($ticket->code)),
             ]) : [],
         ];

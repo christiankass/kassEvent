@@ -17,11 +17,12 @@ final class SalesController
     {
         $event = Event::with('ticketTypes')->findOrFail($eventId);
 
-        $paid = Order::where('event_id', $event->id)->where('status', Order::PAID)
+        // Invitations nominatives (module Guests) : suivies dans la liste des invités, pas dans les ventes.
+        $paid = Order::where('event_id', $event->id)->where('source', Order::SALE)->where('status', Order::PAID)
             ->selectRaw('count(*) as orders, coalesce(sum(total), 0) as revenue')->toBase()->first();
         $sold = Inventory::sold($event->ticketTypes->modelKeys());
 
-        $orders = Order::where('event_id', $event->id)
+        $orders = Order::where('event_id', $event->id)->where('source', Order::SALE)
             // Commandes en cours ou réglées, plus celles à rembourser (payées sans places).
             ->where(fn ($query) => $query->holdingSeats()->orWhere('status', Order::REFUND_DUE))
             ->with(['items', 'latestPayment', 'deliveries'])

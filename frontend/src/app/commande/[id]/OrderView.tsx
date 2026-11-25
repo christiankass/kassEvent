@@ -88,7 +88,7 @@ export function OrderView() {
             {order.payment?.simulated && order.status === "pending" && <p className={styles.demo}>{t.order.simulated}</p>}
             {order.status === "paid" && <Deliveries order={order} orderKey={key} onUpdate={setOrder} />}
             {order.status === "paid" && order.design && <Tickets order={order} design={order.design} orderKey={key} />}
-            <Summary order={order} />
+            {!(order.invitation && order.total === 0) && <Summary order={order} />}
           </>
         )}
         {error && order ? <p className={styles.muted}>{formErrorMessage(error, t)}</p> : null}
@@ -110,12 +110,22 @@ function OrderState({ order, orderKey, onUpdate }: { order: Order; orderKey: str
     return (
       <section className={`${styles.card} ${styles.success}`} aria-live="polite">
         <CheckCircle size={40} weight="fill" aria-hidden className={styles.icon} />
-        <h1 className={styles.title}>{order.design?.kind === "invitation" ? t.order.invitationTitle : t.order.paidTitle}</h1>
-        <p>{format(t.order.paidBody, { email: order.buyer_email })}</p>
+        <h1 className={styles.title}>{order.invitation ? t.order.invitationTitle : t.order.paidTitle}</h1>
+        <p>{order.buyer_email ? format(t.order.paidBody, { email: order.buyer_email }) : t.order.paidBodyNoEmail}</p>
         <button type="button" className={styles.secondary} onClick={() => void printTickets()}>
           <Printer size={18} aria-hidden /> {t.order.print}
         </button>
         <p className={styles.muted}>{t.order.printHint}</p>
+      </section>
+    );
+  }
+
+  if (order.status === "cancelled") {
+    return (
+      <section className={styles.card}>
+        <WarningCircle size={40} aria-hidden className={styles.iconWarn} />
+        <h1 className={styles.title}>{t.order.cancelledTitle}</h1>
+        <p>{t.order.cancelledBody}</p>
       </section>
     );
   }

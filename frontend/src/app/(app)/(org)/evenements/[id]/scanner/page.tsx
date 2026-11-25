@@ -426,6 +426,11 @@ function ResultScreen({ verdict, describeFirst, onDismiss }: { verdict: Verdict;
             <span>{format(t.scan.companions, { count: String(verdict.ticket.companions) })}</span>
           </p>
         )}
+        {verdict.ticket?.seat && verdict.result === "valid" && (
+          <p className={styles.admits}>
+            <strong>{format(t.scan.seat, { seat: verdict.ticket.seat })}</strong>
+          </p>
+        )}
         <p className={styles.resultLine}>{format(t.scan.resultHint[verdict.result], { title: verdict.other_event ?? "" })}</p>
         {verdict.first_scan && <p className={styles.firstScan}>{describeFirst(verdict.first_scan)}</p>}
         {verdict.offline && verdict.result !== "unverified" && <p className={styles.offlineTag}>{t.scan.checkedOffline}</p>}

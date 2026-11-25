@@ -1,3 +1,5 @@
+import { guestsEn, guestsFr } from "./guests";
+
 const fr = {
   brand: {
     // Titre du panneau : [début, mot surligné en jaune, fin]
@@ -342,6 +344,9 @@ const fr = {
     ticketImageAlt: "Billet de {holder}, code {code}",
     invitationTitle: "Votre invitation est prête !",
     paidBody: "Nous les avons aussi envoyés à {email}. Présentez le QR code à l'entrée, sur votre téléphone ou imprimé.",
+    paidBodyNoEmail: "Présentez le QR code à l'entrée, sur votre téléphone ou imprimé.",
+    cancelledTitle: "Invitation annulée",
+    cancelledBody: "Vous avez indiqué ne pas venir : ce QR code n'est plus valable. Vous changez d'avis ? Répondez de nouveau depuis le lien de votre invitation.",
     print: "Imprimer les billets",
     ticketsTitle: "Vos billets ({count})",
     invitationsTitle: "Vos invitations ({count})",
@@ -715,7 +720,7 @@ const fr = {
     soldOf: "{sold} / {quantity}",
     recent: "Dernières commandes",
     empty: "Aucune commande pour l'instant. Partagez la page de vente !",
-    status: { paid: "Payée", pending: "En attente", expired: "Expirée", refund_due: "À rembourser" },
+    status: { paid: "Payée", pending: "En attente", expired: "Expirée", refund_due: "À rembourser", cancelled: "Annulée" },
     method: { mobile_money: "Mobile money", card: "Carte", free: "Gratuit" },
     ticketsCount: "{count} billet(s)",
     channel: { whatsapp: "WhatsApp", messenger: "Messenger" },
@@ -777,6 +782,7 @@ const fr = {
     byAgent: "par {agent}",
     admits: "{count} personnes à laisser entrer",
     companions: "Titulaire + {count} accompagnant(s)",
+    seat: "Placer à la {seat}",
     checkedOffline: "Vérifié hors ligne",
     conflictTitle: "Double entrée détectée",
     conflictBody: "{name} était déjà entré : {first}.",
@@ -851,6 +857,7 @@ const fr = {
     emptyCta: "Créer un événement",
     seeEvents: "Voir mes événements",
   },
+  ...guestsFr,
 };
 
 export type Dictionary = typeof fr;
@@ -1198,6 +1205,9 @@ const en: Dictionary = {
     ticketImageAlt: "Ticket for {holder}, code {code}",
     invitationTitle: "Your invitation is ready!",
     paidBody: "We also sent them to {email}. Show the QR code at the entrance, on your phone or printed.",
+    paidBodyNoEmail: "Show the QR code at the entrance, on your phone or printed.",
+    cancelledTitle: "Invitation cancelled",
+    cancelledBody: "You said you can't come: this QR code is no longer valid. Changed your mind? Reply again from your invitation link.",
     print: "Print tickets",
     ticketsTitle: "Your tickets ({count})",
     invitationsTitle: "Your invitations ({count})",
@@ -1571,7 +1581,7 @@ const en: Dictionary = {
     soldOf: "{sold} / {quantity}",
     recent: "Latest orders",
     empty: "No orders yet. Share the sales page!",
-    status: { paid: "Paid", pending: "Pending", expired: "Expired", refund_due: "To refund" },
+    status: { paid: "Paid", pending: "Pending", expired: "Expired", refund_due: "To refund", cancelled: "Cancelled" },
     method: { mobile_money: "Mobile money", card: "Card", free: "Free" },
     ticketsCount: "{count} ticket(s)",
     channel: { whatsapp: "WhatsApp", messenger: "Messenger" },
@@ -1633,6 +1643,7 @@ const en: Dictionary = {
     byAgent: "by {agent}",
     admits: "{count} people to let in",
     companions: "Holder + {count} companion(s)",
+    seat: "Seat at {seat}",
     checkedOffline: "Checked offline",
     conflictTitle: "Double entry detected",
     conflictBody: "{name} had already entered: {first}.",
@@ -1707,6 +1718,7 @@ const en: Dictionary = {
     emptyCta: "Create an event",
     seeEvents: "See my events",
   },
+  ...guestsEn,
 };
 
 export const LOCALES = ["fr", "en"] as const;
