@@ -83,7 +83,7 @@ class AppServiceProvider extends ServiceProvider
             Limit::perDay(30)->by('guest|'.$request->route('id')),
         ]);
         // Invitations par e-mail : un envoi groupé à la fois, quelques fois par heure.
-        RateLimiter::for('guest-emails', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('guest-emails', fn (Request $request) => Limit::perHour(20)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('webhooks', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
 
         // Un paiement réussi (module Payments) confirme la commande et émet les billets (module Ticketing).

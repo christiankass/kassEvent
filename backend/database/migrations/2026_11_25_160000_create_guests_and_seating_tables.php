@@ -3,6 +3,7 @@
 use App\Modules\Tenancy\Database\RowLevelSecurity;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -85,8 +86,14 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Les invitations n'existaient pas avant : retirées pour rendre aux colonnes leur contrainte.
+        DB::table('orders')->where('source', 'invitation')->delete();
         Schema::table('tickets', fn (Blueprint $table) => $table->dropColumn('seat'));
-        Schema::table('orders', fn (Blueprint $table) => $table->dropColumn('source'));
+        Schema::table('order_items', fn (Blueprint $table) => $table->uuid('ticket_type_id')->nullable(false)->change());
+        Schema::table('orders', function (Blueprint $table) {
+            $table->dropColumn('source');
+            $table->string('buyer_email', 254)->nullable(false)->change();
+        });
         Schema::dropIfExists('guests');
         Schema::dropIfExists('event_tables');
         Schema::dropIfExists('seating_plans');

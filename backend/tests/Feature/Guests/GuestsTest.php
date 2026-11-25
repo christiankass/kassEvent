@@ -162,6 +162,32 @@ class GuestsTest extends TestCase
         $this->putJson("/api/v1/guests/{$friend['id']}/table", ['table_id' => $tables[1]['id']], $this->headers())->assertJsonValidationErrors('table_id');
     }
 
+    public function test_a_smaller_plan_or_more_companions_never_overfill_a_table(): void
+    {
+        $this->putJson("/api/v1/events/{$this->eventId}/seating", ['hall_capacity' => 300, 'table_count' => 10], $this->headers())->assertOk();
+        $tables = $this->putJson("/api/v1/events/{$this->eventId}/seating", ['hall_capacity' => 10, 'seats_per_table' => 5], $this->headers())->json('tables');
+        [$big, $small, $plus] = $this->addGuests([['name' => 'Famille', 'companions_allowed' => 2], ['name' => 'Ami'], ['name' => 'Cousin', 'companions_allowed' => 2]]);
+        $this->putJson("/api/v1/guests/{$big['id']}/table", ['table_id' => $tables[0]['id']], $this->headers())->assertOk();
+        $this->travel(1)->minutes();
+        $this->putJson("/api/v1/guests/{$small['id']}/table", ['table_id' => $tables[0]['id']], $this->headers())->assertOk();
+
+        // Table 1 passe de 5 à 3 places : le dernier placé est à replacer.
+        $this->putJson("/api/v1/events/{$this->eventId}/seating", ['hall_capacity' => 6, 'seats_per_table' => 3], $this->headers())->assertOk();
+        $page = $this->guestsPage();
+        $this->assertSame(3, $page['tables'][0]['occupied']);
+        $this->assertSame(['Ami' => null, 'Cousin' => null, 'Famille' => $tables[0]['id']], collect($page['data'])->pluck('table_id', 'name')->all());
+        $this->assertSame(3, $page['plan']['seats_per_table']);
+
+        // Confirmé seul, placé, puis la table se remplit ; il revient avec 2 accompagnants : il est à replacer.
+        $this->answer($plus, true, 0)->assertOk();
+        $this->actAsOwner();
+        $this->putJson("/api/v1/guests/{$plus['id']}/table", ['table_id' => $tables[1]['id']], $this->headers())->assertOk();
+        $this->putJson("/api/v1/guests/{$small['id']}/table", ['table_id' => $tables[1]['id']], $this->headers())->assertOk();
+        $this->answer($plus, true, 2)->assertOk()->assertJsonPath('data.guest.table', null);
+        $this->actAsOwner();
+        $this->assertSame(1, $this->guestsPage()['tables'][1]['occupied']);
+    }
+
     public function test_guests_are_placed_automatically_with_their_group(): void
     {
         $this->putJson("/api/v1/events/{$this->eventId}/seating", ['hall_capacity' => 12, 'seats_per_table' => 6], $this->headers());

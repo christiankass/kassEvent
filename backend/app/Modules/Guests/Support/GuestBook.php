@@ -131,8 +131,8 @@ final class GuestBook
                 'companions_confirmed' => min($companions, $guest->companions_allowed),
                 'responded_at' => now(),
             ]);
-            if ($guest->table_id && ! $wasConfirmed) {
-                // Revenu après s'être désisté : sa table a pu se remplir entre-temps.
+            if ($guest->table_id) {
+                // Plus d'accompagnants qu'à sa première réponse : sa table a pu se remplir entre-temps.
                 $table = $tables[$guest->table_id];
                 if ($guest->party() > $table->seats - $this->seating->occupied($table, except: $guest)) {
                     $guest->table_id = null;

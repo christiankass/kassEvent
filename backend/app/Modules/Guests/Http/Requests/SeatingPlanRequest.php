@@ -23,7 +23,7 @@ final class SeatingPlanRequest extends FormRequest
         return [function ($validator) {
             $capacity = (int) $this->input('hall_capacity');
             $count = $this->input('table_count');
-            if (is_int($count) && $capacity > 0 && intdiv($capacity, max(1, $count)) + 1 > SeatingLayout::MAX_SEATS) {
+            if (is_int($count) && $capacity > 0 && (int) ceil($capacity / max(1, $count)) > SeatingLayout::MAX_SEATS) {
                 $validator->errors()->add('table_count', __('guests.too_few_tables', ['max' => SeatingLayout::MAX_SEATS]));
             }
             $seats = $this->input('seats_per_table') ?? SeatingLayout::DEFAULT_SEATS;

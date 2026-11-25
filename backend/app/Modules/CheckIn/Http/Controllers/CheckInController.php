@@ -27,6 +27,7 @@ final class CheckInController
         $tickets = Ticket::with('item')->where('event_id', $event->id)
             ->whereHas('order', fn ($q) => $q->where('status', Order::PAID)) // sans les invitations annulées
             ->orderBy('id')->get();
+        $checkIns = $checkIns->toBase()->only($tickets->modelKeys()); // entrées des invitations encore valables
         $fingerprints = TicketFingerprint::forTickets($event->id, $tickets);
         $tickets = $tickets->map(fn (Ticket $ticket) => [
             'hash' => $fingerprints[$ticket->id],

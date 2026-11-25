@@ -32,8 +32,8 @@ final class Seating
     {
         $seats = SeatingLayout::seats($capacity, $seatsPerTable, $tableCount);
 
-        return DB::transaction(function () use ($event, $capacity, $seats) {
-            SeatingPlan::updateOrCreate(['event_id' => $event->id], ['hall_capacity' => $capacity, 'seats_per_table' => max($seats)]);
+        return DB::transaction(function () use ($event, $capacity, $seats, $seatsPerTable) {
+            SeatingPlan::updateOrCreate(['event_id' => $event->id], ['hall_capacity' => $capacity, 'seats_per_table' => $seatsPerTable ?? max($seats)]);
 
             $tables = $this->lockTables($event)->keyBy('number');
             $removed = $tables->filter(fn (EventTable $table) => $table->number > count($seats));
@@ -43,10 +43,28 @@ final class Seating
                 $this->printSeats($unseated->each->setAttribute('table_id', null));
             }
 
+            $unseated = collect();
             foreach ($seats as $i => $count) {
                 $table = $tables->get($i + 1);
-                $table ? $table->update(['seats' => $count]) : EventTable::create(['event_id' => $event->id, 'number' => $i + 1, 'seats' => $count]);
+                if ($table === null) {
+                    EventTable::create(['event_id' => $event->id, 'number' => $i + 1, 'seats' => $count]);
+
+                    continue;
+                }
+                $table->update(['seats' => $count]);
+                // Table devenue trop petite : les derniers placés sont à replacer (jamais plus de personnes que de places).
+                $guests = Guest::where('table_id', $table->id)->orderByDesc('updated_at')->get();
+                $over = $guests->sum(fn (Guest $g) => $g->party()) - $count;
+                foreach ($guests as $guest) {
+                    if ($over <= 0) {
+                        break;
+                    }
+                    $over -= $guest->party();
+                    $guest->forceFill(['table_id' => null])->save();
+                    $unseated->push($guest);
+                }
             }
+            $this->printSeats($unseated);
 
             return $this->tables($event);
         });
@@ -94,6 +112,7 @@ final class Seating
         return DB::transaction(function () use ($guest, $table) {
             $this->lockTables($guest->event_id);
             $guest->refresh();
+            $table?->refresh(); // places lues sous le verrou : une réduction simultanée est prise en compte
             if ($table !== null) {
                 if ($guest->status === Guest::DECLINED) {
                     throw ValidationException::withMessages(['table_id' => __('guests.declined_not_seated')]);

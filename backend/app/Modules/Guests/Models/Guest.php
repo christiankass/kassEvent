@@ -78,7 +78,7 @@ class Guest extends Model
         };
     }
 
-    public function hasAccessKey(?string $key): bool
+    public function hasAccessKey(mixed $key): bool
     {
         return is_string($key) && hash_equals($this->access_key, $key);
     }
