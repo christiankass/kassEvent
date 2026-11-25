@@ -178,6 +178,13 @@ final class PayoutService
         return $payout->refresh();
     }
 
+    /** Revérifie les reversements en attente chez un prestataire (les virements bancaires attendent l'équipe). */
+    public function refreshPending(bool $force = false): void
+    {
+        Payout::where('status', Payout::PENDING)->where('provider', '!=', 'manual')->get()
+            ->each(fn (Payout $payout) => $this->refresh($payout, $force));
+    }
+
     /** Enregistre le résultat, une seule fois ; un échec rend le montant au solde. */
     public function settle(Payout $payout, GatewayStatus $status, ?string $reference = null): void
     {
@@ -228,8 +235,7 @@ final class PayoutService
      */
     public function runAutomatic(): void
     {
-        Payout::where('status', Payout::PENDING)->where('provider', '!=', 'manual')->get()
-            ->each(fn (Payout $payout) => $this->refresh($payout, force: true));
+        $this->refreshPending(force: true);
 
         $account = PayoutAccount::first();
         if ($account === null || ! $account->isActive()) {

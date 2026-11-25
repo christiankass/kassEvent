@@ -31,8 +31,7 @@ final class PayoutController
         $organization = $request->attributes->get('organization');
 
         // Page ouverte pendant un reversement : on en redemande le statut (au plus toutes les quelques secondes).
-        Payout::where('status', Payout::PENDING)->where('provider', '!=', 'manual')->get()
-            ->each(fn (Payout $payout) => $this->payouts->refresh($payout));
+        $this->payouts->refreshPending();
 
         $account = PayoutAccount::first();
 
