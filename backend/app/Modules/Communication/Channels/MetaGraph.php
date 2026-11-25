@@ -34,6 +34,10 @@ final class MetaGraph
             return $response;
         }
         $code = (int) $response->json('error.code');
+        // Messenger : la conversation a plus de 24 heures, la personne doit rouvrir le lien.
+        if ($code === 10 && (int) $response->json('error.error_subcode') === 2018278) {
+            throw new DeliveryFailed('meta_10');
+        }
         $exception = new RequestException($response);
         if (in_array($code, self::CONFIGURATION, true) || in_array($response->status(), [401, 403], true)) {
             report($exception);

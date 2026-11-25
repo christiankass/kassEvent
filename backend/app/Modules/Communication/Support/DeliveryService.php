@@ -151,6 +151,6 @@ final class DeliveryService
     /** @return array<string, null> nouvel envoi : tout repart de zéro */
     private function reset(): array
     {
-        return ['messages' => null, 'failure_code' => null, 'sent_at' => null, 'attempt' => null];
+        return ['messages' => null, 'failure_code' => null, 'attempt' => null];
     }
 }

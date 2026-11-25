@@ -12,16 +12,17 @@ use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 /**
- * Envoie les billets d'une commande sur WhatsApp ou Messenger (file « notifications »), quelques
- * messages par job : chaque job reste bien sous le délai du worker, même pour 50 billets, et le
- * suivant reprend où il s'est arrêté. Un job d'un envoi remplacé entre-temps (autre tirage) ne fait rien.
+ * Envoie les billets d'une commande sur WhatsApp ou Messenger (file « notifications »). Chaque
+ * message envoyé est enregistré aussitôt (delivery->messages) et sauté aux essais suivants. Un job
+ * s'arrête après quelques messages ou 40 secondes, bien sous le délai du worker, même pour 50 billets :
+ * le suivant reprend où il s'est arrêté. Un job d'un envoi remplacé entre-temps (autre tirage) ne fait rien.
  */
 final class DeliverTickets implements ShouldQueue
 {
     use Queueable;
 
-    /** Messages par job : chacun coûte au plus une image et deux appels à Meta (15 s chacun au pire). */
-    public const MESSAGES_PER_JOB = 2;
+    /** Temps d'envoi par job ; un message coûte au plus une image et deux appels à Meta (15 s chacun). */
+    private const BUDGET_SECONDS = 40;
 
     public int $tries = 5;
 
@@ -44,21 +45,29 @@ final class DeliverTickets implements ShouldQueue
                 return; // nouvel envoi demandé entre-temps, ou déjà traité
             }
 
+            $channel = $channels->for($delivery->channel);
+            $left = (int) config('messaging.messages_per_job');
+            $deadline = microtime(true) + self::BUDGET_SECONDS;
             try {
-                $done = $channels->for($delivery->channel)->send($delivery, new TicketMessages($delivery->order), self::MESSAGES_PER_JOB);
+                foreach ($channel->parts($delivery, new TicketMessages($delivery->order)) as $key => $send) {
+                    if (isset($delivery->messages[$key])) {
+                        continue;
+                    }
+                    if ($left-- === 0 || microtime(true) > $deadline) {
+                        self::dispatch($this->organizationId, $this->deliveryId, $this->attempt);
+
+                        return;
+                    }
+                    $delivery->messages = [...($delivery->messages ?? []), $key => $send()];
+                    $delivery->save();
+                }
             } catch (DeliveryFailed $e) {
                 $this->finish(Delivery::FAILED, $e->reason);
 
                 return;
             }
 
-            if (! $done) {
-                self::dispatch($this->organizationId, $this->deliveryId, $this->attempt);
-
-                return;
-            }
-            // Mode simulé : aucun accusé de Meta ne viendra, l'envoi est tenu pour remis.
-            $this->finish(ChannelRegistry::mode($delivery->channel) === 'simulated' ? Delivery::DELIVERED : Delivery::SENT);
+            $this->finish($channel->confirmsAtOnce() ? Delivery::DELIVERED : Delivery::SENT);
         });
     }
 
@@ -73,7 +82,6 @@ final class DeliverTickets implements ShouldQueue
         Delivery::whereKey($this->deliveryId)->where('attempt', $this->attempt)->where('status', Delivery::QUEUED)->update([
             'status' => $status,
             'failure_code' => $failureCode,
-            'sent_at' => $status === Delivery::FAILED ? null : now(),
             'updated_at' => now(),
         ]);
     }

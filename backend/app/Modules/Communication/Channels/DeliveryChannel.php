@@ -6,13 +6,17 @@ use App\Modules\Communication\Models\Delivery;
 use App\Modules\Communication\Support\TicketMessages;
 
 /**
- * Canal d'envoi des billets. send() n'envoie que ce qui n'est pas encore parti (delivery->messages,
- * enregistré après chaque message) : un nouvel essai après une coupure ne double pas les billets.
- * Au plus $limit messages par appel (un job reste court) : rend vrai quand tout est parti.
+ * Canal d'envoi des billets. Il décrit les messages à envoyer, chacun sous une clé stable (code du
+ * billet, accueil…) ; c'est le job qui les envoie, en sautant ceux déjà partis : un nouvel essai
+ * après une coupure ne double jamais un billet.
  * Une erreur définitive (numéro sans WhatsApp, conversation fermée) lève DeliveryFailed ;
  * toute autre exception est passagère et l'envoi est retenté.
  */
 interface DeliveryChannel
 {
-    public function send(Delivery $delivery, TicketMessages $messages, int $limit): bool;
+    /** @return iterable<string, callable(): string> clé => envoi du message, qui rend son identifiant chez Meta */
+    public function parts(Delivery $delivery, TicketMessages $messages): iterable;
+
+    /** Vrai si l'envoi vaut remise (aucun accusé ne viendra ensuite). */
+    public function confirmsAtOnce(): bool;
 }

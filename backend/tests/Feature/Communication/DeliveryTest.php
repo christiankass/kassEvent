@@ -276,13 +276,14 @@ class DeliveryTest extends TestCase
             },
         ]);
         Queue::fake();
+        config(['messaging.messages_per_job' => 2]);
 
         $this->order(['items' => [['ticket_type_id' => $this->free, 'quantity' => 5]], 'whatsapp' => '0812345678'])->assertCreated();
         Queue::assertPushed(DeliverTickets::class, 1);
         $job = Queue::pushedJobs()[DeliverTickets::class][0]['job'];
         app()->call([$job, 'handle']);
 
-        $this->assertSame(DeliverTickets::MESSAGES_PER_JOB, $sent);
+        $this->assertSame(2, $sent);
         $this->assertSame(Delivery::QUEUED, $this->delivery('whatsapp')->status);
         Queue::assertPushed(DeliverTickets::class, 2); // la suite, dans un autre job
     }

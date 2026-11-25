@@ -397,10 +397,6 @@
 
 .channelButton {
   width: 100%;
-  /* Bouton secondaire : le jaune reste réservé au paiement (DESIGN.md). */
-  background: var(--surface);
-  color: var(--fleuve);
-  border: 1px solid var(--line-strong);
 }
 
 .linkButton {

@@ -20,7 +20,8 @@ final class MessengerSimulatorController
         $ref = (string) $request->query('ref');
         abort_unless(DeliveryService::linkMessenger($ref, 'sim-'.Str::lower(Str::random(16))), 404);
 
-        $url = TenantKeys::within(Str::before($ref, '_'), fn () => Delivery::with('order')->find(Str::before($ref, '_'))?->order->publicUrl());
+        $id = Str::before($ref, '_');
+        $url = TenantKeys::within($id, fn () => Delivery::with('order')->find($id)?->order->publicUrl());
 
         return redirect()->away($url ?? config('app.frontend_url'));
     }

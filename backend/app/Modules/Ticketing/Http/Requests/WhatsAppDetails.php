@@ -8,11 +8,11 @@ use Illuminate\Validation\Validator;
 /** Numéro WhatsApp où envoyer les billets (RDC à la locale, ou international avec son indicatif). */
 trait WhatsAppDetails
 {
-    protected function validateWhatsApp(Validator $validator, string $field = 'whatsapp'): void
+    protected function validateWhatsApp(Validator $validator): void
     {
-        $value = $this->input($field);
+        $value = $this->input('whatsapp');
         if (is_string($value) && trim($value) !== '' && WhatsAppNumber::normalize($value) === null) {
-            $validator->errors()->add($field, __('communication.whatsapp_invalid'));
+            $validator->errors()->add('whatsapp', __('communication.whatsapp_invalid'));
         }
     }
 

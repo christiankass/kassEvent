@@ -55,7 +55,6 @@ class Delivery extends Model
         return [
             'recipient' => 'encrypted',
             'messages' => 'array',
-            'sent_at' => 'datetime',
         ];
     }
 

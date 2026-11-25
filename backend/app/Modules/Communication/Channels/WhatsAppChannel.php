@@ -4,6 +4,7 @@ namespace App\Modules\Communication\Channels;
 
 use App\Modules\Communication\Models\Delivery;
 use App\Modules\Communication\Support\TicketMessages;
+use Illuminate\Support\Str;
 
 /**
  * WhatsApp Cloud API. Un billet = un message à partir d'un modèle approuvé par Meta (obligatoire
@@ -15,48 +16,44 @@ final class WhatsAppChannel implements DeliveryChannel
 {
     public function __construct(private readonly string $token, private readonly string $phoneNumberId) {}
 
-    public function send(Delivery $delivery, TicketMessages $messages, int $limit): bool
+    public function parts(Delivery $delivery, TicketMessages $messages): iterable
     {
         $order = $messages->order;
         $template = config('messaging.whatsapp.templates.'.($messages->isInvitation() ? 'invitation' : 'ticket'));
         // Partie variable du bouton « Voir ma commande » : https://app.kassevent.com/commande/{{1}}
-        $suffix = $order->id.'?cle='.urlencode($order->access_key);
+        $suffix = Str::after($messages->url(), '/commande/');
 
-        $sent = 0;
         foreach ($messages->tickets() as $ticket) {
-            if (isset($delivery->messages[$ticket->code])) {
-                continue;
-            }
-            if ($sent++ === $limit) {
-                return false;
-            }
-            $mediaId = MetaGraph::ok(MetaGraph::client($this->token)
-                ->attach('file', $messages->image($ticket), "billet-{$ticket->code}.jpg", ['Content-Type' => 'image/jpeg'])
-                ->post("{$this->phoneNumberId}/media", ['messaging_product' => 'whatsapp', 'type' => 'image/jpeg']))->json('id');
+            yield $ticket->code => function () use ($delivery, $messages, $order, $template, $suffix, $ticket) {
+                $mediaId = MetaGraph::ok(MetaGraph::client($this->token)
+                    ->attach('file', $messages->image($ticket), "billet-{$ticket->code}.jpg", ['Content-Type' => 'image/jpeg'])
+                    ->post("{$this->phoneNumberId}/media", ['messaging_product' => 'whatsapp', 'type' => 'image/jpeg']))->json('id');
 
-            $messageId = MetaGraph::ok(MetaGraph::client($this->token)->post("{$this->phoneNumberId}/messages", [
-                'messaging_product' => 'whatsapp',
-                'to' => $delivery->recipient,
-                'type' => 'template',
-                'biz_opaque_callback_data' => $delivery->id,
-                'template' => [
-                    'name' => $template,
-                    'language' => ['code' => $order->locale],
-                    'components' => [
-                        ['type' => 'header', 'parameters' => [['type' => 'image', 'image' => ['id' => $mediaId]]]],
-                        ['type' => 'body', 'parameters' => array_map(fn (string $text) => ['type' => 'text', 'text' => self::param($text)], [
-                            $ticket->holder_name, $ticket->item->name, $order->event->title, $messages->when, $messages->code($ticket),
-                        ])],
-                        ['type' => 'button', 'sub_type' => 'url', 'index' => '0', 'parameters' => [['type' => 'text', 'text' => $suffix]]],
+                return (string) MetaGraph::ok(MetaGraph::client($this->token)->post("{$this->phoneNumberId}/messages", [
+                    'messaging_product' => 'whatsapp',
+                    'to' => $delivery->recipient,
+                    'type' => 'template',
+                    'biz_opaque_callback_data' => $delivery->id,
+                    'template' => [
+                        'name' => $template,
+                        'language' => ['code' => $order->locale],
+                        'components' => [
+                            ['type' => 'header', 'parameters' => [['type' => 'image', 'image' => ['id' => $mediaId]]]],
+                            ['type' => 'body', 'parameters' => array_map(fn (string $text) => ['type' => 'text', 'text' => self::param($text)], [
+                                $ticket->holder_name, $ticket->item->name, $order->event->title, $messages->when, $messages->code($ticket),
+                            ])],
+                            ['type' => 'button', 'sub_type' => 'url', 'index' => '0', 'parameters' => [['type' => 'text', 'text' => $suffix]]],
+                        ],
                     ],
-                ],
-            ]))->json('messages.0.id');
-
-            $delivery->messages = [...($delivery->messages ?? []), $ticket->code => (string) $messageId];
-            $delivery->save();
+                ]))->json('messages.0.id');
+            };
         }
+    }
 
-        return true;
+    /** Les accusés (remis, lu) arrivent ensuite par les notifications de Meta. */
+    public function confirmsAtOnce(): bool
+    {
+        return false;
     }
 
     /** Meta refuse les retours à la ligne, tabulations et plus de 4 espaces de suite dans une variable. */

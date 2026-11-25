@@ -20,6 +20,8 @@ import styles from "./order.module.css";
 
 /** Toutes les 3 secondes tant qu'un paiement attend la confirmation de l'opérateur ou de la carte. */
 const POLL_MS = 3000;
+/** Envoi WhatsApp ou Messenger en cours : plus lent (il peut attendre de nouveaux essais). */
+const DELIVERY_POLL_MS = 10000;
 
 export function OrderView() {
   const { t } = useI18n();
@@ -44,25 +46,25 @@ export function OrderView() {
   }, [load]);
 
   // Paiement en attente, ou envoi WhatsApp / Messenger en cours (Messenger : la personne ouvre la conversation).
-  const waiting =
-    (order?.status === "pending" && order.payment?.status === "pending") ||
-    (order?.status === "paid" && order.deliveries.some((delivery) => DELIVERY_IN_PROGRESS.includes(delivery.status)));
+  const paying = order?.status === "pending" && order.payment?.status === "pending";
+  const delivering = order?.status === "paid" && order.deliveries.some((delivery) => DELIVERY_IN_PROGRESS.includes(delivery.status));
+  const pollMs = paying ? POLL_MS : delivering ? DELIVERY_POLL_MS : null;
   useEffect(() => {
-    if (!waiting) return;
-    const timer = window.setInterval(() => void load(), POLL_MS);
+    if (pollMs === null) return;
+    const timer = window.setInterval(() => void load(), pollMs);
     return () => window.clearInterval(timer);
-  }, [waiting, load]);
+  }, [pollMs, load]);
 
-  // Retour sur la page (depuis Messenger, par exemple) : statut des envois à jour.
-  const paid = order?.status === "paid";
+  // Retour sur la page depuis Messenger : statut de l'envoi à jour.
+  const awaitingMessenger = order?.deliveries.some((delivery) => delivery.status === "awaiting_contact") ?? false;
   useEffect(() => {
-    if (!paid) return;
+    if (!awaitingMessenger) return;
     const refresh = () => {
       if (document.visibilityState === "visible") void load();
     };
     document.addEventListener("visibilitychange", refresh);
     return () => document.removeEventListener("visibilitychange", refresh);
-  }, [paid, load]);
+  }, [awaitingMessenger, load]);
 
   const notFound = error instanceof ApiError && error.status === 404;
 

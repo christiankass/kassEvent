@@ -33,6 +33,9 @@ return [
         'page_username' => env('MESSENGER_PAGE_USERNAME'),
     ],
 
+    // Messages envoyés au plus par job (le job suivant reprend la suite).
+    'messages_per_job' => 10,
+
     // Mode simulé : un numéro WhatsApp qui finit par 0000 simule « numéro sans WhatsApp ».
     'simulated_failure_suffix' => '0000',
 ];

@@ -2,9 +2,9 @@
 
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { EnvelopeSimple, MessengerLogo, WhatsappLogo } from "@phosphor-icons/react";
-import { Field } from "@/components/ui";
+import { Alert, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { formErrorMessage } from "@/lib/errors";
+import { actionErrorMessage } from "@/lib/errors";
 import { format, type Dictionary } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { DeliveryChannel, Order } from "@/lib/orders";
@@ -20,7 +20,7 @@ type Channel = DeliveryChannel | "email";
 export function Deliveries({ order, orderKey, onUpdate }: { order: Order; orderKey: string; onUpdate: (order: Order) => void }) {
   const { t } = useI18n();
   const d = t.order.delivery;
-  const [pending, setPending] = useState<Channel | null>(null);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ channel: Channel; error: unknown } | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   // Verrou synchrone : un double clic part avant que React ait désactivé le bouton.
@@ -31,7 +31,7 @@ export function Deliveries({ order, orderKey, onUpdate }: { order: Order; orderK
   async function send(channel: Channel, extra: Record<string, unknown> = {}) {
     if (busy.current) return;
     busy.current = true;
-    setPending(channel);
+    setPending(true);
     setError(null);
     try {
       const response = await api<{ data: Order; messenger_url: string | null }>(`/public/orders/${order.id}/deliveries`, {
@@ -46,19 +46,13 @@ export function Deliveries({ order, orderKey, onUpdate }: { order: Order; orderK
       setError({ channel, error: caught });
     }
     busy.current = false;
-    setPending(null);
+    setPending(false);
   }
 
-  const errorFor = (channel: Channel) => (error?.channel === channel ? error.error : null);
-  const fieldError = (name: string) => {
-    const caught = errorFor("whatsapp");
-    return caught instanceof ApiError && caught.status === 422 ? caught.field(name) : undefined;
-  };
-  const generalError = (channel: Channel) => {
-    const caught = errorFor(channel);
-    if (!caught || (channel === "whatsapp" && caught instanceof ApiError && caught.status === 422 && caught.field("whatsapp"))) return null;
-    return caught instanceof ApiError && caught.status === 422 ? (caught.field("channel") ?? formErrorMessage(caught, t)) : formErrorMessage(caught, t);
-  };
+  // Numéro refusé : affiché sous le champ ; toute autre erreur, sous le bouton du canal.
+  const whatsappError = error?.channel === "whatsapp" && error.error instanceof ApiError && error.error.status === 422 ? error.error.field("whatsapp") : undefined;
+  const generalError = (channel: Channel) =>
+    error?.channel === channel && !(channel === "whatsapp" && whatsappError) ? actionErrorMessage(error.error, t) : null;
 
   function submitWhatsApp(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -81,8 +75,8 @@ export function Deliveries({ order, orderKey, onUpdate }: { order: Order; orderK
         {order.channels.whatsapp && (
           <Channel icon={<WhatsappLogo size={24} weight="fill" aria-hidden />} name={d.whatsapp} tone="whatsapp" status={whatsapp && <Status delivery={whatsapp} d={d} />}>
             <form className={styles.channelForm} onSubmit={submitWhatsApp} noValidate>
-              <Field label={d.whatsappNumber} hint={d.whatsappHint} name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" required maxLength={25} error={fieldError("whatsapp")} />
-              <button type="submit" className={`${styles.payButton} ${styles.channelButton}`} disabled={pending !== null}>
+              <Field label={d.whatsappNumber} hint={d.whatsappHint} name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" required maxLength={25} error={whatsappError} />
+              <button type="submit" className={`${styles.secondary} ${styles.channelButton}`} disabled={pending}>
                 {whatsapp ? d.whatsappResend : d.whatsappSend}
               </button>
             </form>
@@ -93,7 +87,7 @@ export function Deliveries({ order, orderKey, onUpdate }: { order: Order; orderK
         {order.channels.messenger && (
           <Channel icon={<MessengerLogo size={24} weight="fill" aria-hidden />} name={d.messenger} tone="messenger" status={messenger && <Status delivery={messenger} d={d} />}>
             {(!messenger || messenger.status === "awaiting_contact" || messenger.status === "failed") && <p className={styles.muted}>{d.messengerHint}</p>}
-            <button type="button" className={`${styles.payButton} ${styles.channelButton}`} disabled={pending !== null} onClick={() => void send("messenger")}>
+            <button type="button" className={`${styles.secondary} ${styles.channelButton}`} disabled={pending} onClick={() => void send("messenger")}>
               {!messenger ? d.messengerSend : messenger.status === "awaiting_contact" ? d.messengerReopen : d.messengerAgain}
             </button>
             <ChannelError message={generalError("messenger")} />
@@ -101,7 +95,7 @@ export function Deliveries({ order, orderKey, onUpdate }: { order: Order; orderK
         )}
 
         <Channel icon={<EnvelopeSimple size={24} aria-hidden />} name={d.email} tone="email" status={emailSent ? <span role="status">{d.emailSent}</span> : null}>
-          <button type="button" className={styles.linkButton} disabled={pending !== null} onClick={() => void send("email")}>
+          <button type="button" className={styles.linkButton} disabled={pending} onClick={() => void send("email")}>
             {format(d.emailResend, { email: order.buyer_email })}
           </button>
           <ChannelError message={generalError("email")} />
@@ -142,9 +136,5 @@ function Status({ delivery, d }: { delivery: Order["deliveries"][number]; d: Dic
 }
 
 function ChannelError({ message }: { message: string | null }) {
-  return message ? (
-    <p className={styles.channelFailed} role="alert">
-      {message}
-    </p>
-  ) : null;
+  return message ? <Alert tone="error">{message}</Alert> : null;
 }
