@@ -82,6 +82,12 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by($request->ip().'|'.$request->route('id')),
             Limit::perDay(30)->by('guest|'.$request->route('id')),
         ]);
+        // Vœux : une personne écrit un ou deux messages, mais un réseau mobile partage une adresse entre beaucoup de proches.
+        RateLimiter::for('wishes', fn (Request $request) => [
+            Limit::perMinute(10)->by($request->ip().'|'.$request->route('id')),
+            Limit::perHour(60)->by($request->ip().'|'.$request->route('id')),
+            Limit::perDay(1000)->by('wish-book|'.$request->route('id')),
+        ]);
         // Invitations par e-mail : un envoi groupé à la fois, quelques fois par heure.
         RateLimiter::for('guest-emails', fn (Request $request) => Limit::perHour(20)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('webhooks', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));

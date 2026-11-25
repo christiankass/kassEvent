@@ -9,8 +9,10 @@ use App\Modules\Communication\Http\Controllers\MetaWebhookController;
 use App\Modules\Events\Http\Controllers\EventController;
 use App\Modules\Events\Http\Controllers\EventDesignController;
 use App\Modules\Events\Http\Controllers\PublicEventController;
+use App\Modules\Events\Http\Controllers\PublicWishController;
 use App\Modules\Events\Http\Controllers\StudioController;
 use App\Modules\Events\Http\Controllers\TicketTypeController;
+use App\Modules\Events\Http\Controllers\WishController;
 use App\Modules\Guests\Http\Controllers\GuestController;
 use App\Modules\Guests\Http\Controllers\PublicGuestController;
 use App\Modules\Guests\Http\Controllers\SeatingController;
@@ -68,6 +70,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::post('/public/guests/{id}/rsvp', [PublicGuestController::class, 'respond'])
         ->middleware('throttle:rsvp-answer')->whereUuid('id')->name('public.guests.rsvp');
 
+    // Livre de vœux (anniversaire, mariage) : page publique par son lien, message sans compte.
+    Route::get('/public/wish-books/{id}', [PublicWishController::class, 'show'])
+        ->middleware('throttle:public')->whereUuid('id')->name('public.wish-books.show');
+    Route::post('/public/wish-books/{id}/wishes', [PublicWishController::class, 'store'])
+        ->middleware('throttle:wishes')->whereUuid('id')->name('public.wish-books.wishes.store');
+
     // Notifications des prestataires de paiement (adresses à déclarer chez pawaPay et Stripe).
     Route::prefix('webhooks')->name('webhooks.')->middleware('throttle:webhooks')->group(function () {
         Route::post('/pawapay', [WebhookController::class, 'pawapay'])->name('pawapay');
@@ -120,6 +128,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 // Invités, réponses et plan de salle.
                 Route::get('/events/{id}/guests', [GuestController::class, 'index'])->whereUuid('id')->name('events.guests.index');
+
+                // Livre de vœux.
+                Route::get('/events/{id}/wishes', [WishController::class, 'index'])->whereUuid('id')->name('events.wishes.index');
             });
 
             Route::middleware('can:events.manage')->group(function () {
@@ -159,6 +170,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::patch('/tables/{id}', [SeatingController::class, 'updateTable'])->whereUuid('id')->name('tables.update');
                 Route::delete('/tables/{id}', [SeatingController::class, 'destroyTable'])->whereUuid('id')->name('tables.destroy');
                 Route::put('/guests/{id}/table', [SeatingController::class, 'assign'])->whereUuid('id')->name('guests.table');
+
+                // Livre de vœux : ouverture et réglages, modération.
+                Route::put('/events/{id}/wishes/settings', [WishController::class, 'settings'])->whereUuid('id')->name('events.wishes.settings');
+                Route::patch('/wishes/{id}', [WishController::class, 'update'])->whereUuid('id')->name('wishes.update');
+                Route::delete('/wishes/{id}', [WishController::class, 'destroy'])->whereUuid('id')->name('wishes.destroy');
 
                 Route::post('/events/{id}/ticket-types', [TicketTypeController::class, 'store'])->whereUuid('id')->name('ticket-types.store');
                 Route::patch('/ticket-types/{id}', [TicketTypeController::class, 'update'])->whereUuid('id')->name('ticket-types.update');
