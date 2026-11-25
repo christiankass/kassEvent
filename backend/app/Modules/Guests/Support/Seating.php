@@ -86,8 +86,9 @@ final class Seating
         return DB::transaction(function () use ($table, $attributes) {
             $this->lockTables($table->event_id);
             $table->refresh();
-            if (isset($attributes['seats']) && $attributes['seats'] < $this->occupied($table)) {
-                throw ValidationException::withMessages(['seats' => __('guests.table_too_small', ['table' => $table->label(), 'count' => $this->occupied($table)])]);
+            $occupied = $this->occupied($table);
+            if (isset($attributes['seats']) && $attributes['seats'] < $occupied) {
+                throw ValidationException::withMessages(['seats' => __('guests.table_too_small', ['table' => $table->label(), 'count' => $occupied])]);
             }
             $table->update($attributes);
             $this->printSeats($table->guests()->get());
@@ -117,10 +118,7 @@ final class Seating
                 if ($guest->status === Guest::DECLINED) {
                     throw ValidationException::withMessages(['table_id' => __('guests.declined_not_seated')]);
                 }
-                $left = $table->seats - $this->occupied($table, except: $guest);
-                if ($guest->party() > $left) {
-                    throw ValidationException::withMessages(['table_id' => __('guests.table_full', ['table' => $table->label(), 'left' => max(0, $left), 'party' => $guest->party()])]);
-                }
+                $this->ensureRoom($table, $guest, 'table_id');
             }
             $guest->forceFill(['table_id' => $table?->id])->save();
             $this->printSeats(collect([$guest]));
@@ -183,6 +181,21 @@ final class Seating
         $labels = EventTable::whereKey($guests->pluck('table_id')->filter()->unique()->values())->get()->keyBy('id');
         foreach ($guests->whereNotNull('order_id') as $guest) {
             $this->invitations->update($guest->order_id, ['seat' => $labels->get($guest->table_id)?->label()]);
+        }
+    }
+
+    /** Places libres pour cet invité à cette table (sa propre place comptée libre s'il y est déjà). */
+    public function roomFor(EventTable $table, Guest $guest): int
+    {
+        return $table->seats - $this->occupied($table, except: $guest);
+    }
+
+    /** Refuse (erreur sur le champ $field) si l'invité et ses accompagnants ne tiennent pas à cette table. */
+    public function ensureRoom(EventTable $table, Guest $guest, string $field): void
+    {
+        $left = $this->roomFor($table, $guest);
+        if ($guest->party() > $left) {
+            throw ValidationException::withMessages([$field => __('guests.table_full', ['table' => $table->label(), 'left' => max(0, $left), 'party' => $guest->party()])]);
         }
     }
 

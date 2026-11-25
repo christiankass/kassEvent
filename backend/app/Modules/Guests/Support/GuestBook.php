@@ -72,11 +72,7 @@ final class GuestBook
                 $guest->companions_confirmed = $guest->companions_allowed;
             }
             if ($guest->table_id && $guest->isDirty('companions_allowed')) {
-                $table = $tables[$guest->table_id];
-                $left = $table->seats - $this->seating->occupied($table, except: $guest);
-                if ($guest->party() > $left) {
-                    throw ValidationException::withMessages(['companions_allowed' => __('guests.table_full', ['table' => $table->label(), 'left' => max(0, $left), 'party' => $guest->party()])]);
-                }
+                $this->seating->ensureRoom($tables[$guest->table_id], $guest, 'companions_allowed');
             }
             $guest->save();
 
@@ -133,8 +129,7 @@ final class GuestBook
             ]);
             if ($guest->table_id) {
                 // Plus d'accompagnants qu'à sa première réponse : sa table a pu se remplir entre-temps.
-                $table = $tables[$guest->table_id];
-                if ($guest->party() > $table->seats - $this->seating->occupied($table, except: $guest)) {
+                if ($guest->party() > $this->seating->roomFor($tables[$guest->table_id], $guest)) {
                     $guest->table_id = null;
                 }
             }
