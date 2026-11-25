@@ -7,6 +7,7 @@ use App\Modules\CheckIn\Models\TicketCheckIn;
 use App\Modules\CheckIn\Support\CheckInDesk;
 use App\Modules\CheckIn\Support\TicketFingerprint;
 use App\Modules\Events\Models\Event;
+use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Models\Ticket;
 use Illuminate\Http\JsonResponse;
 
@@ -23,7 +24,10 @@ final class CheckInController
         $event = Event::findOrFail($id);
 
         $checkIns = TicketCheckIn::with('scan.user')->where('event_id', $event->id)->get()->keyBy('ticket_id');
-        $tickets = Ticket::with('item')->where('event_id', $event->id)->orderBy('id')->get();
+        $tickets = Ticket::with('item')->where('event_id', $event->id)
+            ->whereHas('order', fn ($q) => $q->where('status', Order::PAID)) // sans les invitations annulées
+            ->orderBy('id')->get();
+        $checkIns = $checkIns->toBase()->only($tickets->modelKeys()); // entrées des invitations encore valables
         $fingerprints = TicketFingerprint::forTickets($event->id, $tickets);
         $tickets = $tickets->map(fn (Ticket $ticket) => [
             'hash' => $fingerprints[$ticket->id],

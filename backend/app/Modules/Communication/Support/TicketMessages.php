@@ -33,7 +33,7 @@ final class TicketMessages
 
     public function isInvitation(): bool
     {
-        return $this->design->isInvitation();
+        return $this->order->usesInvitationWording();
     }
 
     /** @return iterable<Ticket> */
@@ -67,7 +67,7 @@ final class TicketMessages
 
     public function caption(Ticket $ticket): string
     {
-        return __($this->key('caption'), ['holder' => $ticket->holder_name, 'type' => $ticket->item->name, 'code' => $this->code($ticket)], $this->order->locale);
+        return __($this->key('caption'), ['holder' => $ticket->holder_name, 'type' => $ticket->label(), 'code' => $this->code($ticket)], $this->order->locale);
     }
 
     public function text(string $name): string

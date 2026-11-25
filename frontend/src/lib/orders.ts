@@ -28,7 +28,7 @@ export type DeliveryStatus = "scheduled" | "awaiting_contact" | "queued" | "sent
  */
 export const DELIVERY_IN_PROGRESS: DeliveryStatus[] = ["scheduled", "queued"];
 
-export type OrderStatus = "pending" | "paid" | "expired" | "refund_due";
+export type OrderStatus = "pending" | "paid" | "expired" | "refund_due" | "cancelled";
 
 /** Commande telle que la voit son acheteur (lien personnel). */
 export type Order = {
@@ -38,7 +38,10 @@ export type Order = {
   currency: Currency;
   total: number;
   buyer_name: string;
-  buyer_email: string;
+  /** Invité sans e-mail (invitation nominative) : null. */
+  buyer_email: string | null;
+  /** Invitation nominative, ou vocabulaire « invitation » choisi dans l'atelier. */
+  invitation: boolean;
   expires_at: string;
   paid_at: string | null;
   event: {
@@ -62,7 +65,7 @@ export type Order = {
     redirect_url: string | null;
     simulated: boolean;
   } | null;
-  tickets: { code: string; name: string; holder_name: string; qr: string }[];
+  tickets: { code: string; name: string; holder_name: string; companions: number; seat: string | null; qr: string }[];
   /** Envois sur WhatsApp et Messenger (numéro masqué). */
   deliveries: { channel: DeliveryChannel; status: DeliveryStatus; recipient: string | null; failure_code: string | null }[];
   /** Canaux que l'acheteur peut demander ; simulated : aucun message réel ne part. */

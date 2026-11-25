@@ -40,7 +40,7 @@ final class WhatsAppChannel implements DeliveryChannel
                         'components' => [
                             ['type' => 'header', 'parameters' => [['type' => 'image', 'image' => ['id' => $mediaId]]]],
                             ['type' => 'body', 'parameters' => array_map(fn (string $text) => ['type' => 'text', 'text' => self::param($text)], [
-                                $ticket->holder_name, $ticket->item->name, $order->event->title, $messages->when, $messages->code($ticket),
+                                $ticket->holder_name, $ticket->label(), $order->event->title, $messages->when, $messages->code($ticket),
                             ])],
                             ['type' => 'button', 'sub_type' => 'url', 'index' => '0', 'parameters' => [['type' => 'text', 'text' => $suffix]]],
                         ],

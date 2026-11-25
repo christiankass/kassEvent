@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\CheckIn\Models\TicketCheckIn;
 use App\Modules\CheckIn\Models\TicketScan;
 use App\Modules\Events\Models\Event;
+use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Models\Ticket;
 use App\Modules\Ticketing\Support\TicketCode;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -38,7 +39,8 @@ final class CheckInDesk
 
         $offline = (bool) ($scan['offline'] ?? false);
         $code = TicketCode::normalize($scan['code']);
-        $ticket = $code === '' ? null : Ticket::where('code', $code)->first();
+        // Invitation annulée (l'invité s'est désisté) : son code ne vaut plus rien.
+        $ticket = $code === '' ? null : Ticket::where('code', $code)->whereHas('order', fn ($q) => $q->where('status', Order::PAID))->first();
 
         $result = match (true) {
             $ticket === null => TicketScan::INVALID,
@@ -144,13 +146,15 @@ final class CheckInDesk
         ];
     }
 
-    /** @return array{holder_name: string, ticket_type: string|null, companions: int} */
+    /** @return array{holder_name: string, ticket_type: string|null, companions: int, seat: string|null} */
     public static function ticket(Ticket $ticket): array
     {
         return [
             'holder_name' => $ticket->holder_name,
             'ticket_type' => $ticket->item?->name,
             'companions' => (int) $ticket->companions,
+            // Table de l'invité (événement privé avec plan de salle) : l'agent l'indique à l'entrée.
+            'seat' => $ticket->seat,
         ];
     }
 

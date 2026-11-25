@@ -33,13 +33,24 @@ class Order extends Model
      */
     public const REFUND_DUE = 'refund_due';
 
+    /**
+     * Invitation retirée (module Guests : l'invité s'est désisté ou a été retiré de la liste) :
+     * son QR code n'ouvre plus la porte. Elle redevient payée si l'invité confirme de nouveau.
+     */
+    public const CANCELLED = 'cancelled';
+
+    /** Origine : vente sur la page publique, ou invitation nominative d'un invité (module Guests). */
+    public const SALE = 'sale';
+
+    public const INVITATION = 'invitation';
+
     /** Statut vu par l'acheteur et l'organisateur : une commande en attente dépassée est « expirée ». */
     public const EXPIRED = 'expired';
 
     protected $guarded = ['id', 'organization_id', 'status', 'paid_at'];
 
     /** @var array<string, mixed> */
-    protected $attributes = ['status' => self::PENDING];
+    protected $attributes = ['status' => self::PENDING, 'source' => self::SALE];
 
     protected $hidden = ['access_key'];
 
@@ -99,6 +110,12 @@ class Order extends Model
     public function isExpired(): bool
     {
         return $this->status === self::PENDING && $this->expires_at->isPast();
+    }
+
+    /** Textes « invitation » plutôt que « billet » : invitation nominative, ou choix de l'atelier. */
+    public function usesInvitationWording(): bool
+    {
+        return $this->source === self::INVITATION || $this->event->ticketDesign()->isInvitation();
     }
 
     public function displayStatus(): string

@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowSquareOut, FrameCorners, QrCode, ImageSquare, MagicWand, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, Armchair, FrameCorners, QrCode, ImageSquare, MagicWand, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { Alert, Button, buttonClass } from "@/components/ui";
 import { api } from "@/lib/api";
 import { actionErrorMessage, formErrorMessage } from "@/lib/errors";
 import { publicEventUrl, ticketPrice, type EventData } from "@/lib/events";
+import type { GuestSummary } from "@/lib/guests";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
@@ -46,6 +47,14 @@ export default function EventPage() {
   useEffect(() => {
     load().catch(setLoadError);
   }, [load]);
+
+  // Invités (événement privé) : résumé des réponses ; le scan est ouvert dès qu'il y a des invités.
+  const [guests, setGuests] = useState<GuestSummary | null>(null);
+  useEffect(() => {
+    api<{ summary: GuestSummary }>(`/events/${id}/guests`, { organizationId })
+      .then(({ summary }) => setGuests(summary))
+      .catch(() => setGuests(null));
+  }, [id, organizationId]);
 
   /**
    * Action hors formulaire : annonce le résultat et affiche l'événement à jour,
@@ -89,7 +98,7 @@ export default function EventPage() {
         <StatusBadge status={event.status} />
       </div>
 
-      {canScan && published && (
+      {canScan && (published || (guests?.confirmed ?? 0) > 0) && (
         <Link href={`/evenements/${event.id}/scanner`} className={buttonClass("primary", styles.scanButton)}>
           <QrCode size={22} aria-hidden /> {t.scan.open}
         </Link>
@@ -222,6 +231,22 @@ export default function EventPage() {
         </div>
 
         <aside className={app.stack}>
+          <section className={app.panel} aria-labelledby="guests-title">
+            <h2 id="guests-title" className={app.sectionTitle}>
+              {t.guests.title}
+            </h2>
+            <p className={styles.sectionLede}>
+              {guests && guests.guests > 0
+                ? format(t.guests.panelSummary, { confirmed: String(guests.confirmed), guests: String(guests.guests) })
+                : t.guests.panelLede}
+            </p>
+            <div className={styles.buttons}>
+              <Link href={`/evenements/${event.id}/invites`} className={buttonClass("primary")}>
+                <Armchair size={20} aria-hidden /> {t.guests.open}
+              </Link>
+            </div>
+          </section>
+
           <section className={app.panel} aria-labelledby="publish-title">
             <h2 id="publish-title" className={app.sectionTitle}>
               {t.events.publishTitle}

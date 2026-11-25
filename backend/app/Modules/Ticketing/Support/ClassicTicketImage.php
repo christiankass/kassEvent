@@ -64,7 +64,7 @@ final class ClassicTicketImage
         $y = $top + 40 + imagesy($qr) + 56;
         self::line($image, $ticket->holder_name, $sansBold, 40, $ink, $y, center: true);
         $y += 52;
-        self::line($image, $ticket->item->name, $sans, 30, $ink, $y, center: true);
+        self::line($image, $ticket->label(), $sans, 30, $ink, $y, center: true);
         $y += 52;
         self::line($image, TicketCode::format($ticket->code), $mono, 30, $ink, $y, center: true);
 
