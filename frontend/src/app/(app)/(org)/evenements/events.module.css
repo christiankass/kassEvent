@@ -493,3 +493,12 @@ li:nth-child(4n + 4) > .eventCard { --accent: var(--hibiscus); --accent-soft: va
   background: color-mix(in srgb, var(--err) 12%, var(--surface));
   color: var(--err);
 }
+
+/* Accès direct au scan des entrées, en tête de la fiche */
+.scanButton {
+  margin-top: 16px;
+  min-height: 52px;
+  width: 100%;
+  max-width: 360px;
+  font-size: 17px;
+}

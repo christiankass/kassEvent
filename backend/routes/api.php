@@ -4,6 +4,7 @@ use App\Modules\Access\Http\Controllers\InvitationController;
 use App\Modules\Access\Http\Controllers\InvitationLinkController;
 use App\Modules\Access\Http\Controllers\MemberController;
 use App\Modules\Access\Http\Middleware\RequireTwoFactorForMoney;
+use App\Modules\CheckIn\Http\Controllers\CheckInController;
 use App\Modules\Communication\Http\Controllers\MetaWebhookController;
 use App\Modules\Events\Http\Controllers\EventController;
 use App\Modules\Events\Http\Controllers\EventDesignController;
@@ -134,6 +135,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('/events/{id}/ticket-types', [TicketTypeController::class, 'store'])->whereUuid('id')->name('ticket-types.store');
                 Route::patch('/ticket-types/{id}', [TicketTypeController::class, 'update'])->whereUuid('id')->name('ticket-types.update');
                 Route::delete('/ticket-types/{id}', [TicketTypeController::class, 'destroy'])->whereUuid('id')->name('ticket-types.destroy');
+            });
+
+            // Contrôle d'entrée : liste pour le hors ligne, puis scans (un par un en ligne, par lot au retour du réseau).
+            Route::middleware('can:checkin.scan')->group(function () {
+                Route::get('/events/{id}/check-in', [CheckInController::class, 'show'])->whereUuid('id')->name('events.check-in.show');
+                Route::post('/events/{id}/check-in/scans', [CheckInController::class, 'scans'])
+                    ->middleware('throttle:scans')->whereUuid('id')->name('events.check-in.scans');
             });
 
             // Ventes : double authentification obligatoire pour les rôles qui touchent à l'argent.

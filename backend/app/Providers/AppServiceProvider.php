@@ -67,6 +67,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('order-tickets', fn (Request $request) => Limit::perMinute(1200)->by($request->ip().'|'.$request->route('id')));
         // E-mail d'exemple de l'atelier : envoyé à soi-même, quelques fois seulement.
         RateLimiter::for('design-test', fn (Request $request) => Limit::perMinute(3)->by($request->user()?->id ?: $request->ip()));
+        // Une entrée qui se presse : un scan par seconde et par agent, et la synchro des lots hors ligne.
+        RateLimiter::for('scans', fn (Request $request) => Limit::perMinute(240)->by($request->user()?->id ?: $request->ip()));
         // Compte de reversement (code de double authentification) et « Reverser maintenant ».
         RateLimiter::for('payouts', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
         // Envoi des billets sur WhatsApp, Messenger ou de nouveau par e-mail : chaque envoi WhatsApp est payant.
