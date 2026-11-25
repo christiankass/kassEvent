@@ -62,8 +62,8 @@ final class StudioController
     /** Enregistre le billet du studio et l'utilise désormais pour les billets envoyés. */
     public function saveTicket(Request $request, string $id): JsonResponse
     {
+        $canvas = $this->document($request, Event::findOrFail($id), CanvasDocument::TICKET);
         $design = EventDesign::editable($id);
-        $canvas = $this->document($request, $design->event, CanvasDocument::TICKET);
         ['width' => $width, 'height' => $height] = $canvas;
 
         $previous = $design->canvas_image_path;
@@ -80,9 +80,9 @@ final class StudioController
     /** Enregistre l'affiche du studio, qui devient l'affiche de l'événement (page de vente, partages). */
     public function savePoster(Request $request, string $id): JsonResponse
     {
+        $canvas = $this->document($request, Event::findOrFail($id), CanvasDocument::POSTER);
         $design = EventDesign::editable($id);
         $event = $design->event;
-        $canvas = $this->document($request, $event, CanvasDocument::POSTER);
         ['width' => $width, 'height' => $height] = $canvas;
 
         $previous = $event->cover_path;

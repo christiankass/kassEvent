@@ -27,6 +27,8 @@ export type FieldName = (typeof FIELDS)[number];
 
 export const CANVAS_FONTS = ["fraunces", "playfair", "instrument", "poppins", "anton", "fredoka", "cinzel", "script", "pacifico", "mono"] as const;
 export type CanvasFont = (typeof CANVAS_FONTS)[number];
+/** Polices sans gras : un champ (écrit par le serveur) y reste maigre, comme sur le billet envoyé. */
+export const SINGLE_WEIGHT: ReadonlySet<CanvasFont> = new Set(["anton", "script", "pacifico"]);
 
 export const MAX_ELEMENTS = 150;
 /** Côté minimal du QR code, en part du plus petit côté de la page : il doit rester lisible. */
@@ -161,10 +163,10 @@ export function resizeDoc(doc: CanvasDoc, width: number, height: number): Canvas
   const scale = Math.min(sx, sy);
   const target = { width, height };
   const elements = doc.elements.map((element) => {
-    // Fonds pleine page (aplats, dégradés) : ils suivent toute la page.
-    const fullPage = element.type !== "text" && element.type !== "field" && element.type !== "qr" && element.width >= doc.width * 0.98 && element.height >= doc.height * 0.98;
-    const w = fullPage ? element.width * sx : element.width * scale;
-    const h = fullPage ? element.height * sy : element.height * scale;
+    // Bandes et fonds sur toute la largeur (ou hauteur) : ils restent bord à bord.
+    const shape = element.type !== "text" && element.type !== "field" && element.type !== "qr" && element.type !== "icon";
+    const w = shape && element.width >= doc.width * 0.98 ? element.width * sx : element.width * scale;
+    const h = shape && element.height >= doc.height * 0.98 ? element.height * sy : element.height * scale;
     const resized = {
       ...element,
       x: Math.round((element.x + element.width / 2) * sx - w / 2),

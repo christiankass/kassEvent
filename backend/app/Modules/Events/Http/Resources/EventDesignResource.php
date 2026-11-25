@@ -20,6 +20,8 @@ final class EventDesignResource extends JsonResource
         return [
             // canvas : billet fait dans le studio (image par billet) ; classic : billet de l'atelier.
             'mode' => $this->modeName(),
+            // Taille de l'image d'un billet du studio (portrait, carré ou story).
+            'canvas_size' => $this->canvas ? [$this->canvas['width'], $this->canvas['height']] : null,
             'template' => $this->template,
             'kind' => $this->kind,
             'primary_color' => $this->primary_color,

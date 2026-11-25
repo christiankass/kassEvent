@@ -104,6 +104,10 @@ class StudioTest extends TestCase
 
     public function test_the_qr_code_must_stay_scannable(): void
     {
+        // Un envoi refusé ne crée pas de design.
+        $this->post("/api/v1/events/{$this->event}/studio/ticket", ['canvas' => json_encode($this->ticket())], $this->headers())->assertInvalid('image');
+        $this->assertSame(0, app(TenantContext::class)->run($this->organization->id, fn () => EventDesign::count()));
+
         $qr = fn (array $overrides) => ['id' => 'qr', 'type' => 'qr', 'x' => 700, 'y' => 970, 'width' => 300, 'height' => 300, 'rotation' => 0, ...$overrides];
 
         $this->save($this->ticket(qr: $qr(['width' => 100, 'height' => 100])))->assertInvalid(['canvas' => 'au moins 162']);
@@ -165,6 +169,7 @@ class StudioTest extends TestCase
             ->assertJsonPath('data.ticket.elements.5.fit', 'contain');
         $preview = $this->get("/api/v1/events/{$this->event}/studio/preview", $this->headers())->assertOk();
         $this->assertSame([1080, 1080], array_slice(getimagesizefromstring($preview->getContent()), 0, 2));
+        $this->getJson("/api/v1/events/{$this->event}/design", $this->headers())->assertJsonPath('data.canvas_size', [1080, 1080]);
 
         // Affiche portrait et story : la page de vente reçoit l'image à ce format.
         foreach ([[1080, 1350], [1080, 1920]] as [$width, $height]) {

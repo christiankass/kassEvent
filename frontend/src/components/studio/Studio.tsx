@@ -345,7 +345,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
     if (format === pageFormat) return;
     const [width, height] = FORMATS[format];
     const next = resizeDoc(doc, width, height);
-    change({ ...next, elements: next.elements.map(normalize) });
+    change({ ...next, elements: next.elements.map((element) => (element.type === "text" && fonts ? fitText(element, fonts) : element)) });
     setSelectedId(null);
   }
 

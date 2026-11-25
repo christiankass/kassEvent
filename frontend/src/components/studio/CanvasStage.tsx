@@ -4,6 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import Konva from "konva";
 import { Ellipse, Group, Image as KonvaImage, Layer, Line, Path, Rect, Shape, Stage, Star, Text, Transformer } from "react-konva";
 import {
+  SINGLE_WEIGHT,
   isDynamic,
   isTextual,
   type CanvasDoc,
@@ -183,7 +184,7 @@ export const CanvasStage = forwardRef<StageHandle, Props>(function CanvasStage(
           <Transformer
             ref={transformerRef}
             rotateEnabled={selected?.type !== "qr"}
-            keepRatio={selected?.type === "qr" || selected?.type === "image"}
+            keepRatio={selected?.type === "qr" || selected?.type === "image" || selected?.type === "icon"}
             enabledAnchors={
               selected?.type === "qr"
                 ? ["top-left", "top-right", "bottom-left", "bottom-right"]
@@ -223,7 +224,7 @@ function ElementShape({
           text={element.type === "text" ? element.text : samples[element.field]}
           fontFamily={fonts[element.font]}
           fontSize={element.fontSize}
-          fontStyle={[element.italic && element.type === "text" && "italic", element.bold && "bold"].filter(Boolean).join(" ") || "normal"}
+          fontStyle={[element.italic && element.type === "text" && "italic", element.bold && (element.type === "text" || !SINGLE_WEIGHT.has(element.font)) && "bold"].filter(Boolean).join(" ") || "normal"}
           fill={element.fill}
           align={element.align ?? "left"}
           lineHeight={element.lineHeight ?? 1.2}
@@ -276,7 +277,7 @@ function PhotoPlaceholder({ width, height, radius, label }: { width: number; hei
   const size = Math.min(width, height);
   return (
     <Group name={label ? "placeholder" : undefined}>
-      <Rect width={width} height={height} cornerRadius={radius} fill="#DCE7E5" fillLinearGradientStartPoint={{ x: 0, y: 0 }} fillLinearGradientEndPoint={{ x: 0, y: height }} fillLinearGradientColorStops={[0, "#E6EFED", 1, "#C5D7D3"]} />
+      <Rect width={width} height={height} cornerRadius={radius} fillLinearGradientStartPoint={{ x: 0, y: 0 }} fillLinearGradientEndPoint={{ x: 0, y: height }} fillLinearGradientColorStops={[0, "#E6EFED", 1, "#C5D7D3"]} />
       <Group
         clipFunc={(context) => {
           context.beginPath();

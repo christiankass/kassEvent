@@ -50,7 +50,7 @@ export type TemplateContext = {
     program: string;
     points: string[];
     book: string;
-    entry: string;
+    entryPrice: string;
     with: string;
     speaker: string;
     logo: string;
@@ -602,7 +602,7 @@ const infoCard: Layout = (f, t, ctx, o) => {
       text({ x: 100, y: 260, width: 480, height: 90 }, ctx.date, { font: t.body, fontSize: 32, bold: true, fill: t.cardInk }),
       ...pill({ x: 100, y: 370, width: 400, height: 56 }, ctx.labels.program, t.accent, t.onAccent, t.body, 24),
       ...bullets({ x: 100, y: 450, width: 480, height: 110 }, ctx.labels.points.slice(0, 2), { ink: t.cardInk, iconColor: t.accent, font: t.body, size: 22, icon: "arrow" }),
-      ...pill({ x: 760, y: 470, width: 380, height: 100 }, `${ctx.labels.entry} : ${ctx.price}`, t.accent, t.onAccent, t.body, 32),
+      ...pill({ x: 760, y: 470, width: 380, height: 100 }, ctx.labels.entryPrice.replace("{price}", ctx.price), t.accent, t.onAccent, t.body, 32),
     ];
   }
   const b = f.bottom;
