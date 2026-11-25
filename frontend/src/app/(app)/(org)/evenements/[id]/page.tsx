@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowSquareOut, FrameCorners, ImageSquare, MagicWand, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, FrameCorners, QrCode, ImageSquare, MagicWand, PaintBrush, PencilSimple, Trash } from "@phosphor-icons/react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { Alert, Button, buttonClass } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -29,6 +29,7 @@ export default function EventPage() {
   const organizationId = organization.id;
   const canManage = permissions.includes("events.manage");
   const canViewSales = permissions.includes("orders.view");
+  const canScan = permissions.includes("checkin.scan");
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -87,6 +88,12 @@ export default function EventPage() {
         <h1 className={app.title}>{event.title}</h1>
         <StatusBadge status={event.status} />
       </div>
+
+      {canScan && published && (
+        <Link href={`/evenements/${event.id}/scanner`} className={buttonClass("primary", styles.scanButton)}>
+          <QrCode size={22} aria-hidden /> {t.scan.open}
+        </Link>
+      )}
 
       <div className={app.notice} aria-live="polite">
         {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ShieldCheck, SignOut } from "@phosphor-icons/react";
 import { Alert, Button, buttonClass, LocaleSwitch, Wordmark } from "@/components/ui";
 import { api } from "@/lib/api";
+import { clearDesks } from "@/lib/check-in";
 import { setCurrentOrganizationId } from "@/lib/current-organization";
 import { formErrorMessage } from "@/lib/errors";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -33,6 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return;
     }
     setCurrentOrganizationId(null);
+    await clearDesks(); // listes de participants gardées pour le scan hors ligne
     router.replace("/connexion");
   }
 
