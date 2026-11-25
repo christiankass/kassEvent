@@ -22,11 +22,17 @@ async function makeDecoder(): Promise<(video: HTMLVideoElement, canvas: HTMLCanv
   }
 
   const { default: jsQR } = await import("jsqr");
+  let context: CanvasRenderingContext2D | null = null;
   return async (video, canvas) => {
     const scale = Math.min(1, MAX_WIDTH / video.videoWidth);
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
-    const context = canvas.getContext("2d", { willReadFrequently: true });
+    const width = Math.round(video.videoWidth * scale);
+    const height = Math.round(video.videoHeight * scale);
+    // Redimensionner vide le canevas : seulement quand la taille de l'image change.
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    context ??= canvas.getContext("2d", { willReadFrequently: true });
     if (!context) return null;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const image = context.getImageData(0, 0, canvas.width, canvas.height);

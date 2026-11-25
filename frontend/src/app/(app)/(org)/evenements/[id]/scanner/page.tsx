@@ -5,13 +5,14 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Camera, CheckCircle, CloudArrowDown, Prohibit, Question, Warning, WarningOctagon, WifiHigh, WifiSlash } from "@phosphor-icons/react";
 import { Alert, Button } from "@/components/ui";
-import { ApiError } from "@/lib/api";
+import { ApiError, isTransient } from "@/lib/api";
 import {
   admits,
+  conflictKind,
   decideOffline,
   downloadList,
+  EMPTY_DESK,
   fingerprint,
-  isOutage,
   loadDesk,
   normalizeCode,
   saveDesk,
@@ -41,8 +42,6 @@ const GATE_KEY = "kassevent.gate";
 
 type CameraState = "idle" | "starting" | "on" | "denied" | "missing";
 
-const EMPTY: Desk = { list: null, local: {}, pending: [] };
-
 export default function ScannerPage() {
   const { t, locale } = useI18n();
   const { id: eventId } = useParams<{ id: string }>();
@@ -50,8 +49,8 @@ export default function ScannerPage() {
   const user = useUser();
   const organizationId = organization.id;
 
-  const deskRef = useRef<Desk>(EMPTY);
-  const [desk, setDesk] = useState<Desk>(EMPTY);
+  const deskRef = useRef<Desk>(EMPTY_DESK);
+  const [desk, setDesk] = useState<Desk>(EMPTY_DESK);
   const [ready, setReady] = useState(false);
   const [online, setOnline] = useState(true);
   const [gate, setGate] = useState("");
@@ -91,7 +90,7 @@ export default function ScannerPage() {
       });
       setError(null);
     } catch (e) {
-      if (!isOutage(e)) setError(e);
+      if (!isTransient(e)) setError(e);
     }
     setDownloading(false);
   }, [organizationId, eventId, commit]);
@@ -100,32 +99,32 @@ export default function ScannerPage() {
     if (syncingRef.current || !navigator.onLine) return;
     const batch = deskRef.current.pending.slice(0, 200);
     if (batch.length === 0) return;
+    const drop = (ids: string[]) => {
+      const done = new Set(ids);
+      commit((d) => ({ ...d, pending: d.pending.filter((scan) => !done.has(scan.id)) }));
+    };
     syncingRef.current = true;
     try {
       const { data } = await sendScans(organizationId, eventId, batch);
-      const found: Conflict[] = [];
-      for (const result of data) {
-        const kind = result.admitted ? (result.result === "already_used" ? "double" : null) : result.result === "valid" ? "refused" : null;
-        if (kind) found.push({ id: result.id, kind, ticket: result.ticket, first_scan: result.first_scan });
-      }
-      const done = new Set(data.map((result) => result.id));
-      commit((d) => ({ ...d, pending: d.pending.filter((scan) => !done.has(scan.id)) }));
+      drop(data.map((result) => result.id));
+      const found = data.flatMap((result): Conflict[] => {
+        const kind = conflictKind(result);
+        return kind ? [{ id: result.id, kind, ticket: result.ticket, first_scan: result.first_scan }] : [];
+      });
       if (found.length > 0) {
         setConflicts((current) => [...current, ...found]);
         navigator.vibrate?.([300, 100, 300, 100, 300]);
       }
-      syncingRef.current = false;
-      await refreshList();
     } catch (e) {
-      if (e instanceof ApiError && e.status === 422) {
-        // Lot refusé tel quel : il ne passera jamais, on ne bloque pas les suivants.
-        const sent = new Set(batch.map((scan) => scan.id));
-        commit((d) => ({ ...d, pending: d.pending.filter((scan) => !sent.has(scan.id)) }));
-      }
+      // Lot refusé tel quel : il ne passera jamais, on ne bloque pas les suivants.
+      if (e instanceof ApiError && e.status === 422) drop(batch.map((scan) => scan.id));
       // Panne de réseau : on réessaiera. Session expirée, accès retiré : l'agent doit le savoir.
-      if (!isOutage(e)) setError(e);
+      if (!isTransient(e)) setError(e);
+      return;
+    } finally {
+      syncingRef.current = false;
     }
-    syncingRef.current = false;
+    await refreshList();
   }, [organizationId, eventId, commit, refreshList]);
 
   // Chargement : ce que le téléphone a gardé, puis la liste à jour si le réseau le permet.
@@ -210,18 +209,18 @@ export default function ScannerPage() {
           if (shown.result === "valid" && hash) commit((d) => ({ ...d, local: { ...d.local, [hash]: mine } }));
         } catch (e) {
           // Réseau trop lent ou coupé : la liste du téléphone décide, le scan partira plus tard.
-          if (!isOutage(e)) {
-            window.clearTimeout(timer);
+          if (!isTransient(e)) {
             setError(e);
             busyRef.current = false;
             return;
           }
+        } finally {
+          window.clearTimeout(timer);
         }
-        window.clearTimeout(timer);
       }
 
       if (!shown) {
-        shown = code ? decideOffline(deskRef.current, hash, id) : { id, result: "invalid", ticket: null, first_scan: null, other_event: null, offline: true };
+        shown = decideOffline(deskRef.current, hash, id);
         const verdict = shown;
         if (code) {
           const pending: PendingScan = { ...scan, offline: true, admitted: verdict.result === "valid" };
@@ -261,8 +260,8 @@ export default function ScannerPage() {
       .filter(Boolean)
       .join(" · ");
 
-  const known = new Set(desk.list?.tickets.filter((ticket) => ticket.first_scan).map((ticket) => ticket.hash));
-  const entered = (desk.list?.checked_in ?? 0) + Object.keys(desk.local).filter((hash) => !known.has(hash)).length;
+  // La mémoire locale ne garde que les entrées pas encore dans la liste (voir refreshList).
+  const entered = (desk.list?.checked_in ?? 0) + Object.keys(desk.local).length;
 
   return (
     <main className={`${app.main} ${styles.main}`}>

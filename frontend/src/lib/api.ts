@@ -51,6 +51,11 @@ async function ensureCsrfCookie(): Promise<void> {
   }
 }
 
+/** Réseau absent ou trop lent, serveur saturé ou en panne : réessayer plus tard a un sens. */
+export function isTransient(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 0 || error.status === 429 || error.status >= 500);
+}
+
 /** Session expirée pendant l'utilisation : retour à la connexion. */
 export function isUnauthenticated(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;

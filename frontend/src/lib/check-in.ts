@@ -1,7 +1,7 @@
-import { api, ApiError } from "./api";
+import { api } from "./api";
 
 /**
- * Contrôle d'entrée. Le téléphone garde la liste des billets de l'événement (empreintes SHA-256,
+ * Contrôle d'entrée. Le téléphone garde la liste des billets de l'événement (empreintes PBKDF2,
  * jamais les codes) et les scans pas encore envoyés : l'entrée continue sans réseau, et tout se
  * synchronise au retour de la connexion. Le serveur tranche ensuite : le premier scan fait foi.
  */
@@ -94,21 +94,35 @@ export type Desk = {
   pending: PendingScan[];
 };
 
+export const EMPTY_DESK: Desk = { list: null, local: {}, pending: [] };
+
 const deskKey = (organizationId: string, eventId: string) => `${organizationId}:${eventId}`;
+const listKey = (organizationId: string, eventId: string) => `list:${organizationId}:${eventId}`;
+
+/** Dernière liste écrite : la liste (lourde) n'est réécrite que quand elle change, pas à chaque scan. */
+let savedList: CheckInList | null = null;
 
 export async function loadDesk(organizationId: string, eventId: string): Promise<Desk> {
   try {
-    const saved = await withStore<Desk>("readonly", (store) => store.get(deskKey(organizationId, eventId)));
-    return saved ?? { list: null, local: {}, pending: [] };
+    const [saved, list] = await Promise.all([
+      withStore<Omit<Desk, "list">>("readonly", (store) => store.get(deskKey(organizationId, eventId))),
+      withStore<CheckInList>("readonly", (store) => store.get(listKey(organizationId, eventId))),
+    ]);
+    savedList = list ?? null;
+    return { ...EMPTY_DESK, ...saved, list: list ?? null };
   } catch {
     // Stockage refusé (navigation privée) : le scan marche en ligne, sans mémoire.
-    return { list: null, local: {}, pending: [] };
+    return EMPTY_DESK;
   }
 }
 
-export async function saveDesk(organizationId: string, eventId: string, desk: Desk): Promise<void> {
+export async function saveDesk(organizationId: string, eventId: string, { list, local, pending }: Desk): Promise<void> {
   try {
-    await withStore("readwrite", (store) => store.put(desk, deskKey(organizationId, eventId)));
+    await withStore("readwrite", (store) => {
+      if (list !== savedList) store.put(list, listKey(organizationId, eventId));
+      return store.put({ local, pending }, deskKey(organizationId, eventId));
+    });
+    savedList = list;
   } catch {
     // Voir loadDesk.
   }
@@ -128,8 +142,8 @@ export async function clearDesks(): Promise<void> {
       cursor.onsuccess = () => {
         const current = cursor.result;
         if (!current) return;
-        const desk = current.value as Desk;
-        if (desk.pending.length > 0) current.update({ list: null, local: {}, pending: desk.pending });
+        const pending = (current.value as Partial<Desk>).pending ?? [];
+        if (pending.length > 0) current.update({ ...EMPTY_DESK, pending });
         else current.delete();
         current.continue();
       };
@@ -137,6 +151,7 @@ export async function clearDesks(): Promise<void> {
       tx.onerror = () => reject(tx.error);
     });
     db.close();
+    savedList = null;
   } catch {
     // Rien à effacer.
   }
@@ -144,15 +159,39 @@ export async function clearDesks(): Promise<void> {
 
 // --- Décision -------------------------------------------------------------------------------
 
-/** Résultat hors ligne, d'après la liste téléchargée et les scans déjà faits sur ce téléphone. */
+type ListEntry = CheckInList["tickets"][number];
+const indexes = new WeakMap<CheckInList, Map<string, ListEntry>>();
+
+/** Billets de la liste par empreinte, construit une fois par liste. */
+function lookup(list: CheckInList, hash: string): ListEntry | undefined {
+  let index = indexes.get(list);
+  if (!index) {
+    index = new Map(list.tickets.map((ticket) => [ticket.hash, ticket]));
+    indexes.set(list, index);
+  }
+  return index.get(hash);
+}
+
+/**
+ * Résultat hors ligne, d'après la liste téléchargée et les scans déjà faits sur ce téléphone.
+ * `hash` vide : le contenu lu ne peut pas être un code de billet.
+ */
 export function decideOffline(desk: Desk, hash: string, id: string): Verdict {
   const base = { id, ticket: null, first_scan: null, other_event: null, offline: true };
+  if (!hash) return { ...base, result: desk.list ? "invalid" : "unverified" };
   if (!desk.list) return { ...base, result: "unverified" };
-  const entry = desk.list.tickets.find((ticket) => ticket.hash === hash);
+  const entry = lookup(desk.list, hash);
   if (!entry) return { ...base, result: "invalid" };
   const ticket = { holder_name: entry.holder_name, ticket_type: entry.ticket_type, companions: entry.companions };
   const first = entry.first_scan ?? desk.local[hash] ?? null;
   return first ? { ...base, result: "already_used", ticket, first_scan: first } : { ...base, result: "valid", ticket };
+}
+
+/** Ce que l'agent doit apprendre d'un scan hors ligne une fois synchronisé, s'il y a lieu. */
+export function conflictKind(scan: ServerScan): Conflict["kind"] | null {
+  if (scan.admitted && scan.result === "already_used") return "double";
+  if (!scan.admitted && scan.result === "valid") return "refused";
+  return null;
 }
 
 /** Envoie des scans et renvoie le résultat qui fait foi pour chacun. */
@@ -167,11 +206,6 @@ export function sendScans(organizationId: string, eventId: string, scans: Pendin
 
 export function downloadList(organizationId: string, eventId: string) {
   return api<CheckInList>(`/events/${eventId}/check-in`, { organizationId });
-}
-
-/** Réseau absent, trop lent ou serveur en panne : le téléphone décide seul. Les autres refus sont à montrer. */
-export function isOutage(error: unknown): boolean {
-  return error instanceof ApiError && (error.status === 0 || error.status === 429 || error.status >= 500);
 }
 
 /** Personnes à laisser entrer avec ce billet : le titulaire et ses accompagnants. */
