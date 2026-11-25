@@ -1,3 +1,4 @@
+import { format } from "./i18n/dictionaries";
 import {
   FORMATS,
   newId,
@@ -62,7 +63,6 @@ export type TemplateContext = {
     saveDate: string;
     rsvp: string;
     contact: string;
-    free: string;
     versus: string;
   };
 };
@@ -498,7 +498,7 @@ const cutout: Layout = (f, t, ctx, o) => {
   ];
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       text({ x: 60, y: 40, width: 640, height: 30 }, ctx.organizer.toUpperCase(), { font: t.body, fontSize: 22, bold: true, letterSpacing: 6, fill: t.soft }),
       title({ x: 60, y: 90, width: 660, height: 200 }, ctx, t, 72, 3, { fill: t.accent }),
       ...bullets({ x: 60, y: 330, width: 600, height: 160 }, ctx.labels.points, { ink: t.ink, iconColor: t.accent2, font: t.body, size: 26 }),
@@ -524,8 +524,8 @@ const cutout: Layout = (f, t, ctx, o) => {
 const quote: Layout = (f, t, ctx, o) => {
   if (f.wide) {
     return [
-      photo({ x: 0, y: 0, width: 1200, height: 630 }, ctx.photoLabel),
-      shape("rect", { x: 0, y: 0, width: 1200, height: 630 }, { fill: null, fill2: t.bg }),
+      photo({ x: 0, y: 0, width: f.w, height: f.h }, ctx.photoLabel),
+      shape("rect", { x: 0, y: 0, width: f.w, height: f.h }, { fill: null, fill2: t.bg }),
       shape("rect", { x: 0, y: 0, width: 760, height: 630 }, { fill: t.bg, opacity: 0.55 }),
       icon("quote", 60, 60, 110, t.accent),
       text({ x: 60, y: 200, width: 660, height: 220 }, ctx.labels.quote, { font: t.title, fontSize: 46, bold: true, italic: true, fill: t.ink, lineHeight: 1.08 }),
@@ -595,14 +595,14 @@ const centerTitle: Layout = (f, t, ctx, o) => {
 const infoCard: Layout = (f, t, ctx, o) => {
   if (f.wide) {
     return [
-      photo({ x: 0, y: 0, width: 1200, height: 630 }, ctx.photoLabel),
-      shape("rect", { x: 0, y: 0, width: 1200, height: 630 }, { fill: t.bg, opacity: 0.55 }),
+      photo({ x: 0, y: 0, width: f.w, height: f.h }, ctx.photoLabel),
+      shape("rect", { x: 0, y: 0, width: f.w, height: f.h }, { fill: t.bg, opacity: 0.55 }),
       title({ x: 60, y: 50, width: 640, height: 150 }, ctx, t, 76, 2),
       shape("rect", { x: 60, y: 230, width: 560, height: 340 }, { fill: t.card, cornerRadius: 28 }),
       text({ x: 100, y: 260, width: 480, height: 90 }, ctx.date, { font: t.body, fontSize: 32, bold: true, fill: t.cardInk }),
       ...pill({ x: 100, y: 370, width: 400, height: 56 }, ctx.labels.program, t.accent, t.onAccent, t.body, 24),
       ...bullets({ x: 100, y: 450, width: 480, height: 110 }, ctx.labels.points.slice(0, 2), { ink: t.cardInk, iconColor: t.accent, font: t.body, size: 22, icon: "arrow" }),
-      ...pill({ x: 760, y: 470, width: 380, height: 100 }, ctx.labels.entryPrice.replace("{price}", ctx.price), t.accent, t.onAccent, t.body, 32),
+      ...pill({ x: 760, y: 470, width: 380, height: 100 }, format(ctx.labels.entryPrice, { price: ctx.price }), t.accent, t.onAccent, t.body, 32),
     ];
   }
   const b = f.bottom;
@@ -631,7 +631,7 @@ const infoCard: Layout = (f, t, ctx, o) => {
 const sideProgram: Layout = (f, t, ctx, o) => {
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       photo({ x: 0, y: 0, width: 470, height: 630 }, ctx.photoLabel, { fit: "contain" }),
       text({ x: 500, y: 40, width: 660, height: 30 }, ctx.organizer.toUpperCase(), { font: t.body, fontSize: 22, bold: true, letterSpacing: 4, fill: t.soft }),
       title({ x: 500, y: 90, width: 660, height: 200 }, ctx, t, 80, 2, { fill: t.accent }),
@@ -665,7 +665,7 @@ const circleTiles: Layout = (f, t, ctx, o) => {
   ];
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       title({ x: 60, y: 60, width: 560, height: 220 }, ctx, t, 72, 3),
       text({ x: 60, y: 320, width: 540, height: 80 }, ctx.date, { font: t.body, fontSize: 26, fill: t.soft }),
       ...pill({ x: 60, y: 450, width: 400, height: 76 }, ctx.labels.book, t.accent, t.onAccent, t.body, 28),
@@ -710,7 +710,7 @@ const speakers: Layout = (f, t, ctx, o) => {
   };
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       text({ x: 60, y: 40, width: 1080, height: 30 }, ctx.organizer.toUpperCase(), { font: t.body, fontSize: 22, bold: true, letterSpacing: 6, fill: t.soft, align: "center" }),
       title({ x: 60, y: 80, width: 1080, height: 120 }, ctx, t, 96, 1, { align: "center" }),
       shape("rect", { x: 150, y: 220, width: 900, height: 90 }, { fill: t.card, cornerRadius: 45 }),
@@ -740,7 +740,7 @@ const framed: Layout = (f, t, ctx, o) => {
   const line = t.accent;
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       ...frameLines(f, line),
       shape("star", { x: 583, y: 76, width: 34, height: 34 }, { fill: line }),
       text({ x: 140, y: 120, width: 920, height: 40 }, ctx.labels.invite, { font: t.body, fontSize: 28, italic: true, fill: t.soft, align: "center" }),
@@ -820,7 +820,7 @@ const patterned: Layout = (f, t, ctx, o) => {
 const neonFrame: Layout = (f, t, ctx, o) => {
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       photo({ x: 700, y: 60, width: 440, height: 510 }, ctx.photoLabel, { cornerRadius: 36 }),
       shape("rect", { x: 700, y: 60, width: 440, height: 510 }, { stroke: t.accent2, strokeWidth: 6, cornerRadius: 36 }),
       title({ x: 60, y: 120, width: 600, height: 260 }, ctx, t, 84, 3, { letterSpacing: 3 }),
@@ -845,7 +845,7 @@ const typo: Layout = (f, t, ctx, o) => {
   const words = caps(ctx.title, true).split(/\s+/).slice(0, 4);
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       shape("rect", { x: -100, y: 420, width: 1500, height: 90 }, { fill: t.accent, rotation: -6 }),
       text({ x: 40, y: 418, width: 1100, height: 60 }, `${ctx.day}  —  ${ctx.venue}`.toUpperCase(), { font: t.body, fontSize: 30, bold: true, fill: t.onAccent, rotation: -6 }),
       text({ x: 60, y: 50, width: 820, height: 340 }, words.join("\n"), { font: t.title, fontSize: Math.min(fit(words.join(" "), 130, 820, words.length, t.title, true), Math.floor(340 / (words.length * 0.92))), bold: true, fill: t.ink, lineHeight: 0.92 }),
@@ -878,7 +878,7 @@ const luxe: Layout = (f, t, ctx, o) => {
   const border = shape("rect", { x: 70, y: 70, width: f.w - 140, height: f.h - 140 }, { stroke: t.accent, strokeWidth: 3 });
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       border,
       ...corners,
       text({ x: 140, y: 130, width: 920, height: 36 }, ctx.organizer.toUpperCase(), { font: t.body, fontSize: 22, letterSpacing: 8, fill: t.accent, align: "center" }),
@@ -913,7 +913,7 @@ const live: Layout = (f, t, ctx, o) => {
   ];
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       title({ x: 60, y: 80, width: 520, height: 260 }, ctx, t, 72, 3),
       ...infoRow({ x: 60, y: 380, width: 500, height: 170 }, [{ icon: "calendar", text: ctx.day }, { icon: "clock", text: ctx.time }, { icon: "globe", text: ctx.labels.online }], { ink: t.ink, iconColor: t.accent, font: t.body, size: 26, stack: true }),
       ...screen({ x: 640, y: 120, width: 500, height: 300 }),
@@ -933,7 +933,7 @@ const live: Layout = (f, t, ctx, o) => {
 const versus: Layout = (f, t, ctx, o) => {
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       photo({ x: 0, y: 0, width: 600, height: 630 }, ctx.photoLabel),
       photo({ x: 600, y: 0, width: 600, height: 630 }, ctx.photoLabel),
       shape("rect", { x: 560, y: -50, width: 80, height: 740 }, { fill: t.accent, rotation: 8 }),
@@ -966,7 +966,7 @@ const blank: Layout = () => [];
 const ribbon: Layout = (f, t, ctx, o) => {
   if (f.wide) {
     return [
-      ...decor(o.decor, { x: 0, y: 0, width: 1200, height: 630 }, t, o.seed),
+      ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
       shape("rect", { x: 760, y: -80, width: 140, height: 900 }, { fill: t.accent, rotation: 18 }),
       shape("rect", { x: 940, y: -80, width: 60, height: 900 }, { fill: t.accent, rotation: 18, opacity: 0.5 }),
       text({ x: 70, y: 60, width: 700, height: 36 }, ctx.organizer.toUpperCase(), { font: t.body, fontSize: 24, bold: true, letterSpacing: 4, fill: t.accent }),
@@ -1095,9 +1095,7 @@ export function templateMatches(id: TemplateId, category: Category, style: Templ
 }
 
 /** Nombre de modèles de chaque catégorie. */
-export function categoryCount(category: Category): number {
-  return TEMPLATE_IDS.filter((id) => templateMatches(id, category, null)).length;
-}
+export const CATEGORY_COUNTS = Object.fromEntries(CATEGORIES.map((category) => [category, TEMPLATE_IDS.filter((id) => templateMatches(id, category, null)).length])) as Record<Category, number>;
 
 export function buildTemplate(id: TemplateId, usage: Usage, format: FormatId, ctx: TemplateContext): CanvasDoc {
   const template: Template = TEMPLATES[id];

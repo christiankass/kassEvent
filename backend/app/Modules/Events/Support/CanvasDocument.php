@@ -155,10 +155,10 @@ final class CanvasDocument
             'image' => [...$clean,
                 'asset' => self::asset($element['asset'] ?? null, $assetExists, $fail),
                 'cornerRadius' => self::number($element['cornerRadius'] ?? 0, 0, 5000, $fail),
-                'fit' => in_array($element['fit'] ?? 'cover', ['cover', 'contain'], true) ? $element['fit'] ?? 'cover' : ($fail(__('studio.invalid')) ?? 'cover'),
+                'fit' => self::oneOf($element['fit'] ?? 'cover', ['cover', 'contain'], $fail),
             ],
             'icon' => [...$clean,
-                'icon' => in_array($element['icon'] ?? null, self::ICONS, true) ? $element['icon'] : ($fail(__('studio.invalid')) ?? 'check'),
+                'icon' => self::oneOf($element['icon'] ?? null, self::ICONS, $fail),
                 'fill' => self::color($element['fill'] ?? '#0E1B1C', $fail) ?? '#0E1B1C',
             ],
             'qr' => $clean,
@@ -180,6 +180,17 @@ final class CanvasDocument
             'lineHeight' => self::number($element['lineHeight'] ?? 1.2, 0.6, 4, $fail),
             'letterSpacing' => self::number($element['letterSpacing'] ?? 0, -20, 100, $fail),
         ];
+    }
+
+    /** Valeur prise dans une liste fermée (la première de la liste si elle est inconnue). */
+    private static function oneOf(mixed $value, array $allowed, callable $fail): string
+    {
+        if (in_array($value, $allowed, true)) {
+            return $value;
+        }
+        $fail(__('studio.invalid'));
+
+        return $allowed[0];
     }
 
     private static function number(mixed $value, float $min, float $max, callable $fail): float

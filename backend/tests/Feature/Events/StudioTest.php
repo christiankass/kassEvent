@@ -75,8 +75,7 @@ class StudioTest extends TestCase
     {
         $this->getJson("/api/v1/events/{$this->event}/studio", $this->headers())
             ->assertOk()->assertJsonPath('data.mode', 'classic')->assertJsonPath('data.ticket', null)
-            ->assertJsonPath('meta.formats.portrait', [1080, 1350])
-            ->assertJsonPath('meta.usage_formats.ticket', ['portrait', 'square', 'story']);
+            ->assertJsonPath('meta.formats.portrait', [1080, 1350]);
 
         $this->save($this->ticket())
             ->assertOk()

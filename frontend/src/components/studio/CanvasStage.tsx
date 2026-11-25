@@ -52,6 +52,11 @@ export function fitText(element: TextElement, fonts: Record<CanvasFont, string>)
   return height === element.height ? element : { ...element, height };
 }
 
+/** Textes d'une page ajustés à leur cadre (modèle choisi, format changé). */
+export function fitTexts(doc: CanvasDoc, fonts: Record<CanvasFont, string>): CanvasDoc {
+  return { ...doc, elements: doc.elements.map((element) => (element.type === "text" ? fitText(element, fonts) : element)) };
+}
+
 /** Distance d'aimantation au centre de la page, en pixels d'écran. */
 const SNAP = 8;
 

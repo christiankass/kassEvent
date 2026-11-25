@@ -31,7 +31,7 @@ final class StudioController
                 'ticket' => $design->canvas,
                 'poster' => $design->poster_canvas,
             ],
-            'meta' => ['formats' => CanvasDocument::FORMATS, 'usage_formats' => CanvasDocument::USAGE_FORMATS, 'fields' => CanvasDocument::FIELDS],
+            'meta' => ['formats' => CanvasDocument::FORMATS, 'fields' => CanvasDocument::FIELDS],
         ]);
     }
 
@@ -116,16 +116,12 @@ final class StudioController
     private function document(Request $request, Event $event, string $usage): array
     {
         $request->validate(['canvas' => ['required', 'string', 'max:500000'], 'image' => [...self::IMAGE_TYPES, 'max:10240']]);
-        $document = json_decode($request->input('canvas'), true);
-        $format = is_array($document) ? CanvasDocument::formatOf([$document['width'] ?? null, $document['height'] ?? null], $usage) : null;
-        if ($format !== null) {
-            [$width, $height] = CanvasDocument::FORMATS[$format];
-            $request->validate(['image' => ["dimensions:width={$width},height={$height}"]]);
-        }
         // Une seule lecture du dossier, au lieu d'une requête au stockage par image du document.
         $names = array_flip(array_map('basename', Event::mediaDisk()->files(EventDesign::studioDirectory($event))));
+        $canvas = CanvasDocument::validate(json_decode($request->input('canvas'), true), $usage, fn (string $name) => isset($names[$name]));
+        $request->validate(['image' => ["dimensions:width={$canvas['width']},height={$canvas['height']}"]]);
 
-        return CanvasDocument::validate($document, $usage, fn (string $name) => isset($names[$name]));
+        return $canvas;
     }
 
     private function saveOrDiscard(EventDesign $design, string $path): void

@@ -550,7 +550,6 @@ const fr = {
       saveDate: "Save the date",
       rsvp: "Merci de confirmer votre présence",
       contact: "Infos : +243 000 000 000",
-      free: "Gratuit",
       versus: "VS",
     },
     textPresets: {
@@ -1247,7 +1246,6 @@ const en: Dictionary = {
       saveDate: "Save the date",
       rsvp: "Kindly confirm your attendance",
       contact: "Info: +243 000 000 000",
-      free: "Free",
       versus: "VS",
     },
     textPresets: {

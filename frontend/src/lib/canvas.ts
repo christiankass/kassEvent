@@ -67,33 +67,10 @@ export type QrElement = Box & { type: "qr" };
 /** Pictogramme (date, heure, lieu…), dessiné d'un trait de la couleur choisie. */
 export type IconElement = Box & { type: "icon"; icon: IconName; fill: string };
 
-export const ICONS = [
-  "calendar",
-  "clock",
-  "pin",
-  "phone",
-  "globe",
-  "mail",
-  "ticket",
-  "music",
-  "mic",
-  "live",
-  "play",
-  "heart",
-  "rings",
-  "cake",
-  "gift",
-  "sparkle",
-  "trophy",
-  "cross",
-  "church",
-  "user",
-  "check",
-  "arrow",
-  "chevrons",
-  "quote",
-] as const;
-export type IconName = (typeof ICONS)[number];
+import { ICON_PATHS } from "./canvas-icons";
+
+export type IconName = keyof typeof ICON_PATHS;
+export const ICONS = Object.keys(ICON_PATHS) as IconName[];
 
 export type CanvasElement = TextElement | FieldElement | ShapeElement | ImageElement | QrElement | IconElement;
 export type ElementType = CanvasElement["type"];

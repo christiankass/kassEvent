@@ -65,7 +65,7 @@ import {
   STYLES,
   TEMPLATE_IDS,
   buildTemplate,
-  categoryCount,
+  CATEGORY_COUNTS,
   templateMatches,
   type Category,
   type TemplateContext,
@@ -79,7 +79,7 @@ import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { loadCanvasFonts, ticketFontVariables } from "@/lib/ticket-fonts";
 import { IMAGE_ACCEPT, prepareImage } from "@/lib/images";
-import { CanvasStage, fitText, type StageHandle } from "./CanvasStage";
+import { CanvasStage, fitText, fitTexts, type StageHandle } from "./CanvasStage";
 import styles from "./studio.module.css";
 
 type Panel = "templates" | "text" | "elements" | "photos" | "fields" | "background";
@@ -169,6 +169,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
   const dirty = useMemo(() => JSON.stringify(saved) !== JSON.stringify(doc), [saved, doc]);
   const problem = canvasProblem(doc, usage);
   const pageFormat = formatOf(doc, usage);
+  const shown = useMemo(() => TEMPLATE_IDS.filter((id) => templateMatches(id, category, style)), [category, style]);
   const used = useMemo(() => usedAssets(docs), [docs]);
   const library = useMemo(() => [...new Set([...assets, ...used])], [assets, used]);
 
@@ -345,13 +346,20 @@ export default function Studio({ event, studio: initial, organizationId, organiz
     if (format === pageFormat) return;
     const [width, height] = FORMATS[format];
     const next = resizeDoc(doc, width, height);
-    change({ ...next, elements: next.elements.map((element) => (element.type === "text" && fonts ? fitText(element, fonts) : element)) });
+    change(fonts ? fitTexts(next, fonts) : next);
     setSelectedId(null);
   }
 
+  // Fonction stable pour les vignettes (mémoïsées) : elle appelle toujours la dernière version.
+  const applyRef = useRef(applyTemplate);
+  useEffect(() => {
+    applyRef.current = applyTemplate;
+  });
+  const pickTemplate = useCallback((id: TemplateId) => applyRef.current(id), []);
+
   function applyTemplate(id: TemplateId) {
-    const next = buildTemplate(id, usage, pageFormat, context);
-    if (fonts) next.elements = next.elements.map((element) => (element.type === "text" ? fitText(element, fonts) : element));
+    const built = buildTemplate(id, usage, pageFormat, context);
+    const next = fonts ? fitTexts(built, fonts) : built;
     // Les photos déjà posées remplissent les emplacements du modèle, dans l'ordre.
     const photos = doc.elements.flatMap((element) => (element.type === "image" && element.asset ? [element.asset] : []));
     next.elements = next.elements.map((element) => (element.type === "image" && !element.asset && photos.length > 0 ? { ...element, asset: photos.shift()! } : element));
@@ -568,7 +576,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                   <div className={styles.chips} role="group" aria-label={s.categoryLabel}>
                     {CATEGORIES.map((value) => (
                       <button key={value} type="button" className={styles.chip} aria-pressed={category === value} onClick={() => setCategory(value)}>
-                        {s.categories[value]} <small>{categoryCount(value)}</small>
+                        {s.categories[value]} <small>{CATEGORY_COUNTS[value]}</small>
                       </button>
                     ))}
                   </div>
@@ -580,7 +588,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                     ))}
                   </div>
                   <ul className={styles.templates} data-format={pageFormat}>
-                    {TEMPLATE_IDS.filter((id) => templateMatches(id, category, style)).map((id) => (
+                    {shown.map((id) => (
                       <li key={id}>
                         <TemplateThumb
                           id={id}
@@ -590,12 +598,12 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                           fonts={fonts}
                           samples={samples}
                           label={s.templates[id]}
-                          onPick={() => applyTemplate(id)}
+                          onPick={pickTemplate}
                         />
                       </li>
                     ))}
                   </ul>
-                  {!TEMPLATE_IDS.some((id) => templateMatches(id, category, style)) && <p className={styles.hint}>{s.noTemplates}</p>}
+                  {shown.length === 0 && <p className={styles.hint}>{s.noTemplates}</p>}
                 </>
               )}
 
@@ -1080,19 +1088,18 @@ const TemplateThumb = memo(function TemplateThumb({
   fonts: Record<CanvasFont, string> | null;
   samples: Record<FieldName, string>;
   label: string;
-  onPick: () => void;
+  onPick: (id: TemplateId) => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const visible = useVisible(ref);
-  const doc = useMemo(() => {
-    const built = buildTemplate(id, usage, format, context);
-    return fonts ? { ...built, elements: built.elements.map((element) => (element.type === "text" ? fitText(element, fonts) : element)) } : built;
-  }, [id, usage, format, context, fonts]);
-  const scale = (format === "landscape" ? 216 : 104) / doc.width;
+  // Construit seulement à l'approche de l'écran, avec les polices chargées.
+  const doc = useMemo(() => (visible && fonts ? fitTexts(buildTemplate(id, usage, format, context), fonts) : null), [visible, id, usage, format, context, fonts]);
+  const [width, height] = FORMATS[format];
+  const scale = (format === "landscape" ? 216 : 104) / width;
   return (
-    <button ref={ref} type="button" className={styles.template} onClick={onPick}>
-      <span className={styles.thumb} style={{ width: doc.width * scale, height: doc.height * scale, background: doc.background.color }}>
-        {fonts && visible && <CanvasStage doc={doc} scale={scale} fonts={fonts} images={{}} samples={samples} photoLabel={context.photoLabel} />}
+    <button ref={ref} type="button" className={styles.template} onClick={() => onPick(id)}>
+      <span className={styles.thumb} style={{ width: width * scale, height: height * scale, background: doc?.background.color }}>
+        {doc && fonts && <CanvasStage doc={doc} scale={scale} fonts={fonts} images={{}} samples={samples} photoLabel={context.photoLabel} />}
       </span>
       <span className={styles.templateName}>{label}</span>
     </button>

@@ -1,10 +1,8 @@
-import type { IconName } from "./canvas";
-
 /**
  * Pictogrammes du studio : tracés SVG dans un carré de 24, dessinés d'un trait arrondi (épaisseur 2),
  * ou remplis pour `FILLED`. Inspirés du style Lucide (licence ISC).
  */
-export const ICON_PATHS: Record<IconName, string> = {
+export const ICON_PATHS = {
   calendar: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
   clock: "M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM12 6v6l4 2",
   pin: "M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0zM12 7a3 3 0 1 0 0 6a3 3 0 1 0 0-6z",
@@ -31,7 +29,7 @@ export const ICON_PATHS: Record<IconName, string> = {
   arrow: "M5 12h14M12 5l7 7-7 7",
   chevrons: "M6 17l5-5-5-5M13 17l5-5-5-5",
   quote: "M2 5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v7c0 5-3 8-7 9l-1-2c2-1 4-3 4-5H4a2 2 0 0 1-2-2zM14 5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v7c0 5-3 8-7 9l-1-2c2-1 4-3 4-5h-2a2 2 0 0 1-2-2z",
-};
+} as const satisfies Record<string, string>;
 
 /** Pictogrammes pleins (remplis de la couleur) plutôt que tracés. */
-export const FILLED_ICONS: ReadonlySet<IconName> = new Set(["quote", "sparkle", "heart"]);
+export const FILLED_ICONS: ReadonlySet<keyof typeof ICON_PATHS> = new Set(["quote", "sparkle", "heart"]);
