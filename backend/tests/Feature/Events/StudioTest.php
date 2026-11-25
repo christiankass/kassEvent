@@ -63,7 +63,7 @@ class StudioTest extends TestCase
 
     private function save(array $document, string $usage = 'ticket', ?Organization $organization = null)
     {
-        [$width, $height] = $usage === 'ticket' ? [1080, 1350] : [1200, 630];
+        [$width, $height] = [$document['width'], $document['height']];
 
         return $this->post("/api/v1/events/{$this->event}/studio/{$usage}", [
             'canvas' => json_encode($document),
@@ -75,7 +75,7 @@ class StudioTest extends TestCase
     {
         $this->getJson("/api/v1/events/{$this->event}/studio", $this->headers())
             ->assertOk()->assertJsonPath('data.mode', 'classic')->assertJsonPath('data.ticket', null)
-            ->assertJsonPath('meta.formats.ticket', [1080, 1350]);
+            ->assertJsonPath('meta.formats.portrait', [1080, 1350]);
 
         $this->save($this->ticket())
             ->assertOk()
@@ -103,6 +103,10 @@ class StudioTest extends TestCase
 
     public function test_the_qr_code_must_stay_scannable(): void
     {
+        // Un envoi refusé ne crée pas de design.
+        $this->post("/api/v1/events/{$this->event}/studio/ticket", ['canvas' => json_encode($this->ticket())], $this->headers())->assertInvalid('image');
+        $this->assertSame(0, app(TenantContext::class)->run($this->organization->id, fn () => EventDesign::count()));
+
         $qr = fn (array $overrides) => ['id' => 'qr', 'type' => 'qr', 'x' => 700, 'y' => 970, 'width' => 300, 'height' => 300, 'rotation' => 0, ...$overrides];
 
         $this->save($this->ticket(qr: $qr(['width' => 100, 'height' => 100])))->assertInvalid(['canvas' => 'au moins 162']);
@@ -147,6 +151,38 @@ class StudioTest extends TestCase
 
         $this->save($poster, 'poster')->assertOk();
         Storage::disk('public')->assertMissing($cover);
+    }
+
+    public function test_square_story_and_portrait_pages_icons_and_new_fonts(): void
+    {
+        // Billet carré : QR code et nom écrits par le serveur avec une police ajoutée (Anton).
+        $square = $this->ticket([
+            ['type' => 'icon', 'icon' => 'calendar', 'x' => 80, 'y' => 900, 'width' => 60, 'height' => 60, 'fill' => '#f2b705'],
+            ['type' => 'image', 'x' => 0, 'y' => 0, 'width' => 300, 'height' => 300, 'asset' => null, 'fit' => 'contain'],
+        ], ['id' => 'qr', 'type' => 'qr', 'x' => 700, 'y' => 700, 'width' => 300, 'height' => 300, 'rotation' => 0]);
+        $square['height'] = 1080;
+        $square['elements'][2] = [...$square['elements'][2], 'font' => 'anton', 'bold' => true];
+        $this->save($square)->assertOk()
+            ->assertJsonPath('data.ticket.height', 1080)
+            ->assertJsonPath('data.ticket.elements.4.icon', 'calendar')
+            ->assertJsonPath('data.ticket.elements.5.fit', 'contain');
+        $preview = $this->get("/api/v1/events/{$this->event}/studio/preview", $this->headers())->assertOk();
+        $this->assertSame([1080, 1080], array_slice(getimagesizefromstring($preview->getContent()), 0, 2));
+        $this->getJson("/api/v1/events/{$this->event}/design", $this->headers())->assertJsonPath('data.canvas_size', [1080, 1080]);
+
+        // Affiche portrait et story : la page de vente reçoit l'image à ce format.
+        foreach ([[1080, 1350], [1080, 1920]] as [$width, $height]) {
+            $this->save(['width' => $width, 'height' => $height, 'background' => ['color' => '#123456', 'image' => null], 'elements' => []], 'poster')
+                ->assertOk()->assertJsonPath('data.poster.height', $height);
+        }
+
+        // Format inconnu, paysage pour un billet, image d'un autre format, pictogramme ou cadrage inconnu : refusés.
+        $this->save([...$this->ticket(), 'width' => 900, 'height' => 900])->assertInvalid('canvas');
+        $this->save([...$this->ticket(), 'width' => 1200, 'height' => 630])->assertInvalid('canvas');
+        $this->post("/api/v1/events/{$this->event}/studio/ticket", ['canvas' => json_encode($square), 'image' => UploadedFile::fake()->image('page.jpg', 1080, 1350)], $this->headers())
+            ->assertInvalid('image');
+        $this->save($this->ticket([['type' => 'icon', 'icon' => 'skull', 'x' => 0, 'y' => 0, 'width' => 10, 'height' => 10]]))->assertInvalid('canvas');
+        $this->save($this->ticket([['type' => 'image', 'x' => 0, 'y' => 0, 'width' => 10, 'height' => 10, 'asset' => null, 'fit' => 'stretch']]))->assertInvalid('canvas');
     }
 
     public function test_a_viewer_sees_the_studio_but_cannot_change_it(): void

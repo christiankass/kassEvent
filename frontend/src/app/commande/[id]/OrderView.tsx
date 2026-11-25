@@ -1,5 +1,6 @@
 "use client";
 
+import { FORMATS } from "@/lib/canvas";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
@@ -276,8 +277,8 @@ function Tickets({ order, design, orderKey }: { order: Order; design: TicketDesi
                 className={styles.ticketImage}
                 src={`${API_URL}/public/orders/${order.id}/tickets/${ticket.code}?key=${encodeURIComponent(orderKey)}`}
                 alt={format(t.order.ticketImageAlt, { holder: ticket.holder_name, code: ticket.code })}
-                width={1080}
-                height={1350}
+                width={(design.canvas_size ?? FORMATS.portrait)[0]}
+                height={(design.canvas_size ?? FORMATS.portrait)[1]}
                 loading="lazy"
                 decoding="async"
               />

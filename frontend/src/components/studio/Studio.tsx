@@ -18,6 +18,7 @@ import {
   PaintBucket,
   QrCode,
   Square,
+  Sparkle,
   SquaresFour,
   Star as StarIcon,
   TextAa,
@@ -38,29 +39,47 @@ import {
   CANVAS_FONTS,
   FIELDS,
   FORMATS,
+  ICONS,
   USAGES,
+  USAGE_FORMATS,
   canvasProblem,
   constrainQr,
+  formatOf,
   isTextual,
   newId,
   qrMinSize,
+  resizeDoc,
   type CanvasDoc,
   type CanvasElement,
   type CanvasFont,
   type FieldName,
+  type FormatId,
+  type IconName,
   type ShapeElement,
   type StudioData,
   type Usage,
 } from "@/lib/canvas";
-import { OCCASIONS, TEMPLATE_IDS, buildTemplate, templateOccasion, type Occasion, type TemplateContext, type TemplateId } from "@/lib/canvas-templates";
+import { FILLED_ICONS, ICON_PATHS } from "@/lib/canvas-icons";
+import {
+  CATEGORIES,
+  STYLES,
+  TEMPLATE_IDS,
+  buildTemplate,
+  CATEGORY_COUNTS,
+  templateMatches,
+  type Category,
+  type TemplateContext,
+  type TemplateId,
+  type TemplateStyle,
+} from "@/lib/canvas-templates";
 import { textOn } from "@/lib/designs";
 import { actionErrorMessage } from "@/lib/errors";
-import { formatEventDate, type EventData } from "@/lib/events";
+import { formatEventDate, ticketPrice, type EventData } from "@/lib/events";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { loadCanvasFonts, ticketFontVariables } from "@/lib/ticket-fonts";
 import { IMAGE_ACCEPT, prepareImage } from "@/lib/images";
-import { CanvasStage, fitText, type StageHandle } from "./CanvasStage";
+import { CanvasStage, fitText, fitTexts, type StageHandle } from "./CanvasStage";
 import styles from "./studio.module.css";
 
 type Panel = "templates" | "text" | "elements" | "photos" | "fields" | "background";
@@ -99,17 +118,28 @@ export default function Studio({ event, studio: initial, organizationId, organiz
   const lastChange = useRef<{ key: string; at: number } | null>(null);
   const requested = useRef(new Set<string>());
 
-  const context: TemplateContext = useMemo(
-    () => ({
+  const context: TemplateContext = useMemo(() => {
+    const start = new Date(event.starts_at_utc);
+    const part = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale, { timeZone: event.timezone, ...options }).format(start);
+    const cheapest = event.ticket_types.length > 0 ? Math.min(...event.ticket_types.map((type) => type.price)) : 0;
+    return {
       title: event.title,
       date: formatEventDate(event, locale),
+      day: part({ weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+      shortDate: part({ day: "numeric", month: "short", year: "numeric" }).replace(".", "").toUpperCase(),
+      time: part({ hour: "2-digit", minute: "2-digit" }),
+      dayNumber: part({ day: "2-digit" }),
+      month: part({ month: "short" }).replace(".", "").toUpperCase(),
+      year: part({ year: "numeric" }),
       venue: `${event.venue_name}, ${event.city}`,
+      city: event.city,
       organizer: organizationName,
+      price: ticketPrice(cheapest, event.currency, locale, t),
       guestLabel: initial.kind === "invitation" ? s.sample.guest : s.sample.holder,
       photoLabel: s.photoPlaceholder,
-    }),
-    [event, locale, initial.kind, s, organizationName],
-  );
+      labels: s.templateText,
+    };
+  }, [event, locale, initial.kind, s, t, organizationName]);
   const samples: Record<FieldName, string> = useMemo(
     () => ({ holder: userName, ticket_type: event.ticket_types[0]?.name ?? s.sample.ticketType, code: SAMPLE_CODE }),
     [userName, event.ticket_types, s],
@@ -117,13 +147,14 @@ export default function Studio({ event, studio: initial, organizationId, organiz
 
   const [studio, setStudio] = useState(initial);
   const [docs, setDocs] = useState<Record<Usage, CanvasDoc>>(() => ({
-    ticket: initial.ticket ?? buildTemplate("fleuve", "ticket", context),
-    poster: initial.poster ?? buildTemplate("fleuve", "poster", context),
+    ticket: initial.ticket ?? buildTemplate("fleuve", "ticket", USAGE_FORMATS.ticket[0], context),
+    poster: initial.poster ?? buildTemplate("fleuve", "poster", USAGE_FORMATS.poster[0], context),
   }));
   const [history, setHistory] = useState<Record<Usage, History>>({ ticket: { past: [], future: [] }, poster: { past: [], future: [] } });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>(initial[usage] ? "photos" : "templates");
-  const [occasion, setOccasion] = useState<Occasion>("all");
+  const [category, setCategory] = useState<Category>("all");
+  const [style, setStyle] = useState<TemplateStyle | null>(null);
   const [fonts, setFonts] = useState<Record<CanvasFont, string> | null>(null);
   const [assets, setAssets] = useState<string[]>([]);
   const [images, setImages] = useState<Record<string, HTMLImageElement | undefined>>({});
@@ -137,6 +168,8 @@ export default function Studio({ event, studio: initial, organizationId, organiz
   const saved = studio[usage];
   const dirty = useMemo(() => JSON.stringify(saved) !== JSON.stringify(doc), [saved, doc]);
   const problem = canvasProblem(doc, usage);
+  const pageFormat = formatOf(doc, usage);
+  const shown = useMemo(() => TEMPLATE_IDS.filter((id) => templateMatches(id, category, style)), [category, style]);
   const used = useMemo(() => usedAssets(docs), [docs]);
   const library = useMemo(() => [...new Set([...assets, ...used])], [assets, used]);
 
@@ -308,8 +341,25 @@ export default function Studio({ event, studio: initial, organizationId, organiz
     return () => window.removeEventListener("keydown", onKey);
   }, [canManage, selected, undo, redo, duplicate, remove, updateElement, doc, preview]);
 
+  /** Change le format de la page : les calques sont replacés et mis à l'échelle. */
+  function changeFormat(format: FormatId) {
+    if (format === pageFormat) return;
+    const [width, height] = FORMATS[format];
+    const next = resizeDoc(doc, width, height);
+    change(fonts ? fitTexts(next, fonts) : next);
+    setSelectedId(null);
+  }
+
+  // Fonction stable pour les vignettes (mémoïsées) : elle appelle toujours la dernière version.
+  const applyRef = useRef(applyTemplate);
+  useEffect(() => {
+    applyRef.current = applyTemplate;
+  });
+  const pickTemplate = useCallback((id: TemplateId) => applyRef.current(id), []);
+
   function applyTemplate(id: TemplateId) {
-    const next = buildTemplate(id, usage, context);
+    const built = buildTemplate(id, usage, pageFormat, context);
+    const next = fonts ? fitTexts(built, fonts) : built;
     // Les photos déjà posées remplissent les emplacements du modèle, dans l'ordre.
     const photos = doc.elements.flatMap((element) => (element.type === "image" && element.asset ? [element.asset] : []));
     next.elements = next.elements.map((element) => (element.type === "image" && !element.asset && photos.length > 0 ? { ...element, asset: photos.shift()! } : element));
@@ -480,6 +530,16 @@ export default function Studio({ event, studio: initial, organizationId, organiz
           </span>
         )}
         {usage === "poster" && <span className={styles.badge}>{s.posterHint}</span>}
+        {canManage && (
+          <div className={styles.formats} role="group" aria-label={s.formatLabel}>
+            {USAGE_FORMATS[usage].map((value) => (
+              <button key={value} type="button" className={styles.formatButton} aria-pressed={pageFormat === value} onClick={() => changeFormat(value)} title={s.formatHints[value]}>
+                <span className={styles.formatShape} data-format={value} aria-hidden />
+                {s.formats[value]}
+              </button>
+            ))}
+          </div>
+        )}
         {dirty && canManage && <span className={styles.dirty}>{saved ? s.unsaved : s.notSaved}</span>}
         {usage === "ticket" && studio.mode === "canvas" && canManage && (
           <button type="button" className={styles.linkButton} onClick={useClassic} disabled={busy}>
@@ -513,28 +573,37 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                 <>
                   <h2 className={styles.panelTitle}>{s.panels.templates}</h2>
                   <p className={styles.hint}>{s.templatesHint}</p>
-                  <div className={styles.chips} role="group" aria-label={s.occasionLabel}>
-                    {OCCASIONS.map((value) => (
-                      <button key={value} type="button" className={styles.chip} aria-pressed={occasion === value} onClick={() => setOccasion(value)}>
-                        {s.occasions[value]}
+                  <div className={styles.chips} role="group" aria-label={s.categoryLabel}>
+                    {CATEGORIES.map((value) => (
+                      <button key={value} type="button" className={styles.chip} aria-pressed={category === value} onClick={() => setCategory(value)}>
+                        {s.categories[value]} <small>{CATEGORY_COUNTS[value]}</small>
                       </button>
                     ))}
                   </div>
-                  <ul className={usage === "poster" ? styles.templatesWide : styles.templates}>
-                    {TEMPLATE_IDS.filter((id) => occasion === "all" || templateOccasion(id) === occasion).map((id) => (
+                  <div className={styles.chips} role="group" aria-label={s.styleLabel}>
+                    {STYLES.map((value) => (
+                      <button key={value} type="button" className={styles.chipSoft} aria-pressed={style === value} onClick={() => setStyle(style === value ? null : value)}>
+                        {s.styles[value]}
+                      </button>
+                    ))}
+                  </div>
+                  <ul className={styles.templates} data-format={pageFormat}>
+                    {shown.map((id) => (
                       <li key={id}>
                         <TemplateThumb
                           id={id}
                           usage={usage}
+                          format={pageFormat}
                           context={context}
                           fonts={fonts}
                           samples={samples}
                           label={s.templates[id]}
-                          onPick={() => applyTemplate(id)}
+                          onPick={pickTemplate}
                         />
                       </li>
                     ))}
                   </ul>
+                  {shown.length === 0 && <p className={styles.hint}>{s.noTemplates}</p>}
                 </>
               )}
 
@@ -548,6 +617,9 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                         ["subtitle", { font: "instrument", fontSize: 52, bold: true }, 800, 70],
                         ["body", { font: "instrument", fontSize: 34 }, 700, 100],
                         ["script", { font: "script", fontSize: 90 }, 800, 110],
+                        ["impact", { font: "anton", fontSize: 130 }, 900, 150],
+                        ["rounded", { font: "fredoka", fontSize: 80, bold: true }, 800, 100],
+                        ["classic", { font: "cinzel", fontSize: 72, bold: true }, 900, 90],
                       ] as const
                     ).map(([key, style, width, height]) => (
                       <button
@@ -614,6 +686,21 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                       >
                         {icon}
                         <span>{s.shapes[key]}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className={styles.label}>{s.iconsTitle}</p>
+                  <div className={styles.icons}>
+                    {ICONS.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className={styles.iconTile}
+                        title={s.icons[name]}
+                        aria-label={s.icons[name]}
+                        onClick={() => add({ id: newId(), type: "icon", icon: name, x: 0, y: 0, width: 120, height: 120, rotation: 0, fill: textOn(doc.background.color) })}
+                      >
+                        <IconGlyph name={name} />
                       </button>
                     ))}
                   </div>
@@ -746,7 +833,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
             <p className={styles.hint}>{t.common.loading}</p>
           )}
           <p className={styles.formatNote}>
-            {format(s.formatNote, { width: String(FORMATS[usage][0]), height: String(FORMATS[usage][1]) })}
+            {format(s.formatNote, { width: String(doc.width), height: String(doc.height) })}
             {problem && <strong className={styles.problem}> {s.problems[problem]}</strong>}
           </p>
         </div>
@@ -858,10 +945,20 @@ function Inspector({ element, doc, textAreaRef, patch, onDuplicate, onRemove, on
       {element.type === "field" && <p className={styles.hint}>{s.fieldNote}</p>}
       {element.type === "qr" && <p className={styles.hint}>{format(s.qrNote, { min: String(qrMinSize(doc)) })}</p>}
       {element.type === "image" && (
-        <button type="button" className={buttonClass("secondary", styles.full)} onClick={onReplacePhoto}>
-          <ImageSquare size={18} aria-hidden /> {element.asset ? s.replacePhoto : s.choosePhoto}
-        </button>
+        <>
+          <button type="button" className={buttonClass("secondary", styles.full)} onClick={onReplacePhoto}>
+            <ImageSquare size={18} aria-hidden /> {element.asset ? s.replacePhoto : s.choosePhoto}
+          </button>
+          <div className={styles.toggles} role="group" aria-label={s.fit}>
+            {(["cover", "contain"] as const).map((fit) => (
+              <button key={fit} type="button" className={styles.chipSoft} aria-pressed={(element.fit ?? "cover") === fit} onClick={() => patch({ fit }, "fit")}>
+                {s.fits[fit]}
+              </button>
+            ))}
+          </div>
+        </>
       )}
+      {element.type === "icon" && <ColorPicker label={s.fill} value={element.fill} onChange={(fill) => fill && patch({ fill }, "fill")} />}
 
       {isTextual(element) && (
         <>
@@ -977,6 +1074,7 @@ function Inspector({ element, doc, textAreaRef, patch, onDuplicate, onRemove, on
 const TemplateThumb = memo(function TemplateThumb({
   id,
   usage,
+  format,
   context,
   fonts,
   samples,
@@ -985,18 +1083,23 @@ const TemplateThumb = memo(function TemplateThumb({
 }: {
   id: TemplateId;
   usage: Usage;
+  format: FormatId;
   context: TemplateContext;
   fonts: Record<CanvasFont, string> | null;
   samples: Record<FieldName, string>;
   label: string;
-  onPick: () => void;
+  onPick: (id: TemplateId) => void;
 }) {
-  const doc = useMemo(() => buildTemplate(id, usage, context), [id, usage, context]);
-  const scale = (usage === "ticket" ? 104 : 216) / doc.width;
+  const ref = useRef<HTMLButtonElement>(null);
+  const visible = useVisible(ref);
+  // Construit seulement à l'approche de l'écran, avec les polices chargées.
+  const doc = useMemo(() => (visible && fonts ? fitTexts(buildTemplate(id, usage, format, context), fonts) : null), [visible, id, usage, format, context, fonts]);
+  const [width, height] = FORMATS[format];
+  const scale = (format === "landscape" ? 216 : 104) / width;
   return (
-    <button type="button" className={styles.template} onClick={onPick}>
-      <span className={styles.thumb} style={{ width: doc.width * scale, height: doc.height * scale }}>
-        {fonts && <CanvasStage doc={doc} scale={scale} fonts={fonts} images={{}} samples={samples} photoLabel={context.photoLabel} />}
+    <button ref={ref} type="button" className={styles.template} onClick={() => onPick(id)}>
+      <span className={styles.thumb} style={{ width: width * scale, height: height * scale, background: doc?.background.color }}>
+        {doc && fonts && <CanvasStage doc={doc} scale={scale} fonts={fonts} images={{}} samples={samples} photoLabel={context.photoLabel} />}
       </span>
       <span className={styles.templateName}>{label}</span>
     </button>
@@ -1129,6 +1232,8 @@ function LayerIcon({ element }: { element: CanvasElement }) {
       return <UserCircle size={size} aria-hidden />;
     case "image":
       return <ImageSquare size={size} aria-hidden />;
+    case "icon":
+      return <Sparkle size={size} aria-hidden />;
     case "qr":
       return <QrCode size={size} aria-hidden />;
     case "ellipse":
@@ -1142,10 +1247,34 @@ function LayerIcon({ element }: { element: CanvasElement }) {
   }
 }
 
+/** Vrai dès que l'élément approche de l'écran : les vignettes ne se dessinent qu'à ce moment. */
+function useVisible(ref: React.RefObject<HTMLElement | null>): boolean {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || visible) return;
+    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && setVisible(true), { rootMargin: "300px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ref, visible]);
+  return visible;
+}
+
+/** Aperçu d'un pictogramme du studio, en SVG. */
+function IconGlyph({ name }: { name: IconName }) {
+  const filled = FILLED_ICONS.has(name);
+  return (
+    <svg viewBox="0 0 24 24" width={28} height={28} aria-hidden fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d={ICON_PATHS[name]} />
+    </svg>
+  );
+}
+
 function layerLabel(element: CanvasElement, s: ReturnType<typeof useI18n>["t"]["studio"]): string {
   if (element.type === "text") return element.text.trim().slice(0, 28) || s.types.text;
   if (element.type === "field") return s.fields[element.field];
   if (element.type === "image") return element.name || s.types.image;
+  if (element.type === "icon") return s.icons[element.icon];
   return s.types[element.type];
 }
 

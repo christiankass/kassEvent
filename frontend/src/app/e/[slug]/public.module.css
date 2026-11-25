@@ -45,10 +45,18 @@
   place-items: center;
 }
 
+/* Affiche du studio : paysage, portrait, carré ou story, montrée entière. */
+.cover:has(img) {
+  aspect-ratio: auto;
+  background: var(--fleuve);
+}
+
 .cover img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: min(80vh, 820px);
+  object-fit: contain;
 }
 
 .coverFallback {

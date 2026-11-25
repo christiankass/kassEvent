@@ -258,6 +258,44 @@
   font: 400 28px/1.1 var(--f-script), cursive;
 }
 
+.addText_impact {
+  font: 400 30px/1.05 var(--f-anton), Impact, sans-serif;
+  text-transform: uppercase;
+}
+
+.addText_rounded {
+  font: 700 22px/1.1 var(--f-fredoka), sans-serif;
+}
+
+.addText_classic {
+  font: 700 20px/1.1 var(--f-cinzel), Georgia, serif;
+}
+
+/* Pictogrammes */
+.icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 6px;
+}
+
+.iconTile {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--fleuve);
+  cursor: pointer;
+}
+
+.iconTile:hover,
+.iconTile:focus-visible {
+  border-color: var(--fleuve);
+  background: var(--fleuve-soft);
+}
+
 .fieldButton {
   display: flex;
   align-items: center;
@@ -311,18 +349,96 @@
   font-weight: 600;
 }
 
-.templates,
-.templatesWide {
+.chip small {
+  opacity: 0.7;
+  font-size: 11px;
+}
+
+.chipSoft {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.chipSoft[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--fleuve);
+  background: var(--fleuve-soft);
+  color: var(--fleuve);
+  font-weight: 600;
+}
+
+.templates {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: 12px;
+  gap: 14px 12px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.templatesWide {
+.templates[data-format="landscape"] {
   grid-template-columns: 1fr;
+}
+
+/* Format de la page */
+.formats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.formatButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.formatButton[aria-pressed="true"] {
+  background: var(--fleuve);
+  color: #fff;
+  font-weight: 600;
+}
+
+.formatShape {
+  display: inline-block;
+  width: 10px;
+  height: 12.5px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+
+.formatShape[data-format="square"] {
+  height: 10px;
+}
+
+.formatShape[data-format="story"] {
+  width: 8px;
+  height: 14px;
+}
+
+.formatShape[data-format="landscape"] {
+  width: 15px;
+  height: 8px;
 }
 
 .template {
@@ -745,5 +861,20 @@
 
   .inspector {
     order: 4;
+  }
+}
+
+/* Téléphone : filtres de la galerie sur une ligne qui défile. */
+@media (max-width: 760px) {
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .chip,
+  .chipSoft {
+    flex: none;
   }
 }

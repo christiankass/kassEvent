@@ -31,6 +31,8 @@ export type DesignSettings = {
 export type TicketDesign = DesignSettings & {
   /** canvas : billet fait dans le studio, servi en image (QR et nom compris) ; classic : billet de l'atelier. */
   mode: "classic" | "canvas";
+  /** Taille de l'image d'un billet du studio, [largeur, hauteur]. */
+  canvas_size?: [number, number] | null;
   headline_text: string;
   banner_url: string | null;
   custom_banner_url: string | null;

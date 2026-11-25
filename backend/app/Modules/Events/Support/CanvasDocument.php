@@ -16,18 +16,30 @@ final class CanvasDocument
 
     public const POSTER = 'poster';
 
-    /** Format de page de chaque usage (pixels). */
-    public const FORMATS = [self::TICKET => [1080, 1350], self::POSTER => [1200, 630]];
+    /** Formats de page (pixels) : portrait 4:5, carré, story 9:16 et paysage 1,91:1 (partages). */
+    public const FORMATS = ['portrait' => [1080, 1350], 'square' => [1080, 1080], 'story' => [1080, 1920], 'landscape' => [1200, 630]];
+
+    /** Formats permis pour chaque usage, le premier par défaut. */
+    public const USAGE_FORMATS = [
+        self::TICKET => ['portrait', 'square', 'story'],
+        self::POSTER => ['landscape', 'portrait', 'square', 'story'],
+    ];
 
     /** Champs écrits sur le billet de chaque invité. */
     public const FIELDS = ['holder', 'ticket_type', 'code'];
 
     /** Polices de l'éditeur ; leurs fichiers sont dans resources/fonts (voir TicketImage). */
-    public const FONTS = ['fraunces', 'playfair', 'instrument', 'script', 'mono'];
+    public const FONTS = ['fraunces', 'playfair', 'instrument', 'script', 'mono', 'anton', 'poppins', 'fredoka', 'cinzel', 'pacifico'];
+
+    /** Pictogrammes dessinés par l'éditeur (dans l'image fixe : rien à faire côté serveur). */
+    public const ICONS = [
+        'calendar', 'clock', 'pin', 'phone', 'globe', 'ticket', 'music', 'mic', 'heart', 'live', 'cake', 'rings',
+        'cross', 'trophy', 'check', 'arrow', 'chevrons', 'quote', 'play', 'mail', 'user', 'sparkle', 'gift', 'church',
+    ];
 
     public const ASSET = '/^[A-Za-z0-9]{40}\.(png|jpg)$/';
 
-    private const TYPES = ['text', 'field', 'rect', 'ellipse', 'star', 'line', 'image', 'qr'];
+    private const TYPES = ['text', 'field', 'rect', 'ellipse', 'star', 'line', 'image', 'qr', 'icon'];
 
     private const MAX_ELEMENTS = 150;
 
@@ -48,10 +60,12 @@ final class CanvasDocument
         if (! is_array($document) || ! is_array($document['elements'] ?? null) || ! is_array($document['background'] ?? null)) {
             throw ValidationException::withMessages(['canvas' => __('studio.invalid')]);
         }
-        [$width, $height] = self::FORMATS[$usage];
-        if (($document['width'] ?? null) !== $width || ($document['height'] ?? null) !== $height) {
+        $size = [$document['width'] ?? null, $document['height'] ?? null];
+        $format = self::formatOf($size, $usage);
+        if ($format === null) {
             $fail(__('studio.invalid'));
         }
+        [$width, $height] = self::FORMATS[$format ?? self::USAGE_FORMATS[$usage][0]];
         if (count($document['elements']) > self::MAX_ELEMENTS) {
             $fail(__('studio.too_many', ['max' => self::MAX_ELEMENTS]));
         }
@@ -93,6 +107,18 @@ final class CanvasDocument
         return ['width' => $width, 'height' => $height, 'background' => $background, 'elements' => $elements];
     }
 
+    /** Nom du format d'une page [largeur, hauteur], s'il est permis pour cet usage. */
+    public static function formatOf(array $size, string $usage): ?string
+    {
+        foreach (self::USAGE_FORMATS[$usage] as $format) {
+            if (self::FORMATS[$format] === $size) {
+                return $format;
+            }
+        }
+
+        return null;
+    }
+
     /** @return array<string, mixed> */
     private static function element(array $element, callable $assetExists, callable $fail): array
     {
@@ -129,6 +155,11 @@ final class CanvasDocument
             'image' => [...$clean,
                 'asset' => self::asset($element['asset'] ?? null, $assetExists, $fail),
                 'cornerRadius' => self::number($element['cornerRadius'] ?? 0, 0, 5000, $fail),
+                'fit' => self::oneOf($element['fit'] ?? 'cover', ['cover', 'contain'], $fail),
+            ],
+            'icon' => [...$clean,
+                'icon' => self::oneOf($element['icon'] ?? null, self::ICONS, $fail),
+                'fill' => self::color($element['fill'] ?? '#0E1B1C', $fail) ?? '#0E1B1C',
             ],
             'qr' => $clean,
         };
@@ -149,6 +180,17 @@ final class CanvasDocument
             'lineHeight' => self::number($element['lineHeight'] ?? 1.2, 0.6, 4, $fail),
             'letterSpacing' => self::number($element['letterSpacing'] ?? 0, -20, 100, $fail),
         ];
+    }
+
+    /** Valeur prise dans une liste fermée (la première de la liste si elle est inconnue). */
+    private static function oneOf(mixed $value, array $allowed, callable $fail): string
+    {
+        if (in_array($value, $allowed, true)) {
+            return $value;
+        }
+        $fail(__('studio.invalid'));
+
+        return $allowed[0];
     }
 
     private static function number(mixed $value, float $min, float $max, callable $fail): float

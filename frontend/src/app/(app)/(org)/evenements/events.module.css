@@ -258,10 +258,18 @@ li:nth-child(4n + 4) > .eventCard { --accent: var(--hibiscus); --accent-soft: va
   border: 1px dashed var(--line-strong);
 }
 
+/* Affiche du studio : paysage, portrait, carré ou story, montrée entière. */
+.cover:has(img) {
+  aspect-ratio: auto;
+  border-style: solid;
+}
+
 .cover img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
 }
 
 .fileButton {
