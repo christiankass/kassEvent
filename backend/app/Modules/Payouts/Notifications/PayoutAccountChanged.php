@@ -17,6 +17,9 @@ final class PayoutAccountChanged extends Notification implements ShouldQueue
 {
     use Queueable;
 
+    /** Heure affichée : celle de Kinshasa, où sont les organisateurs aujourd'hui. */
+    private const TIMEZONE = 'Africa/Kinshasa';
+
     public function __construct(
         private readonly string $organization,
         private readonly string $changedBy,
@@ -45,7 +48,8 @@ final class PayoutAccountChanged extends Notification implements ShouldQueue
             ->line(__('payouts.mail.intro', $values));
 
         if ($this->activeFrom->isFuture()) {
-            $mail->line(__('payouts.mail.delay', ['date' => $this->activeFrom->translatedFormat('j F Y à H:i')]));
+            $date = $this->activeFrom->copy()->timezone(self::TIMEZONE)->locale(app()->getLocale())->translatedFormat(__('payouts.mail.date_format'));
+            $mail->line(__('payouts.mail.delay', ['date' => $date]));
         }
 
         return $mail

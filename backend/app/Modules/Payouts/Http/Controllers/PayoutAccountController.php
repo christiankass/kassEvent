@@ -10,6 +10,7 @@ use App\Modules\Payouts\Http\Resources\PayoutAccountResource;
 use App\Modules\Payouts\Models\PayoutAccount;
 use App\Modules\Payouts\Notifications\PayoutAccountChanged;
 use App\Modules\Tenancy\Models\Organization;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -30,7 +31,7 @@ final class PayoutAccountController
             throw ValidationException::withMessages(['code' => __('identity.two_factor.invalid')]);
         }
 
-        $account = DB::transaction(function () use ($request, $user) {
+        $save = fn () => DB::transaction(function () use ($request, $user) {
             $account = PayoutAccount::lockForUpdate()->first();
             $delay = $account === null ? 0 : (int) config('payouts.account_change_delay_hours');
 
@@ -40,6 +41,11 @@ final class PayoutAccountController
 
             return $account;
         });
+        try {
+            $account = $save();
+        } catch (UniqueConstraintViolationException) {
+            $account = $save(); // premier compte enregistré au même moment par quelqu'un d'autre : on le remplace
+        }
 
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');

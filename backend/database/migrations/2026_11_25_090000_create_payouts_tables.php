@@ -72,6 +72,9 @@ return new class extends Migration
             $table->string('operator', 20)->nullable();
             $table->string('phone', 20)->nullable();
             $table->string('bank_name', 80)->nullable();
+            $table->string('account_holder', 120)->nullable();
+            $table->text('account_number')->nullable(); // chiffré, virement bancaire seulement
+            $table->string('swift', 11)->nullable();
             $table->string('account_last4', 4)->nullable();
             $table->string('provider_reference', 255)->nullable();
             $table->string('failure_code', 60)->nullable();

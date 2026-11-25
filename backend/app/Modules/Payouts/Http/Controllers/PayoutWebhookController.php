@@ -21,7 +21,8 @@ final class PayoutWebhookController
         TenantKeys::within(is_string($id) ? $id : null, function () use ($id, $payouts) {
             $payout = Payout::where('provider', 'pawapay')->find($id);
             if ($payout !== null) {
-                $payouts->refresh($payout, force: true);
+                // Sans « force » : des notifications répétées n'interrogent pawaPay qu'une fois toutes les quelques secondes.
+                $payouts->refresh($payout);
             }
         });
 

@@ -231,6 +231,7 @@ class PayoutTest extends TestCase
             ->assertJsonPath('data.method', 'bank')->assertJsonPath('data.account_last4', '5678')->json('data.id');
         $this->leave();
 
+        $this->artisan('payouts:bank-transfers')->expectsOutputToContain('CD12345678')->assertSuccessful();
         $this->artisan('payouts:complete', ['payout' => $id, '--reference' => 'VIR-001'])->assertSuccessful();
         $this->artisan('payouts:complete', ['payout' => $id])->assertFailed(); // déjà enregistré
 
@@ -260,8 +261,47 @@ class PayoutTest extends TestCase
         $status = fn () => app(TenantContext::class)->run($this->organization->id, fn () => Payout::find($id)->status);
         $this->assertSame('pending', $status());
 
+        $this->travel(5)->seconds(); // vérifications espacées de quelques secondes
         $this->postJson('/api/v1/webhooks/pawapay/payouts', ['payoutId' => $id])->assertOk();
         $this->assertSame('succeeded', $status());
+    }
+
+    public function test_a_lost_pawapay_payout_is_sent_again_with_the_same_id_never_failed(): void
+    {
+        config(['payouts.mode' => 'sandbox', 'payments.pawapay.api_token' => 'test-token']);
+        Http::fake([
+            'api.sandbox.pawapay.io/v2/payouts' => Http::sequence()->push(null, 504)->push(['status' => 'ACCEPTED']),
+            'api.sandbox.pawapay.io/v2/payouts/*' => Http::response(['status' => 'NOT_FOUND']),
+        ]);
+        $this->setAccount()->assertOk();
+        $this->travel(25)->hours();
+        $id = $this->postJson('/api/v1/payouts', ['currency' => 'USD'], $this->headers())->assertCreated()
+            ->assertJsonPath('data.status', 'pending')->json('data.id');
+
+        $this->travel(3)->minutes();
+        $this->payouts()->assertJsonPath('data.payouts.0.status', 'pending')->assertJsonPath('data.balances.0.available', 0);
+        Http::assertSentCount(3); // envoi, vérification, renvoi
+        Http::assertSent(fn (HttpRequest $request) => $request->method() === 'POST' && $request['payoutId'] === $id);
+    }
+
+    public function test_a_successful_manual_payout_resumes_automatic_payouts(): void
+    {
+        $this->setAccount(['method' => 'mobile_money', 'operator' => 'airtel', 'phone' => '0990000000'])->assertOk();
+        $this->travel(25)->hours();
+        $this->postJson('/api/v1/payouts', ['currency' => 'USD'], $this->headers())->assertCreated();
+        $this->travel(10)->seconds();
+        $this->payouts()->assertJsonPath('data.payouts.0.status', 'failed');
+
+        // Le compte est remis en service par le prestataire : une demande manuelle réussit.
+        app(TenantContext::class)->run($this->organization->id, fn () => \DB::table('payout_accounts')->update(['phone' => '243991234567']));
+        $this->postJson('/api/v1/payouts', ['currency' => 'USD'], $this->headers())->assertCreated();
+        $this->travel(10)->seconds();
+        $this->payouts()->assertJsonPath('data.payouts.0.status', 'succeeded');
+
+        $this->buy(1);
+        $this->travel(25)->hours();
+        $this->artisan('payouts:run')->assertSuccessful();
+        $this->assertSame(3, app(TenantContext::class)->run($this->organization->id, fn () => Payout::count()));
     }
 
     public function test_only_owner_and_finance_choose_where_money_goes(): void

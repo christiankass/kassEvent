@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\User;
 use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Payouts\Console\CompletePayout;
+use App\Modules\Payouts\Console\ListBankTransfers;
 use App\Modules\Payouts\Console\RunPayouts;
 use App\Modules\Payouts\Support\PayoutService;
 use App\Modules\Tenancy\Support\TenantContext;
@@ -74,7 +75,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(OrderPaid::class, [PayoutService::class, 'onOrderPaid']);
 
         if ($this->app->runningInConsole()) {
-            $this->commands([RunPayouts::class, CompletePayout::class]);
+            $this->commands([RunPayouts::class, ListBankTransfers::class, CompletePayout::class]);
         }
 
         // Les workers gardent leur connexion PostgreSQL ouverte : chaque job repart d'un contexte vide,

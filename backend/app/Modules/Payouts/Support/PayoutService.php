@@ -117,6 +117,11 @@ final class PayoutService
                 'operator' => $account->operator,
                 'phone' => $account->phone,
                 'bank_name' => $account->bank_name,
+                // Virement bancaire : la destination complète est figée sur le reversement (chiffrée),
+                // l'équipe ne lit jamais le compte actuel, qui a pu changer depuis.
+                'account_holder' => $account->account_holder,
+                'account_number' => $account->account_number,
+                'swift' => $account->swift,
                 'account_last4' => $account->last4(),
                 'requested_by' => $userId,
             ]);
@@ -186,9 +191,10 @@ final class PayoutService
                 return;
             }
 
-            if ($status->status === Payout::SUCCEEDED && $status->amount !== null
-                && ($status->amount !== $locked->amount || $status->currency !== $locked->currency)) {
-                Log::error('Montant reversé différent de la demande', [
+            $mismatch = $status->status === Payout::SUCCEEDED && $status->amount !== null
+                && ($status->amount !== $locked->amount || $status->currency !== $locked->currency);
+            if ($mismatch) {
+                Log::error('Montant reversé différent de la demande : à rapprocher', [
                     'payout' => $locked->id, 'expected' => [$locked->amount, $locked->currency], 'sent' => [$status->amount, $status->currency],
                 ]);
             }
@@ -200,9 +206,15 @@ final class PayoutService
                 'completed_at' => now(),
             ])->save();
 
-            if ($locked->status === Payout::FAILED) {
+            // Échec : tout revient au solde. Moins envoyé que prévu (même devise) : la différence revient.
+            $returned = match (true) {
+                $locked->status === Payout::FAILED => $locked->amount,
+                $mismatch && $status->currency === $locked->currency && $status->amount < $locked->amount => $locked->amount - $status->amount,
+                default => 0,
+            };
+            if ($returned > 0) {
                 LedgerEntry::create([
-                    'type' => LedgerEntry::PAYOUT_REVERSAL, 'currency' => $locked->currency, 'amount' => $locked->amount,
+                    'type' => LedgerEntry::PAYOUT_REVERSAL, 'currency' => $locked->currency, 'amount' => $returned,
                     'payout_id' => $locked->id, 'available_at' => now(),
                 ]);
             }
@@ -228,9 +240,8 @@ final class PayoutService
             ->havingRaw('sum(amount) > 0')->pluck('currency');
 
         foreach ($currencies as $currency) {
-            $lastFailed = Payout::where('currency', $currency)->where('status', Payout::FAILED)
-                ->where('created_at', '>', $account->updated_at)->exists();
-            if ($lastFailed) {
+            $last = Payout::where('currency', $currency)->orderByDesc('id')->first();
+            if ($last?->status === Payout::FAILED && $last->created_at->gt($account->updated_at)) {
                 continue;
             }
 

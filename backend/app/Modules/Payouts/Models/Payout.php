@@ -30,9 +30,11 @@ class Payout extends Model
     /** @var array<string, mixed> */
     protected $attributes = ['status' => self::PENDING];
 
+    protected $hidden = ['account_number'];
+
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'completed_at' => 'datetime'];
+        return ['amount' => 'integer', 'account_number' => 'encrypted', 'completed_at' => 'datetime'];
     }
 
     public function isPending(): bool

@@ -48,11 +48,14 @@ final class PawaPayPayouts implements PayoutGateway
     {
         $response = $this->http()->get('/v2/payouts/'.$payout->id)->throw();
 
+        if ($response->json('status') === 'NOT_FOUND' && $payout->created_at->diffInSeconds(now()) > self::NOT_FOUND_AFTER_SECONDS) {
+            // Envoi interrompu (délai dépassé) jamais enregistré chez pawaPay : on le renvoie avec le même
+            // payoutId plutôt que de le déclarer échoué. pawaPay ne paie un payoutId qu'une fois, donc
+            // aucun risque de payer deux fois, et le montant ne revient jamais au solde à tort.
+            return $this->start($payout) ?? GatewayStatus::pending();
+        }
         if ($response->json('status') !== 'FOUND') {
-            // Envoi interrompu (délai dépassé) et jamais enregistré chez pawaPay.
-            return $payout->created_at->diffInSeconds(now()) > self::NOT_FOUND_AFTER_SECONDS
-                ? GatewayStatus::failed('not_found')
-                : GatewayStatus::pending();
+            return GatewayStatus::pending(); // pas encore visible, ou réponse inattendue : on revérifiera
         }
 
         $data = $response->json('data');
