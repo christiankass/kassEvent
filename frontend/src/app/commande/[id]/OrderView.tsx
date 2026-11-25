@@ -14,7 +14,8 @@ import { formatEventDate, formatPrice } from "@/lib/events";
 import { format, type Dictionary } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { TicketDesign } from "@/lib/designs";
-import type { Order } from "@/lib/orders";
+import { DELIVERY_IN_PROGRESS, type Order } from "@/lib/orders";
+import { Deliveries } from "./Deliveries";
 import styles from "./order.module.css";
 
 /** Toutes les 3 secondes tant qu'un paiement attend la confirmation de l'opérateur ou de la carte. */
@@ -42,7 +43,10 @@ export function OrderView() {
     void load();
   }, [load]);
 
-  const waiting = order?.status === "pending" && order.payment?.status === "pending";
+  // Paiement en attente, ou envoi WhatsApp / Messenger en cours (Messenger : la personne ouvre la conversation).
+  const waiting =
+    (order?.status === "pending" && order.payment?.status === "pending") ||
+    (order?.status === "paid" && order.deliveries.some((delivery) => DELIVERY_IN_PROGRESS.includes(delivery.status)));
   useEffect(() => {
     if (!waiting) return;
     const timer = window.setInterval(() => void load(), POLL_MS);
@@ -69,6 +73,7 @@ export function OrderView() {
             <p className={styles.reference}>{format(t.order.reference, { reference: order.reference })}</p>
             <OrderState order={order} orderKey={key} onUpdate={setOrder} />
             {order.payment?.simulated && order.status === "pending" && <p className={styles.demo}>{t.order.simulated}</p>}
+            {order.status === "paid" && <Deliveries order={order} orderKey={key} onUpdate={setOrder} />}
             {order.status === "paid" && order.design && <Tickets order={order} design={order.design} orderKey={key} />}
             <Summary order={order} />
           </>

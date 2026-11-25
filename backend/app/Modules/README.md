@@ -21,7 +21,7 @@ Hors requête HTTP (jobs, commandes), utiliser `app(TenantContext::class)->run($
 
 Exception unique : `tenant_keys` (module Tenancy, `TenantKeys`) n'a ni RLS ni trait. C'est un index global
 « identifiant aléatoire → organisation » pour les requêtes qui arrivent sans organisation (lien de commande
-de l'acheteur, notifications pawaPay et Stripe). Il ne sert qu'à ouvrir le bon contexte : la ligne elle-même
+de l'acheteur, notifications pawaPay, Stripe et Meta). Il ne sert qu'à ouvrir le bon contexte : la ligne elle-même
 est ensuite lue sous les deux verrous, et l'accès est encore contrôlé (clé de la commande, statut redemandé au prestataire).
 
 Les tests tournent sur PostgreSQL avec un rôle sans `BYPASSRLS` (voir `phpunit.xml` et la CI).
@@ -39,3 +39,9 @@ Aucun jeton n'est stocké dans le navigateur. L'en-tête `Accept-Language` (fr o
 - Payments : pawaPay (mobile money) et Stripe Checkout (carte), ou mode `simulated` sans compte (refusé en production).
   Une notification de prestataire ne valide jamais rien seule : le statut est redemandé au prestataire, montant et devise contrôlés.
 - Un paiement réussi émet `PaymentSucceeded`, écouté par Ticketing (`ConfirmOrder`).
+
+## Billets par WhatsApp et Messenger (module Communication)
+
+- Table `deliveries` : un envoi par commande et par canal. Lancé à l'émission des billets (événement `TicketsIssued` de Ticketing).
+- Messenger passe par un lien m.me à usage unique (une page ne peut écrire qu'à qui lui a écrit) ; notifications Meta signées sur `/webhooks/meta`.
+- Détails et passage en réel : `app/Modules/Communication/README.md`.

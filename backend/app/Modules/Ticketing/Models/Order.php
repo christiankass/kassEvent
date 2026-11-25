@@ -2,6 +2,7 @@
 
 namespace App\Modules\Ticketing\Models;
 
+use App\Modules\Communication\Models\Delivery;
 use App\Modules\Events\Models\Event;
 use App\Modules\Payments\Models\Payment;
 use App\Modules\Tenancy\Concerns\BelongsToOrganization;
@@ -68,6 +69,16 @@ class Order extends Model
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class)->orderBy('created_at')->orderBy('code');
+    }
+
+    /**
+     * Envois des billets sur WhatsApp et Messenger (module Communication).
+     *
+     * @return HasMany<Delivery, $this>
+     */
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class)->orderBy('channel');
     }
 
     /**

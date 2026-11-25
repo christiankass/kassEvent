@@ -8,7 +8,7 @@ use Illuminate\Validation\Validator;
 /** Commande depuis la page publique, sans compte : billets choisis, acheteur et moyen de paiement. */
 final class StoreOrderRequest extends FormRequest
 {
-    use PaymentDetails;
+    use PaymentDetails, WhatsAppDetails;
 
     /** @return array<string, mixed> */
     public function rules(): array
@@ -19,6 +19,8 @@ final class StoreOrderRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'min:0', 'max:50'],
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'email' => ['required', 'string', 'email:rfc', 'max:254'],
+            // Facultatif : les billets partent aussi sur WhatsApp, dès qu'ils sont émis.
+            'whatsapp' => ['nullable', 'string', 'max:25'],
             // Tirée au hasard par la page d'achat : un envoi répété rend la même commande.
             'idempotency_key' => ['nullable', 'uuid'],
             // Le paiement est obligatoire sauf pour une commande gratuite (vérifié une fois le total connu).
@@ -37,6 +39,7 @@ final class StoreOrderRequest extends FormRequest
                     $validator->errors()->add('items', __('ticketing.choose_tickets'));
                 }
                 $this->validatePhone($validator);
+                $this->validateWhatsApp($validator);
             },
         ];
     }

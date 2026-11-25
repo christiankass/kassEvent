@@ -2,6 +2,8 @@
 
 namespace App\Modules\Ticketing\Http\Resources;
 
+use App\Modules\Communication\Channels\ChannelRegistry;
+use App\Modules\Communication\Models\Delivery;
 use App\Modules\Events\Http\Resources\EventDesignResource;
 use App\Modules\Payments\Support\Phone;
 use App\Modules\Ticketing\Models\Order;
@@ -60,6 +62,18 @@ final class OrderResource extends JsonResource
                 'redirect_url' => $payment->isPending() ? $payment->redirect_url : null,
                 'simulated' => $payment->provider === 'simulated',
             ] : null,
+            // Envois sur WhatsApp et Messenger, et canaux que l'acheteur peut demander.
+            'deliveries' => $this->deliveries->map(fn ($delivery) => [
+                'channel' => $delivery->channel,
+                'status' => $delivery->status,
+                'recipient' => $delivery->maskedRecipient(),
+                'failure_code' => $delivery->failure_code,
+            ]),
+            'channels' => [
+                'whatsapp' => ChannelRegistry::enabled(Delivery::WHATSAPP),
+                'messenger' => ChannelRegistry::enabled(Delivery::MESSENGER),
+                'simulated' => ChannelRegistry::simulationEnabled(),
+            ],
             'tickets' => $this->isPaid() ? $this->tickets->map(fn ($ticket) => [
                 'code' => TicketCode::format($ticket->code),
                 'name' => $ticket->item->name,

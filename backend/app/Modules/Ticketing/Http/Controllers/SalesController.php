@@ -24,7 +24,7 @@ final class SalesController
         $orders = Order::where('event_id', $event->id)
             // Commandes en cours ou réglées, plus celles à rembourser (payées sans places).
             ->where(fn ($query) => $query->holdingSeats()->orWhere('status', Order::REFUND_DUE))
-            ->with(['items', 'latestPayment'])
+            ->with(['items', 'latestPayment', 'deliveries'])
             ->orderByDesc('id') // UUID v7 : du plus récent au plus ancien
             ->limit(self::LIMIT)
             ->get();

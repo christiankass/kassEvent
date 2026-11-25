@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Modules\Communication\Support\DeliveryService;
 use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Payouts\Console\CompletePayout;
 use App\Modules\Payouts\Console\ListBankTransfers;
@@ -11,6 +12,7 @@ use App\Modules\Payouts\Support\PayoutService;
 use App\Modules\Tenancy\Support\TenantContext;
 use App\Modules\Ticketing\Actions\ConfirmOrder;
 use App\Modules\Ticketing\Events\OrderPaid;
+use App\Modules\Ticketing\Events\TicketsIssued;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
@@ -67,12 +69,19 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('design-test', fn (Request $request) => Limit::perMinute(3)->by($request->user()?->id ?: $request->ip()));
         // Compte de reversement (code de double authentification) et « Reverser maintenant ».
         RateLimiter::for('payouts', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
+        // Envoi des billets sur WhatsApp, Messenger ou de nouveau par e-mail : chaque envoi WhatsApp est payant.
+        RateLimiter::for('deliveries', fn (Request $request) => [
+            Limit::perMinute(3)->by($request->ip().'|'.$request->route('id')),
+            Limit::perDay(10)->by('order|'.$request->route('id')),
+        ]);
         RateLimiter::for('webhooks', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
 
         // Un paiement réussi (module Payments) confirme la commande et émet les billets (module Ticketing).
         Event::listen(PaymentSucceeded::class, [ConfirmOrder::class, 'onPaymentSucceeded']);
         // Une commande payée (module Ticketing) est inscrite au compte de perception (module Payouts).
         Event::listen(OrderPaid::class, [PayoutService::class, 'onOrderPaid']);
+        // Billets émis (module Ticketing) : envoi WhatsApp ou Messenger demandé par l'acheteur (module Communication).
+        Event::listen(TicketsIssued::class, [DeliveryService::class, 'onTicketsIssued']);
 
         if ($this->app->runningInConsole()) {
             $this->commands([RunPayouts::class, ListBankTransfers::class, CompletePayout::class]);

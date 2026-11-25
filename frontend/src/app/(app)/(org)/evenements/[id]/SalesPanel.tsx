@@ -97,6 +97,11 @@ export function SalesPanel({ eventId }: { eventId: string }) {
                       {order.items.map((item) => `${item.quantity} × ${item.name}`).join(", ")} ·{" "}
                       {t.sales.method[order.total === 0 ? "free" : (order.payment_method ?? "free")]} · {date.format(new Date(order.created_at))}
                     </span>
+                    {order.deliveries.length > 0 && (
+                      <span className={styles.orderMeta}>
+                        {order.deliveries.map((delivery) => format(t.sales.deliveryLine, { channel: t.sales.channel[delivery.channel], status: t.sales.delivery[delivery.status] })).join(" · ")}
+                      </span>
+                    )}
                     <span className={styles.orderRef}>{order.reference}</span>
                   </div>
                   <div className={styles.orderSide}>

@@ -37,6 +37,7 @@ export function Checkout({ event }: { event: PublicEvent }) {
         items: Object.entries(quantities).map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity })),
         name: form.get("name"),
         email: form.get("email"),
+        whatsapp: event.delivery?.whatsapp ? form.get("whatsapp") || null : null,
         payment: total > 0 ? paymentBody(payment) : null,
       };
       const serialized = JSON.stringify(body);
@@ -142,6 +143,18 @@ export function Checkout({ event }: { event: PublicEvent }) {
               <div className={styles.fields}>
                 <Field label={t.checkout.name} hint={t.checkout.nameHint} name="name" autoComplete="name" required minLength={2} maxLength={120} error={fieldError("name")} />
                 <Field label={t.checkout.email} hint={t.checkout.emailHint} name="email" type="email" autoComplete="email" required maxLength={254} error={fieldError("email")} />
+                {event.delivery?.whatsapp && (
+                  <Field
+                    label={t.checkout.whatsapp}
+                    hint={t.checkout.whatsappHint}
+                    name="whatsapp"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    maxLength={25}
+                    error={fieldError("whatsapp")}
+                  />
+                )}
               </div>
             </section>
 

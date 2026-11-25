@@ -319,3 +319,110 @@
     box-shadow: none;
   }
 }
+
+/* Envoi sur WhatsApp, Messenger et de nouveau par e-mail */
+.channels {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.channel {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.channel p {
+  margin: 0;
+}
+
+.channelHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.channelIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--fleuve-soft);
+  color: var(--fleuve);
+}
+
+/* Couleurs reconnaissables des deux messageries, sur fond pâle (contraste AA de l'icône). */
+.channelIcon[data-tone="whatsapp"] {
+  background: #dcf8e6;
+  color: #128c4a;
+}
+
+.channelIcon[data-tone="messenger"] {
+  background: var(--lagon-soft);
+  color: var(--lagon-ink);
+}
+
+.channelName {
+  font-weight: 700;
+  color: var(--fleuve);
+}
+
+.channelStatus {
+  font-size: 15px;
+  color: var(--fg);
+}
+
+.channelStatus [data-status="delivered"],
+.channelStatus [data-status="read"] {
+  color: var(--ok-ink);
+  font-weight: 600;
+}
+
+.channelFailed {
+  color: var(--err);
+  font-weight: 600;
+}
+
+.channelForm {
+  display: grid;
+  gap: 10px;
+}
+
+.channelButton {
+  width: 100%;
+  /* Bouton secondaire : le jaune reste réservé au paiement (DESIGN.md). */
+  background: var(--surface);
+  color: var(--fleuve);
+  border: 1px solid var(--line-strong);
+}
+
+.linkButton {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--fleuve);
+  font: 600 16px/1.3 var(--f-body), system-ui, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.linkButton:disabled,
+.channelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.linkButton:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}

@@ -19,6 +19,8 @@ final class SalesOrderResource extends JsonResource
             'total' => $this->total,
             'buyer_name' => $this->buyer_name,
             'items' => $this->items->map(fn ($item) => ['name' => $item->name, 'quantity' => $item->quantity]),
+            // Billets envoyés aussi sur WhatsApp ou Messenger : statut de chaque envoi (sans le destinataire).
+            'deliveries' => $this->deliveries->map(fn ($delivery) => ['channel' => $delivery->channel, 'status' => $delivery->status]),
             'payment_method' => $this->latestPayment?->method,
             'created_at' => $this->created_at->toIso8601String(),
         ];

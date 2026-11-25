@@ -19,6 +19,12 @@ export function guessOperator(phone: string): Operator | null {
   return (Object.keys(PREFIXES) as Operator[]).find((operator) => PREFIXES[operator].includes(prefix)) ?? null;
 }
 
+export type DeliveryChannel = "whatsapp" | "messenger";
+export type DeliveryStatus = "scheduled" | "awaiting_contact" | "queued" | "sent" | "delivered" | "read" | "failed";
+
+/** Envoi en cours : la page se met à jour d'elle-même. */
+export const DELIVERY_IN_PROGRESS: DeliveryStatus[] = ["scheduled", "awaiting_contact", "queued"];
+
 export type OrderStatus = "pending" | "paid" | "expired" | "refund_due";
 
 /** Commande telle que la voit son acheteur (lien personnel). */
@@ -54,6 +60,10 @@ export type Order = {
     simulated: boolean;
   } | null;
   tickets: { code: string; name: string; holder_name: string; qr: string }[];
+  /** Envois sur WhatsApp et Messenger (numéro masqué). */
+  deliveries: { channel: DeliveryChannel; status: DeliveryStatus; recipient: string | null; failure_code: string | null }[];
+  /** Canaux que l'acheteur peut demander ; simulated : aucun message réel ne part. */
+  channels: { whatsapp: boolean; messenger: boolean; simulated: boolean };
 };
 
 /** Commande dans la liste des ventes de l'organisateur. */
@@ -65,6 +75,7 @@ export type SalesOrder = {
   buyer_name: string;
   items: { name: string; quantity: number }[];
   payment_method: PaymentMethod | null;
+  deliveries: { channel: DeliveryChannel; status: DeliveryStatus }[];
   created_at: string;
 };
 

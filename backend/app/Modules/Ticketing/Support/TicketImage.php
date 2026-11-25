@@ -16,7 +16,7 @@ use GdImage;
 final class TicketImage
 {
     /** Fichiers de police (resources/fonts) : [normal, gras]. */
-    private const FONT_FILES = [
+    public const FONT_FILES = [
         'fraunces' => ['Fraunces-Regular', 'Fraunces-Bold'],
         'playfair' => ['PlayfairDisplay-Regular', 'PlayfairDisplay-Bold'],
         'instrument' => ['InstrumentSans-Regular', 'InstrumentSans-Bold'],
