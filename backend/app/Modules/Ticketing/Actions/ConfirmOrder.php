@@ -4,6 +4,7 @@ namespace App\Modules\Ticketing\Actions;
 
 use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Ticketing\Events\OrderPaid;
+use App\Modules\Ticketing\Events\TicketsIssued;
 use App\Modules\Ticketing\Jobs\SendTickets;
 use App\Modules\Ticketing\Models\Order;
 use App\Modules\Ticketing\Support\Inventory;
@@ -12,7 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Commande payée (ou gratuite) : émet un billet par place et l'envoie par e-mail.
+ * Commande payée (ou gratuite) : émet un billet par place et l'envoie par e-mail (et par WhatsApp
+ * ou Messenger si l'acheteur l'a demandé, via TicketsIssued).
  * Idempotent : une commande déjà réglée n'émet pas de seconds billets.
  */
 final class ConfirmOrder
@@ -59,6 +61,7 @@ final class ConfirmOrder
             }
 
             SendTickets::dispatch($order->organization_id, $order->id)->afterCommit();
+            event(new TicketsIssued($order->organization_id, $order->id));
         });
     }
 

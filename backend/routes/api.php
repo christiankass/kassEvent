@@ -5,6 +5,7 @@ use App\Modules\Access\Http\Controllers\InvitationLinkController;
 use App\Modules\Access\Http\Controllers\MemberController;
 use App\Modules\Access\Http\Middleware\RequireTwoFactorForMoney;
 use App\Modules\CheckIn\Http\Controllers\CheckInController;
+use App\Modules\Communication\Http\Controllers\MetaWebhookController;
 use App\Modules\Events\Http\Controllers\EventController;
 use App\Modules\Events\Http\Controllers\EventDesignController;
 use App\Modules\Events\Http\Controllers\PublicEventController;
@@ -52,6 +53,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->middleware('throttle:order')->whereUuid('id')->name('public.orders.show');
     Route::get('/public/orders/{id}/tickets/{code}', [PublicOrderController::class, 'ticketImage'])
         ->middleware('throttle:order-tickets')->whereUuid('id')->where('code', '[0-9A-Z-]{12,14}')->name('public.orders.ticket-image');
+    // Envoi des billets sur WhatsApp ou Messenger, ou nouvel envoi par e-mail, depuis la page de commande.
+    Route::post('/public/orders/{id}/deliveries', [PublicOrderController::class, 'deliver'])
+        ->middleware('throttle:deliveries')->whereUuid('id')->name('public.orders.deliver');
     Route::post('/public/orders/{id}/payments', [PublicOrderController::class, 'pay'])
         ->middleware('throttle:checkout')->whereUuid('id')->name('public.orders.pay');
 
@@ -60,6 +64,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('/pawapay', [WebhookController::class, 'pawapay'])->name('pawapay');
         Route::post('/pawapay/payouts', PayoutWebhookController::class)->name('pawapay.payouts');
         Route::post('/stripe', [WebhookController::class, 'stripe'])->name('stripe');
+        // WhatsApp (accusés) et Messenger (personne arrivée par le lien m.me d'une commande).
+        Route::get('/meta', [MetaWebhookController::class, 'verify'])->name('meta.verify');
+        Route::post('/meta', [MetaWebhookController::class, 'receive'])->name('meta');
     });
 
     // Lien d'invitation reçu par e-mail : consultable sans compte ; l'accepter demande d'être connecté.

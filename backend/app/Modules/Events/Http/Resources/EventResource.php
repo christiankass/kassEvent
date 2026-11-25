@@ -2,6 +2,8 @@
 
 namespace App\Modules\Events\Http\Resources;
 
+use App\Modules\Communication\Channels\ChannelRegistry;
+use App\Modules\Communication\Models\Delivery;
 use App\Modules\Events\Models\Event;
 use App\Modules\Events\Support\LocalDateTime;
 use App\Modules\Ticketing\Support\Inventory;
@@ -64,7 +66,12 @@ final class EventResource extends JsonResource
         ];
 
         if ($this->public) {
-            return [...$public, 'organization' => ['name' => $this->organization->name]];
+            return [
+                ...$public,
+                'organization' => ['name' => $this->organization->name],
+                // Canaux proposés à l'achat en plus de l'e-mail (Messenger se demande après, depuis la commande).
+                'delivery' => ['whatsapp' => ChannelRegistry::enabled(Delivery::WHATSAPP)],
+            ];
         }
 
         return [

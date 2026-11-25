@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Communication\Channels\ChannelRegistry;
+use App\Modules\Communication\Http\Controllers\MessengerSimulatorController;
 use App\Modules\Payments\Gateways\GatewayRegistry;
 use App\Modules\Payments\Http\Controllers\SimulatorController;
 use Illuminate\Support\Facades\Route;
@@ -14,4 +16,9 @@ if (GatewayRegistry::simulationEnabled()) {
         Route::get('/', [SimulatorController::class, 'show'])->name('show');
         Route::post('/', [SimulatorController::class, 'complete'])->name('complete');
     });
+}
+
+// Lien Messenger simulé : seulement hors production, quand Messenger est en mode « simulated ».
+if (ChannelRegistry::mode('messenger') === 'simulated') {
+    Route::get('/simulation/messenger', MessengerSimulatorController::class)->middleware('throttle:checkout')->name('messaging.simulator.messenger');
 }

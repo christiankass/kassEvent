@@ -40,6 +40,8 @@ export type PublicEvent = {
   cover_url: string | null;
   ticket_types: TicketType[];
   organization?: { name: string };
+  /** Page publique : canaux proposés à l'achat en plus de l'e-mail. */
+  delivery?: { whatsapp: boolean };
 };
 
 export type EventData = PublicEvent & {
