@@ -38,7 +38,7 @@ export class ApiError extends Error {
   }
 }
 
-type Options = { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; body?: unknown; organizationId?: string };
+type Options = { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; body?: unknown; organizationId?: string; signal?: AbortSignal };
 
 function readXsrfToken(): string | undefined {
   const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
@@ -51,13 +51,18 @@ async function ensureCsrfCookie(): Promise<void> {
   }
 }
 
+/** Réseau absent ou trop lent, serveur saturé ou en panne : réessayer plus tard a un sens. */
+export function isTransient(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 0 || error.status === 429 || error.status >= 500);
+}
+
 /** Session expirée pendant l'utilisation : retour à la connexion. */
 export function isUnauthenticated(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;
 }
 
 export async function api<T>(path: string, options: Options = {}, retried = false): Promise<T> {
-  const { method = "GET", body, organizationId } = options;
+  const { method = "GET", body, organizationId, signal } = options;
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Accept-Language": document.documentElement.lang || "fr",
@@ -78,6 +83,7 @@ export async function api<T>(path: string, options: Options = {}, retried = fals
       method,
       headers,
       credentials: "include",
+      signal,
       body: body === undefined || isUpload ? (body as FormData | undefined) : JSON.stringify(body),
     });
   } catch {
