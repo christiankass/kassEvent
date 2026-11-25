@@ -10,7 +10,7 @@ import styles from "./share.module.css";
 const subscribe = () => () => {};
 
 /** Partage d'une page publique : WhatsApp d'abord (canal principal en RDC), Facebook, copie du lien, partage natif. */
-export function ShareButtons({ url, title }: { url: string; title: string }) {
+export function ShareButtons({ url, title, message }: { url: string; title: string; message?: string }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   // Le partage natif n'existe que dans certains navigateurs (surtout sur téléphone).
@@ -19,7 +19,7 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
     () => typeof navigator.share === "function",
     () => false,
   );
-  const text = format(t.share.message, { title });
+  const text = message ?? format(t.share.message, { title });
 
   async function copy() {
     try {

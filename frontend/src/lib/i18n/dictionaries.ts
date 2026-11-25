@@ -1,5 +1,6 @@
 import { guestsEn, guestsFr } from "./guests";
 import { homeEn, homeFr } from "./landing";
+import { wishesEn, wishesFr } from "./wishes";
 
 const fr = {
   brand: {
@@ -212,7 +213,8 @@ const fr = {
       studio: "Studio",
       look: "Billet simple",
       guests: "Invités et tables",
-      locked: "Le studio, le billet simple et les invités s'ouvrent dès que le brouillon est créé.",
+      wishes: "Vœux",
+      locked: "Le studio, le billet simple, les invités et les vœux s'ouvrent dès que le brouillon est créé.",
     },
     coverTitle: "Affiche",
     coverHint: "JPEG, PNG ou WebP, 5 Mo au plus, 600 × 300 pixels au moins. Format conseillé : 1200 × 630.",
@@ -857,6 +859,7 @@ const fr = {
     seeEvents: "Voir mes événements",
   },
   ...guestsFr,
+  ...wishesFr,
 };
 
 export type Dictionary = typeof fr;
@@ -1071,7 +1074,8 @@ const en: Dictionary = {
       studio: "Studio",
       look: "Simple ticket",
       guests: "Guests and tables",
-      locked: "The studio, simple ticket and guests open as soon as the draft is created.",
+      wishes: "Wishes",
+      locked: "The studio, simple ticket, guests and wishes open as soon as the draft is created.",
     },
     coverTitle: "Cover image",
     coverHint: "JPEG, PNG or WebP, 5 MB max, at least 600 × 300 pixels. Recommended: 1200 × 630.",
@@ -1716,6 +1720,7 @@ const en: Dictionary = {
     seeEvents: "See my events",
   },
   ...guestsEn,
+  ...wishesEn,
 };
 
 export const LOCALES = ["fr", "en"] as const;

@@ -1,0 +1,135 @@
+/* Livre de vœux côté organisateur. */
+
+.muted {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.sectionTitle {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+
+.start {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 24px 20px;
+  background: color-mix(in srgb, var(--billet) 18%, var(--surface));
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.start p {
+  margin: 0;
+  max-width: 52ch;
+}
+
+.start .sectionTitle {
+  margin: 0;
+}
+
+.startIcon {
+  color: var(--wax-ink);
+}
+
+.panel {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 24px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.panel .sectionTitle {
+  margin: 0;
+}
+
+.url {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font: 500 15px/1.4 var(--f-data), system-ui, sans-serif;
+}
+
+.settings {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wish {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--billet);
+  border-radius: var(--r-md);
+}
+
+.wish[data-hidden] {
+  border-left-color: var(--line-strong);
+  opacity: 0.7;
+}
+
+.message {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.meta strong {
+  color: var(--fg);
+}
+
+.badge {
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--line);
+  border-radius: 999px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.confirm {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--corail-soft);
+  border-radius: var(--r-md);
+}
+
+.confirm p {
+  margin: 0;
+}

@@ -9,4 +9,6 @@ return [
     'currency_locked' => 'Tickets are already priced in this currency: delete them before changing currency.',
     'capacity_below_tickets' => 'The capacity cannot be lower than the total of tickets already planned (:count).',
     'cdf_no_cents' => 'Prices in Congolese francs have no cents.',
+    'wishes_closed' => 'The wishes book is closed: it no longer accepts messages.',
+    'wishes_no_links' => 'Links are not allowed in a wish.',
 ];
