@@ -23,18 +23,19 @@ final class CheckInController
         $event = Event::findOrFail($id);
 
         $checkIns = TicketCheckIn::with('scan.user')->where('event_id', $event->id)->get()->keyBy('ticket_id');
-        $tickets = Ticket::with('item')->where('event_id', $event->id)->orderBy('id')->get()
-            ->map(fn (Ticket $ticket) => [
-                'hash' => TicketFingerprint::of($ticket),
-                ...CheckInDesk::ticket($ticket),
-                'first_scan' => ($checkIn = $checkIns->get($ticket->id)) ? CheckInDesk::firstScan($checkIn->scan) : null,
-            ]);
+        $tickets = Ticket::with('item')->where('event_id', $event->id)->orderBy('id')->get();
+        $fingerprints = TicketFingerprint::forTickets($event->id, $tickets);
+        $tickets = $tickets->map(fn (Ticket $ticket) => [
+            'hash' => $fingerprints[$ticket->id],
+            ...CheckInDesk::ticket($ticket),
+            'first_scan' => ($checkIn = $checkIns->get($ticket->id)) ? CheckInDesk::firstScan($checkIn->scan) : null,
+        ]);
 
         return response()->json([
             'event' => [
                 'id' => $event->id,
                 'title' => $event->title,
-                'starts_at_utc' => $event->starts_at->toIso8601ZuluString(),
+                'starts_at_utc' => $event->starts_at->toIso8601String(),
                 'timezone' => $event->timezone,
                 'venue_name' => $event->venue_name,
             ],

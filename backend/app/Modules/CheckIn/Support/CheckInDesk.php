@@ -7,6 +7,7 @@ use App\Modules\CheckIn\Models\TicketCheckIn;
 use App\Modules\CheckIn\Models\TicketScan;
 use App\Modules\Events\Models\Event;
 use App\Modules\Ticketing\Models\Ticket;
+use App\Modules\Ticketing\Support\TicketCode;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +37,7 @@ final class CheckInDesk
         }
 
         $offline = (bool) ($scan['offline'] ?? false);
-        $code = self::normalize($scan['code']);
+        $code = TicketCode::normalize($scan['code']);
         $ticket = $code === '' ? null : Ticket::where('code', $code)->first();
 
         $result = match (true) {
@@ -62,8 +63,8 @@ final class CheckInDesk
                     'scanned_at' => $this->scannedAt($event, $offline ? ($scan['scanned_at'] ?? null) : null),
                 ]);
 
-                if ($result === TicketScan::VALID && (! $admitted || ! $this->claim($record))) {
-                    $record->update(['result' => TicketScan::ALREADY_USED]);
+                if ($result === TicketScan::VALID && $admitted) {
+                    $this->claim($record);
                 }
 
                 return $record;
@@ -74,14 +75,6 @@ final class CheckInDesk
         }
 
         return $this->describe($event, $record);
-    }
-
-    /** Contenu d'un QR code ou code saisi à la main (« 7kq2-m9xd-4tpb ») ramené au code du billet. */
-    public static function normalize(string $code): string
-    {
-        $clean = preg_replace('/[^0-9A-Z]/', '', strtoupper(trim($code))) ?? '';
-
-        return strlen($clean) <= 20 ? $clean : '';
     }
 
     private function find(Event $event, string $clientId): ?TicketScan
@@ -112,28 +105,18 @@ final class CheckInDesk
 
     /**
      * Inscrit l'entrée du billet si ce scan est le premier, y compris face à un scan plus tardif déjà
-     * enregistré. La base arbitre deux scans simultanés (une seule ligne par billet).
+     * enregistré. La base arbitre deux scans simultanés (une seule ligne par billet), et cette ligne
+     * seule dit quel scan est « valide » : les autres scans du billet sont « déjà utilisé ».
      */
-    private function claim(TicketScan $scan): bool
+    private function claim(TicketScan $scan): void
     {
-        $won = DB::selectOne(<<<'SQL'
+        DB::statement(<<<'SQL'
             INSERT INTO ticket_check_ins (id, organization_id, event_id, ticket_id, scan_id, scanned_at, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, now(), now())
             ON CONFLICT (ticket_id) DO UPDATE
                 SET scan_id = EXCLUDED.scan_id, scanned_at = EXCLUDED.scanned_at, updated_at = now()
                 WHERE ticket_check_ins.scanned_at > EXCLUDED.scanned_at
-            RETURNING scan_id
             SQL, [(string) Str::uuid7(), $scan->organization_id, $scan->event_id, $scan->ticket_id, $scan->id, $scan->scanned_at]);
-
-        if ($won === null) {
-            return false;
-        }
-
-        // Un scan plus tardif avait été accepté : il devient « déjà utilisé ».
-        TicketScan::where('ticket_id', $scan->ticket_id)->where('result', TicketScan::VALID)
-            ->whereKeyNot($scan->id)->update(['result' => TicketScan::ALREADY_USED]);
-
-        return true;
     }
 
     /** @return array<string, mixed> */

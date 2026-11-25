@@ -20,6 +20,14 @@ final class TicketCode
         return $code;
     }
 
+    /** Code lu dans un QR code ou saisi à la main (« 7kq2-m9xd-4tpb ») ; chaîne vide s'il ne peut pas en être un. */
+    public static function normalize(string $raw): string
+    {
+        $clean = preg_replace('/[^0-9A-Z]/', '', strtoupper($raw)) ?? '';
+
+        return strlen($clean) <= 20 ? $clean : '';
+    }
+
     public static function format(string $code): string
     {
         return implode('-', str_split($code, 4));

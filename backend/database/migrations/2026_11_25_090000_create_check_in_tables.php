@@ -25,7 +25,7 @@ return new class extends Migration
             $table->foreignUuid('user_id')->nullable()->constrained()->nullOnDelete();
             $table->uuid('client_id'); // identifiant tiré par le téléphone : un même scan n'est compté qu'une fois
             $table->string('code', 64); // contenu lu, tel quel (tronqué)
-            $table->string('result', 20); // valid, already_used, invalid, other_event
+            $table->string('result', 20); // à l'arrivée : valid, invalid, other_event (« déjà utilisé » se lit dans ticket_check_ins)
             $table->string('gate', 40)->nullable();
             $table->boolean('offline')->default(false);
             // Hors ligne, l'agent a refusé la personne (liste pas à jour, billet inconnu) : le scan est

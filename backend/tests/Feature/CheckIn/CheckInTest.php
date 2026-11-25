@@ -156,9 +156,9 @@ class CheckInTest extends TestCase
         $this->assertSame(1, $list->json('checked_in'));
         $entry = collect($list->json('tickets'))->firstWhere('hash', hash_pbkdf2('sha256', $this->codes[0], $list->json('fingerprint.salt'), $list->json('fingerprint.iterations')));
         $this->assertSame('Porte B', $entry['first_scan']['gate']);
-        $this->inTenant(function () use ($online) {
+        $this->inTenant(function () {
             $this->assertDatabaseCount('ticket_check_ins', 1);
-            $this->assertDatabaseHas('ticket_scans', ['client_id' => $online['id'], 'result' => 'already_used']);
+            $this->assertDatabaseHas('ticket_check_ins', ['scanned_at' => now()->subMinutes(10)->format('Y-m-d H:i:s')]);
         });
     }
 
