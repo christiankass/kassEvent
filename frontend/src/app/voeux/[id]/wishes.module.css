@@ -10,16 +10,8 @@
   background: var(--bg);
 }
 
-/*
- * Hommage (obsèques, deuil) : page sobre, gris anthracite et pierre, quelles que soient les couleurs
- * de fête choisies dans l'atelier, titres en Fraunces.
- */
+/* Hommage (obsèques, deuil) : page sobre ; les couleurs viennent de TRIBUTE_THEME (WishBookView). */
 .page[data-tone="tribute"] {
-  --invite-primary: #2b3032;
-  --invite-on-primary: #ffffff;
-  --invite-accent: #4a5254;
-  --invite-on-accent: #ffffff;
-  --invite-font: var(--f-display);
   background: #f4f2ee;
 }
 

@@ -8,7 +8,7 @@ import { Alert, Button, Checkbox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { actionErrorMessage, formErrorMessage } from "@/lib/errors";
 import type { EventData } from "@/lib/events";
-import { formatWishDate, suggestedTone, toneOf, WISH_TONES, type Wish, type WishPage, type WishTone } from "@/lib/wishes";
+import { formatWishDate, suggestedTone, WISH_TONES, type Wish, type WishPage, type WishTone } from "@/lib/wishes";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
@@ -37,13 +37,7 @@ export default function WishesPage() {
   // Ton choisi avant d'ouvrir le livre (proposé d'après le titre de l'événement).
   const [startTone, setStartTone] = useState<WishTone | null>(null);
 
-  const reload = useCallback(
-    () =>
-      api<WishPage>(`/events/${id}/wishes`, { organizationId }).then((data) =>
-        setPage({ ...data, book: data.book && { ...data.book, tone: toneOf(data.book.tone) } }),
-      ),
-    [id, organizationId],
-  );
+  const reload = useCallback(() => api<WishPage>(`/events/${id}/wishes`, { organizationId }).then(setPage), [id, organizationId]);
 
   useEffect(() => {
     Promise.all([api<{ data: EventData }>(`/events/${id}`, { organizationId }).then(({ data }) => setEvent(data)), reload()]).catch(setLoadError);
@@ -83,8 +77,8 @@ export default function WishesPage() {
   const { book, data: wishes, summary } = page;
   const tone = book?.tone ?? startTone ?? suggestedTone(event.title);
   const toneChoice = (
-    <fieldset className={styles.tones} disabled={pending || !canManage}>
-      <legend className={styles.toneTitle}>{w.toneTitle}</legend>
+    <fieldset className={`${app.fieldset} ${styles.tones}`} disabled={pending}>
+      <legend className={app.legend}>{w.toneTitle}</legend>
       {WISH_TONES.map((value) => (
         <label key={value} className={app.choice}>
           <input
@@ -111,11 +105,13 @@ export default function WishesPage() {
           <BookOpenText size={40} aria-hidden className={styles.startIcon} />
           <h2 className={styles.sectionTitle}>{w.start.title}</h2>
           <p>{w.start.body}</p>
-          {canManage && toneChoice}
           {canManage ? (
-            <Button type="button" disabled={pending} onClick={() => void settings({ open: true, public: true, tone })}>
-              {w.start.button}
-            </Button>
+            <>
+              {toneChoice}
+              <Button type="button" disabled={pending} onClick={() => void settings({ open: true, public: true, tone })}>
+                {w.start.button}
+              </Button>
+            </>
           ) : (
             <p className={styles.muted}>{w.readOnly}</p>
           )}

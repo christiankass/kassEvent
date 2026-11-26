@@ -13,10 +13,6 @@ const TONE_WORDS: [WishTone, RegExp][] = [
   ["guestbook", /\b(conference|culte|seminaire|forum|lancement|concert|soiree|gala\b|salon|launch|summit|workshop)/],
 ];
 
-/** Ton connu, ou la fête si l'API n'en donne pas (ancienne version du serveur). */
-export function toneOf(tone: string | undefined): WishTone {
-  return WISH_TONES.find((known) => known === tone) ?? "celebration";
-}
 
 /** Ton proposé d'après le titre (« Obsèques de Papa Jean » : hommage), la fête sinon ; l'organisateur peut le changer. */
 export function suggestedTone(title: string): WishTone {

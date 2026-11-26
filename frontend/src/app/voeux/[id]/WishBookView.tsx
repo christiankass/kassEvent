@@ -10,7 +10,7 @@ import { FONT_STACKS, textOn } from "@/lib/designs";
 import { formErrorMessage } from "@/lib/errors";
 import { formatEventDate } from "@/lib/events";
 import { ticketFontVariables } from "@/lib/ticket-fonts";
-import { formatWishDate, toneOf, type PublicWishBook } from "@/lib/wishes";
+import { formatWishDate, type PublicWishBook, type WishTone } from "@/lib/wishes";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import styles from "./wishes.module.css";
@@ -20,6 +20,15 @@ import styles from "./wishes.module.css";
  * message, sans compte. En hommage, la page est sobre : gris et pierre au lieu des couleurs de l'atelier ; l'affiche
  * et le message restent ceux que l'organisateur a choisis.
  */
+/** Hommage : anthracite et pierre, titres en Fraunces, quelles que soient les couleurs de l'atelier. */
+const TRIBUTE_THEME = {
+  "--invite-primary": "#2b3032",
+  "--invite-on-primary": "#ffffff",
+  "--invite-accent": "#4a5254",
+  "--invite-on-accent": "#ffffff",
+  "--invite-font": "var(--f-display)",
+} as CSSProperties;
+
 export function WishBookView() {
   const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
@@ -29,7 +38,7 @@ export function WishBookView() {
   const load = useCallback(
     () =>
       api<{ data: PublicWishBook }>(`/public/wish-books/${id}`)
-        .then(({ data }) => setBook({ ...data, tone: toneOf(data.tone) }))
+        .then(({ data }) => setBook(data))
         .catch(setError),
     [id],
   );
@@ -40,16 +49,17 @@ export function WishBookView() {
 
   const notFound = error instanceof ApiError && error.status === 404;
   const design = book?.design;
-  const theme =
-    design && book.tone !== "tribute"
-      ? ({
+  const theme = !design
+    ? undefined
+    : book.tone === "tribute"
+      ? TRIBUTE_THEME
+      : ({
           "--invite-primary": design.primary_color,
           "--invite-on-primary": textOn(design.primary_color),
           "--invite-accent": design.accent_color,
           "--invite-on-accent": textOn(design.accent_color),
           "--invite-font": FONT_STACKS[design.font],
-        } as CSSProperties)
-      : undefined;
+        } as CSSProperties);
 
   return (
     <div className={`${styles.page} ${ticketFontVariables}`} style={theme} data-tone={book?.tone}>
@@ -68,7 +78,7 @@ export function WishBookView() {
         ) : (
           <>
             <Hero book={book} />
-            {book.open ? <WishForm book={book} bookId={id} onSent={load} /> : <section className={styles.card}><p>{t.wishes.page.closed}</p></section>}
+            {book.open ? <WishForm tone={book.tone} bookId={id} onSent={load} /> : <section className={styles.card}><p>{t.wishes.page.closed}</p></section>}
             <Wall book={book} />
           </>
         )}
@@ -110,10 +120,10 @@ function Hero({ book }: { book: PublicWishBook }) {
   );
 }
 
-function WishForm({ book, bookId, onSent }: { book: PublicWishBook; bookId: string; onSent: () => Promise<void> }) {
+function WishForm({ tone: toneName, bookId, onSent }: { tone: WishTone; bookId: string; onSent: () => Promise<void> }) {
   const { t } = useI18n();
   const p = t.wishes.page;
-  const tone = t.wishes.tones[book.tone];
+  const tone = t.wishes.tones[toneName];
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [sent, setSent] = useState(false);
