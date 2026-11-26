@@ -15,6 +15,7 @@ import {
   type TextElement,
   type Usage,
 } from "./canvas";
+import { PALETTES, type PaletteId } from "./canvas-palettes";
 
 /**
  * Bibliothèque de modèles du studio. Un modèle = une composition (photo pleine page, personnage
@@ -84,7 +85,7 @@ function frame(usage: Usage, format: FormatId): Frame {
 
 // --- Thèmes ---------------------------------------------------------------------------------------
 
-type Theme = {
+export type Theme = {
   bg: string;
   /** Seconde couleur du fond : dégradé de haut en bas. */
   bg2?: string;
@@ -194,12 +195,41 @@ function fit(value: string, size: number, width: number, lines: number, font: Ca
   const words = value.split(/\s+/).filter(Boolean);
   let current = size;
   while (current > 24) {
-    const perLine = Math.max(1, Math.floor(width / (current * glyph)));
-    const needed = wrappedLines(words, perLine);
+    const needed = measure
+      ? measuredLines(words, width * 0.96, (word) => measure!(word, font, current))
+      : wrappedLines(words, Math.max(1, Math.floor(width / (current * glyph))));
     if (needed <= lines && needed * current * 1.05 <= height) break;
     current -= 4;
   }
   return Math.round(current);
+}
+
+/** Largeur réelle d'un texte en gras, en pixels : posée par le studio une fois ses polices chargées. */
+export type TextMeasure = (value: string, font: CanvasFont, size: number) => number;
+let measure: TextMeasure | null = null;
+
+/**
+ * Avec les vraies largeurs, chaque titre tient dans son cadre quelle que soit la paire de polices du
+ * modèle ; sans elles (avant le chargement des polices), une estimation par caractère.
+ */
+export function setTextMeasure(value: TextMeasure | null): void {
+  measure = value;
+}
+
+/** Nombre de lignes d'un texte coupé aux espaces, mesuré mot à mot (Infinity : mot trop long). */
+function measuredLines(words: string[], width: number, widthOf: (value: string) => number): number {
+  let lines = 1;
+  let line = "";
+  for (const word of words) {
+    if (widthOf(word) > width) return Infinity;
+    const next = line ? `${line} ${word}` : word;
+    if (!line || widthOf(next) <= width) line = next;
+    else {
+      lines += 1;
+      line = word;
+    }
+  }
+  return lines;
 }
 
 /** Nombre de lignes d'un texte coupé aux espaces, `perLine` caractères par ligne (Infinity : mot trop long). */
@@ -959,9 +989,6 @@ const versus: Layout = (f, t, ctx, o) => {
   ];
 };
 
-/** Q. Page vide, aux couleurs du thème. */
-const blank: Layout = () => [];
-
 /** R. kassEvent : ruban en biais sur le vert Fleuve. */
 const ribbon: Layout = (f, t, ctx, o) => {
   if (f.wide) {
@@ -988,123 +1015,343 @@ const ribbon: Layout = (f, t, ctx, o) => {
 
 // --- Catalogue ------------------------------------------------------------------------------------
 
-type Template = { category: Exclude<Category, "all">; styles: TemplateStyle[]; layout: Layout; theme: Theme; options?: Omit<LayoutOptions, "seed"> };
+/**
+ * Les 10 000 modèles ne sont pas écrits un à un : chaque catégorie croise des compositions, des
+ * palettes, des paires de polices, des décors et des thèmes de photo. Le numéro d'un modèle
+ * (« wedding-0042 ») suffit à le redessiner à l'identique ; rien n'est stocké.
+ */
 
-const dark = (overrides: Partial<Theme>): Theme => ({
-  bg: "#0E1B1C",
-  ink: "#FFFFFF",
-  soft: "#C9D3D2",
-  accent: "#F2B705",
-  accent2: "#17BEBB",
-  onAccent: "#0E1B1C",
-  card: "#FFFFFF",
-  cardInk: "#0E1B1C",
-  cardSoft: "#5B6B6B",
-  title: "anton",
-  body: "poppins",
-  stub: "card",
-  ...overrides,
-});
+/** Compositions, et si elles demandent une photo ou un fond sombre. */
+const LAYOUTS = {
+  heroPhoto: { draw: heroPhoto, photo: true },
+  cutout: { draw: cutout, photo: true },
+  quote: { draw: quote, photo: true },
+  centerTitle: { draw: centerTitle, photo: false },
+  infoCard: { draw: infoCard, photo: true },
+  sideProgram: { draw: sideProgram, photo: true },
+  circleTiles: { draw: circleTiles, photo: true },
+  speakers: { draw: speakers, photo: true },
+  framed: { draw: framed, photo: true },
+  split: { draw: split, photo: true },
+  patterned: { draw: patterned, photo: true },
+  neonFrame: { draw: neonFrame, photo: true, dark: true },
+  typo: { draw: typo, photo: false },
+  luxe: { draw: luxe, photo: false },
+  live: { draw: live, photo: true, dark: true },
+  versus: { draw: versus, photo: true },
+  ribbon: { draw: ribbon, photo: false },
+} satisfies Record<string, { draw: Layout; photo: boolean; dark?: boolean }>;
+export type LayoutId = keyof typeof LAYOUTS;
+export const LAYOUT_IDS = Object.keys(LAYOUTS) as LayoutId[];
 
-const light = (overrides: Partial<Theme>): Theme => ({
-  bg: "#FFFDF6",
-  ink: "#14213D",
-  soft: "#5B6478",
-  accent: "#E4572E",
-  accent2: "#14213D",
-  onAccent: "#FFFFFF",
-  card: "#14213D",
-  cardInk: "#FFFFFF",
-  cardSoft: "#C3CAD9",
-  title: "poppins",
-  body: "poppins",
-  stub: "card",
-  ...overrides,
-});
+/** Paires de polices : titre, texte, titre en capitales, titre en italique. */
+const FONT_PAIRS: [CanvasFont, CanvasFont, boolean?, boolean?][] = [
+  ["anton", "poppins", true], // 0
+  ["anton", "poppins", true, true], // 1 sport
+  ["poppins", "poppins", true], // 2
+  ["fraunces", "instrument"], // 3
+  ["playfair", "poppins"], // 4
+  ["playfair", "playfair", true], // 5 gala
+  ["cinzel", "playfair"], // 6
+  ["cinzel", "poppins"], // 7
+  ["script", "playfair"], // 8
+  ["pacifico", "playfair"], // 9
+  ["fredoka", "fredoka"], // 10
+  ["fredoka", "poppins"], // 11
+  ["poppins", "instrument"], // 12
+  ["fraunces", "poppins"], // 13
+  ["instrument", "instrument", true], // 14
+];
 
-const TEMPLATES = {
-  // Concerts et festivals
-  neon: { category: "concert", styles: ["photo", "dark", "colorful"], layout: neonFrame, theme: dark({ bg: "#12002B", bg2: "#3A0CA3", accent: "#F72585", accent2: "#4CC9F0", title: "poppins", upper: true }), options: { decor: "glow" } },
-  stage: { category: "concert", styles: ["photo", "dark"], layout: heroPhoto, theme: dark({ bg: "#0A0A0A", accent: "#FFD60A", accent2: "#E63946", soft: "#BDBDBD", upper: true, stub: "band", card: "#FFD60A", cardSoft: "#5A4A00" }) },
-  afroSun: { category: "concert", styles: ["typo", "colorful"], layout: typo, theme: light({ bg: "#FF6B1A", bg2: "#FFB703", ink: "#2B0F00", soft: "#5C2A00", accent: "#2B0F00", accent2: "#FFFFFF", onAccent: "#FFB703", title: "anton", card: "#2B0F00", cardInk: "#FFFFFF", cardSoft: "#FFB703" }), options: { decor: "rays" } },
-  wax: { category: "concert", styles: ["colorful", "typo"], layout: patterned, theme: light({ bg: "#F2B705", ink: "#0E1B1C", soft: "#0E1B1C", accent: "#E4572E", accent2: "#17BEBB", onAccent: "#FFFFFF", title: "fraunces", body: "instrument", card: "#0E1B1C", cardInk: "#FFFFFF", cardSoft: "#F2B705" }), options: { decor: "wax" } },
-  artist: { category: "concert", styles: ["photo", "dark"], layout: cutout, theme: dark({ bg: "#0B1F3A", bg2: "#13315C", accent: "#FFC300", accent2: "#E63946", onAccent: "#0B1F3A", soft: "#A9BCD0", upper: true }), options: { decor: "stars" } },
-  gospel: { category: "concert", styles: ["photo", "colorful"], layout: speakers, theme: dark({ bg: "#2D1B69", bg2: "#5B2A86", accent: "#F4C430", accent2: "#F4C430", onAccent: "#2D1B69", title: "cinzel", body: "poppins", card: "#FFFFFF", stub: "band" }), options: { decor: "glow" } },
+/**
+ * Thèmes de photo : la recherche envoyée à la banque d'images (en anglais, la langue des mots-clés
+ * des banques). Pensés pour un public d'Afrique centrale.
+ */
+export const PHOTO_THEMES = {
+  concertCrowd: "concert crowd lights",
+  singer: "african singer stage microphone",
+  guitarist: "african guitarist concert",
+  dj: "black dj party",
+  gospelChoir: "african gospel choir",
+  drums: "african drums music",
+  stageLights: "concert stage lights",
+  saxophone: "jazz saxophone black musician",
+  rapper: "black rapper stage",
+  band: "live band concert",
+  dancing: "african friends dancing party",
+  nightclub: "nightclub party lights",
+  cocktails: "cocktails party drinks",
+  rooftop: "rooftop party friends",
+  fashion: "african fashion model",
+  karaoke: "karaoke friends singing",
+  toast: "friends toast celebration",
+  danceCouple: "african couple dancing",
+  weddingCouple: "african wedding couple",
+  bride: "african bride wedding dress",
+  rings: "wedding rings hands",
+  bouquet: "wedding bouquet flowers",
+  reception: "wedding reception table decoration",
+  traditionalWedding: "african traditional wedding",
+  weddingCake: "wedding cake",
+  groom: "black groom suit",
+  churchWedding: "church wedding ceremony",
+  birthdayCake: "birthday cake candles",
+  balloons: "colorful balloons party",
+  kidsParty: "african kids birthday party",
+  birthdayWoman: "black woman birthday celebration",
+  birthdayMan: "black man birthday celebration",
+  gifts: "birthday gifts",
+  family: "african family celebration",
+  champagne: "champagne glasses celebration",
+  worshipHands: "worship hands raised church",
+  choir: "church choir singing",
+  preacher: "african pastor preaching",
+  bible: "bible open light",
+  church: "church interior",
+  prayer: "black woman praying",
+  worshipCrowd: "worship concert crowd",
+  candles: "candles light dark",
+  cross: "cross sunset",
+  baptism: "baptism water",
+  galaDinner: "gala dinner table",
+  trophy: "gold trophy award",
+  redCarpet: "red carpet event",
+  eveningGown: "black woman evening gown",
+  chandelier: "chandelier luxury hall",
+  tuxedo: "black man tuxedo",
+  applause: "audience applause",
+  awardStage: "award ceremony stage",
+  speaker: "african conference speaker",
+  audience: "conference audience",
+  workshop: "african workshop team",
+  classroom: "african students classroom",
+  teamLaptop: "african team laptop",
+  businessWoman: "african business woman",
+  businessMan: "african business man",
+  graduation: "african graduation",
+  panel: "panel discussion conference",
+  notebook: "notebook desk study",
+  videoCall: "video call laptop",
+  laptop: "black woman laptop",
+  smartphone: "black man smartphone",
+  podcast: "podcast microphone",
+  streaming: "live streaming camera",
+  onlineClass: "online class student",
+  headphones: "headphones music black",
+  homeOffice: "home office desk",
+  parenting: "african mother child",
+  football: "african football player",
+  basketball: "basketball player",
+  boxing: "boxing gloves boxer",
+  running: "black runner track",
+  stadium: "football stadium",
+  athlete: "african athlete training",
+  tennis: "tennis player",
+  gym: "gym fitness black",
+  martialArts: "martial arts",
+  cycling: "cycling race",
+  meeting: "african team meeting",
+  office: "modern office",
+  handshake: "business handshake",
+  launch: "product launch event",
+  skyline: "african city skyline",
+  entrepreneur: "african entrepreneur",
+  coworking: "coworking space",
+  market: "african market",
+  store: "store opening shop",
+  networking: "networking event people",
+} as const;
+export type PhotoTheme = keyof typeof PHOTO_THEMES;
 
-  // Soirées
-  club: { category: "party", styles: ["dark", "colorful", "photo"], layout: neonFrame, theme: dark({ bg: "#03071E", bg2: "#0B3B3C", accent: "#2EC4B6", accent2: "#FF3CAC", title: "anton", upper: true, stub: "open" }), options: { decor: "glow" } },
-  pinkParty: { category: "party", styles: ["typo", "colorful"], layout: typo, theme: light({ bg: "#FF3CAC", ink: "#1A0018", soft: "#4A0040", accent: "#1A0018", accent2: "#FFF35C", onAccent: "#FFF35C", title: "anton", card: "#1A0018", cardInk: "#FFFFFF", cardSoft: "#FF9AD5" }), options: { decor: "dots" } },
-  sunset: { category: "party", styles: ["photo", "colorful"], layout: heroPhoto, theme: light({ bg: "#FFF4E6", ink: "#3D0C02", soft: "#7A3E2B", accent: "#FF7A00", accent2: "#3D0C02", title: "anton", upper: true, stub: "band", card: "#3D0C02", cardSoft: "#FFB37A" }) },
+type Recipe = { layouts: LayoutId[]; palettes: PaletteId[]; fonts: number[]; decors: Decor[]; photos: PhotoTheme[]; labels?: string[] };
 
-  // Mariages
-  elegant: { category: "wedding", styles: ["elegant"], layout: framed, theme: light({ bg: "#FBF6EE", ink: "#3B2F2F", soft: "#7A6A4F", accent: "#B08D3C", accent2: "#E9DCC3", title: "script", body: "playfair", stub: "open" }) },
-  photoWedding: { category: "wedding", styles: ["photo", "elegant"], layout: split, theme: light({ bg: "#FFFFFF", ink: "#3B1020", accent: "#E9C46A", accent2: "#6B1E3A", onAccent: "#3B1020", card: "#6B1E3A", cardInk: "#FFFFFF", cardSoft: "#F3D9E1", title: "script", body: "playfair" }) },
-  blush: { category: "wedding", styles: ["elegant", "colorful"], layout: framed, theme: light({ bg: "#FCE8EC", ink: "#5A2A3A", soft: "#9C6B78", accent: "#D88C9A", accent2: "#F6C7CF", title: "pacifico", body: "playfair", stub: "open" }), options: { decor: "petals" } },
-  sage: { category: "wedding", styles: ["photo", "elegant"], layout: split, theme: light({ bg: "#F4F1EA", accent: "#8A9A5B", accent2: "#E7E2D3", onAccent: "#FFFFFF", card: "#F4F1EA", cardInk: "#2F3A26", cardSoft: "#6B7458", title: "cinzel", body: "playfair" }), options: { decor: "dots" } },
-  royalWedding: { category: "wedding", styles: ["elegant", "dark"], layout: luxe, theme: dark({ bg: "#0F1A2E", bg2: "#1C2D4F", accent: "#D4AF37", soft: "#B8C2D6", title: "script", body: "playfair", stub: "open" }) },
-  heroWedding: { category: "wedding", styles: ["photo", "elegant"], layout: heroPhoto, theme: light({ bg: "#FFFBF5", ink: "#4A3426", soft: "#8B6F5A", accent: "#C9A46A", accent2: "#4A3426", onAccent: "#FFFFFF", title: "script", body: "playfair", card: "#4A3426", cardSoft: "#E2CDB0", stub: "band" }) },
+const RECIPES: Record<Exclude<Category, "all">, Recipe> = {
+  concert: {
+    layouts: ["neonFrame", "heroPhoto", "cutout", "patterned", "speakers", "sideProgram", "split", "typo", "circleTiles"],
+    palettes: ["neon", "stageYellow", "ember", "electric", "gospelViolet", "plumNeon", "charcoalCoral", "waxYellow", "kente", "cobalt", "tealCoral", "congo", "ocean", "midnightGold", "peach"],
+    fonts: [0, 2, 3, 7, 11, 13],
+    decors: ["glow", "stars", "wax", "none"],
+    photos: ["concertCrowd", "singer", "guitarist", "dj", "gospelChoir", "drums", "stageLights", "saxophone", "rapper", "band"],
+  },
+  party: {
+    layouts: ["neonFrame", "heroPhoto", "cutout", "patterned", "typo", "circleTiles", "split", "quote"],
+    palettes: ["electric", "plumNeon", "neon", "peach", "candy", "charcoalCoral", "tealCoral", "ember", "sunrise", "lavender", "kente", "waxYellow", "midnightGold", "wine"],
+    fonts: [0, 2, 10, 9, 13, 11],
+    decors: ["glow", "confetti", "stars", "dots"],
+    photos: ["dancing", "nightclub", "cocktails", "dj", "rooftop", "fashion", "karaoke", "danceCouple", "toast", "champagne"],
+  },
+  wedding: {
+    layouts: ["framed", "split", "heroPhoto", "centerTitle", "luxe", "circleTiles", "quote", "ribbon"],
+    palettes: ["ivoryGold", "blush", "sage", "pearlNavy", "roseGold", "sand", "terracotta", "wine", "emeraldNight", "royalPurple", "midnightGold", "lavender", "sky", "navyGold"],
+    fonts: [8, 9, 6, 4, 5, 3],
+    decors: ["petals", "dots", "rays", "none", "halo"],
+    photos: ["weddingCouple", "bride", "rings", "bouquet", "reception", "traditionalWedding", "weddingCake", "groom", "danceCouple", "churchWedding"],
+  },
+  birthday: {
+    layouts: ["patterned", "cutout", "circleTiles", "luxe", "heroPhoto", "centerTitle", "split", "typo"],
+    palettes: ["candy", "skyBalloon", "sunny", "aqua", "lavender", "peach", "midnightGold", "wine", "roseGold", "tealCoral", "mint", "kente", "neon", "electric"],
+    fonts: [10, 11, 9, 13, 6, 0],
+    decors: ["confetti", "stars", "dots", "glow", "petals"],
+    photos: ["birthdayCake", "balloons", "kidsParty", "birthdayWoman", "birthdayMan", "toast", "gifts", "family", "champagne", "dancing"],
+    labels: ["18", "20", "25", "30", "40", "50", "60", "70"],
+  },
+  worship: {
+    layouts: ["centerTitle", "framed", "heroPhoto", "speakers", "cutout", "sideProgram", "quote", "split"],
+    palettes: ["sunrise", "sky", "pearlNavy", "gospelViolet", "royalPurple", "navyGold", "emeraldNight", "cocoa", "ivoryGold", "terracotta", "sand", "cobalt", "ocean", "lavender"],
+    fonts: [6, 7, 4, 2, 13, 3],
+    decors: ["halo", "rays", "glow", "stars"],
+    photos: ["worshipHands", "choir", "preacher", "bible", "church", "prayer", "worshipCrowd", "candles", "cross", "baptism"],
+  },
+  gala: {
+    layouts: ["luxe", "sideProgram", "centerTitle", "typo", "framed", "heroPhoto", "speakers", "split"],
+    palettes: ["midnightGold", "navyGold", "royalPurple", "wine", "emeraldNight", "cocoa", "ivoryGold", "pearlNavy", "stageYellow", "ocean", "charcoalCoral", "roseGold"],
+    fonts: [5, 6, 0, 4, 7, 3],
+    decors: ["stars", "halo", "glow", "rays", "none"],
+    photos: ["galaDinner", "trophy", "redCarpet", "eveningGown", "champagne", "chandelier", "tuxedo", "applause", "awardStage", "reception"],
+  },
+  conference: {
+    layouts: ["cutout", "infoCard", "typo", "circleTiles", "speakers", "sideProgram", "split", "heroPhoto", "quote"],
+    palettes: ["paperNavy", "cleanRed", "mint", "cobalt", "slateLime", "fleuve", "tealCream", "minimal", "ocean", "kente", "lavender", "navyGold", "tealCoral"],
+    fonts: [2, 12, 0, 3, 14, 13],
+    decors: ["dots", "none", "glow"],
+    photos: ["speaker", "audience", "workshop", "classroom", "teamLaptop", "businessWoman", "businessMan", "graduation", "panel", "notebook"],
+  },
+  online: {
+    layouts: ["live", "cutout", "infoCard", "quote", "circleTiles", "split", "typo", "heroPhoto"],
+    palettes: ["ocean", "slateLime", "electric", "neon", "cobalt", "charcoalCoral", "tealCoral", "mint", "paperNavy", "lavender", "plumNeon", "candy"],
+    fonts: [2, 11, 12, 0, 10, 13],
+    decors: ["glow", "dots", "petals", "none"],
+    photos: ["videoCall", "laptop", "smartphone", "podcast", "streaming", "onlineClass", "headphones", "homeOffice", "parenting", "teamLaptop"],
+    labels: ["online"],
+  },
+  sport: {
+    layouts: ["versus", "heroPhoto", "cutout", "typo", "split", "quote", "circleTiles", "neonFrame"],
+    palettes: ["redFight", "stadium", "congo", "stageYellow", "limeCourt", "cobalt", "ember", "electric", "charcoalCoral", "slateLime", "kente", "ocean"],
+    fonts: [1, 0, 2, 14, 11],
+    decors: ["stars", "glow", "none", "dots"],
+    photos: ["football", "basketball", "boxing", "running", "stadium", "athlete", "tennis", "gym", "martialArts", "cycling"],
+  },
+  business: {
+    layouts: ["ribbon", "infoCard", "circleTiles", "cutout", "typo", "split", "heroPhoto", "sideProgram", "quote", "speakers"],
+    palettes: ["fleuve", "tealCream", "paperNavy", "cleanRed", "minimal", "slateLime", "navyGold", "cobalt", "mint", "sand", "kente", "ocean", "charcoalCoral"],
+    fonts: [3, 12, 2, 13, 0, 14],
+    decors: ["dots", "none", "glow"],
+    photos: ["meeting", "office", "handshake", "launch", "skyline", "entrepreneur", "coworking", "market", "store", "networking"],
+  },
+};
 
-  // Anniversaires
-  confetti: { category: "birthday", styles: ["colorful", "photo"], layout: patterned, theme: light({ bg: "#FFF0F5", ink: "#C3315C", soft: "#3B1020", accent: "#F72585", accent2: "#FFB703", title: "fraunces", body: "fredoka", card: "#FFFFFF", cardInk: "#3B1020", cardSoft: "#C3315C" }), options: { decor: "confetti" } },
-  balloons: { category: "birthday", styles: ["colorful", "photo"], layout: cutout, theme: light({ bg: "#E8F4FF", ink: "#0B3C6B", soft: "#3D6A93", accent: "#FF5D8F", accent2: "#2E86DE", title: "fredoka", body: "fredoka", card: "#0B3C6B", cardSoft: "#9CC6EE" }), options: { decor: "confetti" } },
-  sunnyBirthday: { category: "birthday", styles: ["photo", "colorful"], layout: heroPhoto, theme: light({ bg: "#FFE66D", ink: "#2D1E2F", soft: "#5B4A2E", accent: "#FF6B6B", accent2: "#2D1E2F", title: "pacifico", body: "fredoka", card: "#2D1E2F", cardSoft: "#FFE66D", stub: "band" }) },
-  fifty: { category: "birthday", styles: ["elegant", "dark"], layout: luxe, theme: dark({ bg: "#0A0A0A", bg2: "#2A2418", accent: "#D4AF37", soft: "#BFB49A", title: "cinzel", body: "playfair", stub: "open" }), options: { label: "50" } },
-  kids: { category: "birthday", styles: ["colorful", "typo"], layout: circleTiles, theme: light({ bg: "#7BDFF2", ink: "#1D3557", soft: "#1D3557", accent: "#F25F5C", accent2: "#FFE066", card: "#FFFFFF", cardInk: "#1D3557", title: "fredoka", body: "fredoka" }), options: { decor: "confetti" } },
+/** Modèles par catégorie : 10 catégories × 1 000 = 10 000 modèles. */
+export const TEMPLATES_PER_CATEGORY = 1000;
+const TEMPLATE_CATEGORIES = CATEGORIES.filter((category): category is Exclude<Category, "all"> => category !== "all");
+export const TEMPLATE_COUNT = TEMPLATE_CATEGORIES.length * TEMPLATES_PER_CATEGORY;
+/** Nombre de photos proposées par la banque pour chaque thème (une page de résultats). */
+export const PHOTOS_PER_THEME = 30;
 
-  // Cultes et cérémonies religieuses
-  revival: { category: "worship", styles: ["typo", "colorful"], layout: centerTitle, theme: light({ bg: "#FFF8EE", ink: "#2B2B2B", soft: "#5A4636", accent: "#E8871E", accent2: "#FFB347", card: "#1F1F1F", cardInk: "#FFFFFF", title: "playfair", body: "poppins", stub: "band", cardSoft: "#FFB347" }), options: { decor: "halo" } },
-  worshipNight: { category: "worship", styles: ["photo", "colorful"], layout: speakers, theme: light({ bg: "#FFFFFF", bg2: "#F3EEE7", ink: "#1F1F1F", soft: "#5A5A5A", accent: "#E8871E", accent2: "#E8871E", card: "#1F1F1F", cardInk: "#FFFFFF", title: "playfair", body: "poppins", stub: "band", cardSoft: "#E8871E" }) },
-  heaven: { category: "worship", styles: ["elegant", "typo"], layout: centerTitle, theme: light({ bg: "#EAF4FB", bg2: "#FFFFFF", ink: "#0D3B66", soft: "#3E6990", accent: "#2E86AB", accent2: "#F6D365", card: "#0D3B66", title: "cinzel", body: "poppins" }), options: { decor: "rays" } },
-  communion: { category: "worship", styles: ["elegant"], layout: framed, theme: light({ bg: "#FFFFFF", ink: "#1E2A3A", soft: "#6A7A8C", accent: "#C5A253", accent2: "#E8E2D0", title: "cinzel", body: "playfair", stub: "open" }), options: { decor: "rays" } },
+/** Un modèle : son numéro dit tout le reste. */
+export type TemplateInfo = {
+  id: string;
+  /** Numéro affiché, de 1 à 10 000. */
+  number: number;
+  category: Exclude<Category, "all">;
+  layout: LayoutId;
+  palette: PaletteId;
+  styles: TemplateStyle[];
+  /** Thème et rang de la photo dans les résultats de la banque ; null : modèle sans photo. */
+  photo: { theme: PhotoTheme; index: number } | null;
+  /** Rendu : polices, décor, libellé, graine des décors aléatoires. */
+  fonts: number;
+  decor: Decor;
+  label?: string;
+  seed: number;
+};
 
-  // Galas et remises de prix
-  gala: { category: "gala", styles: ["elegant", "dark"], layout: luxe, theme: dark({ bg: "#0A0A0A", bg2: "#2A2418", accent: "#D4AF37", soft: "#BFB49A", title: "playfair", body: "playfair", upper: true, stub: "open" }) },
-  awards: { category: "gala", styles: ["photo", "dark", "elegant"], layout: sideProgram, theme: dark({ bg: "#0B2545", bg2: "#13315C", accent: "#E9B949", accent2: "#E9B949", soft: "#C5D1E0", title: "anton", body: "poppins", upper: true }), options: { decor: "stars" } },
-  royal: { category: "gala", styles: ["elegant", "dark"], layout: centerTitle, theme: dark({ bg: "#2A0845", bg2: "#4B1D6B", accent: "#E5C07B", accent2: "#E5C07B", soft: "#D9C8EA", title: "cinzel", body: "playfair", card: "#FFFFFF" }), options: { decor: "halo" } },
-  trophy: { category: "gala", styles: ["dark", "typo"], layout: typo, theme: dark({ bg: "#111111", accent: "#C9A227", accent2: "#C9A227", onAccent: "#111111", title: "anton", stub: "band", card: "#C9A227", cardSoft: "#4A3B0A" }), options: { decor: "stars" } },
-
-  // Conférences et formations
-  conference: { category: "conference", styles: ["photo"], layout: cutout, theme: light({ bg: "#F5F7FA", ink: "#14213D", soft: "#4A5A78", accent: "#14213D", accent2: "#2EC4B6", onAccent: "#FFFFFF", title: "poppins" }), options: { decor: "dots" } },
-  course: { category: "conference", styles: ["photo", "colorful"], layout: infoCard, theme: dark({ bg: "#3C1D78", bg2: "#5B3A9E", accent: "#D7263D", accent2: "#D7263D", onAccent: "#FFFFFF", title: "poppins", card: "#FFFFFF", cardInk: "#2A1458", cardSoft: "#8C7BB0" }) },
-  summit: { category: "conference", styles: ["typo"], layout: typo, theme: light({ bg: "#FFFFFF", ink: "#0A2463", soft: "#3E5C9A", accent: "#0A2463", accent2: "#3E92CC", onAccent: "#FFFFFF", title: "anton" }) },
-  workshop: { category: "conference", styles: ["photo", "colorful"], layout: circleTiles, theme: light({ bg: "#F6F7FB", ink: "#1B263B", soft: "#5B6478", accent: "#3A86FF", accent2: "#1B3A6B", card: "#FFFFFF", cardInk: "#1B263B" }) },
-  panel: { category: "conference", styles: ["photo"], layout: speakers, theme: light({ bg: "#F0F4F8", ink: "#102A43", soft: "#486581", accent: "#F0B429", accent2: "#102A43", onAccent: "#102A43", card: "#102A43", cardInk: "#FFFFFF", cardSoft: "#9FB3C8" }) },
-
-  // En ligne
-  webinar: { category: "online", styles: ["dark", "photo"], layout: live, theme: dark({ bg: "#0D1B2A", bg2: "#1B263B", accent: "#00B4D8", accent2: "#90E0EF", title: "poppins", card: "#E0E1DD", stub: "card" }), options: { decor: "glow" } },
-  challenge: { category: "online", styles: ["photo", "colorful"], layout: cutout, theme: dark({ bg: "#223042", accent: "#F2C94C", accent2: "#3AA39A", onAccent: "#FFFFFF", title: "fredoka", body: "poppins", soft: "#E8EEF5" }), options: { decor: "petals", label: "online" } },
-  quoteCard: { category: "online", styles: ["photo", "dark", "typo"], layout: quote, theme: dark({ bg: "#05121F", accent: "#E63946", accent2: "#FFFFFF", title: "poppins", italic: true, card: "#0B1C2C", cardInk: "#FFFFFF", cardSoft: "#7D8FA3", stub: "band" }) },
-
-  // Sport
-  versus: { category: "sport", styles: ["photo", "dark"], layout: versus, theme: dark({ bg: "#0B0B0B", accent: "#E63946", accent2: "#FFFFFF", onAccent: "#FFFFFF", title: "anton", upper: true, italic: true, stub: "band", card: "#E63946", cardInk: "#FFFFFF", cardSoft: "#FFD6D9" }) },
-  match: { category: "sport", styles: ["photo", "colorful"], layout: heroPhoto, theme: dark({ bg: "#004E2E", accent: "#FFD000", accent2: "#FFFFFF", title: "anton", upper: true, italic: true, stub: "band", card: "#FFD000", cardSoft: "#5A4A00" }) },
-
-  // Entreprises et lancements
-  fleuve: { category: "business", styles: ["typo"], layout: ribbon, theme: dark({ bg: "#0B3B3C", accent: "#F2B705", soft: "#CFE3DF", title: "fraunces", body: "instrument", card: "#FFFDF6", cardSoft: "#5B6B6B" }) },
-  launch: { category: "business", styles: ["photo", "colorful"], layout: circleTiles, theme: light({ bg: "#F7F7F7", ink: "#1F1F1F", soft: "#555555", accent: "#2E5BFF", accent2: "#1F3C88", card: "#FFFFFF", cardInk: "#1F1F1F" }) },
-  corporate: { category: "business", styles: ["photo"], layout: infoCard, theme: light({ bg: "#0B3B3C", bg2: "#0E5254", ink: "#FFFFFF", soft: "#CFE3DF", accent: "#F2B705", onAccent: "#0E1B1C", card: "#FFFFFF", cardInk: "#0E1B1C", cardSoft: "#5B6B6B" }) },
-  blank: { category: "business", styles: ["typo"], layout: blank, theme: light({ bg: "#FFFFFF", stub: "card" }) },
-} satisfies Record<string, Template>;
-
-export type TemplateId = keyof typeof TEMPLATES;
-export const TEMPLATE_IDS = Object.keys(TEMPLATES) as TemplateId[];
-
-export function templateMatches(id: TemplateId, category: Category, style: TemplateStyle | null): boolean {
-  const template: Template = TEMPLATES[id];
-  return (category === "all" || template.category === category) && (!style || template.styles.includes(style));
+/**
+ * Combinaisons valides d'une catégorie (pas de composition « nuit » sur fond clair), mélangées une
+ * fois pour toutes (graine fixe) : deux modèles voisins dans la galerie ne se ressemblent pas, les
+ * 1 000 retenus sont tous différents et gardent leur numéro d'une version à l'autre.
+ */
+function catalog(category: Exclude<Category, "all">, offset: number): TemplateInfo[] {
+  const recipe = RECIPES[category];
+  const combos: [number, number, number, number][] = [];
+  recipe.palettes.forEach((palette, p) =>
+    recipe.layouts.forEach((layout, l) => {
+      const needsDark = "dark" in LAYOUTS[layout] && LAYOUTS[layout].dark;
+      if (needsDark && PALETTES[palette].tone !== "dark") return;
+      recipe.fonts.forEach((_, f) => recipe.decors.forEach((_, d) => combos.push([l, p, f, d])));
+    }),
+  );
+  const random = seeded(offset + 1);
+  for (let i = combos.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [combos[i], combos[j]] = [combos[j], combos[i]];
+  }
+  // Le n° 1 de chaque catégorie reste sa première composition sur sa première palette (kassEvent Fleuve en entreprise).
+  const signature = combos.findIndex((combo) => combo.every((value) => value === 0));
+  if (signature > 0) [combos[0], combos[signature]] = [combos[signature], combos[0]];
+  return Array.from({ length: TEMPLATES_PER_CATEGORY }, (_, k) => {
+    const [l, p, f, d] = combos[k];
+    const layout = recipe.layouts[l];
+    const palette = PALETTES[recipe.palettes[p]];
+    const theme = recipe.photos[k % recipe.photos.length];
+    return {
+      id: `${category}-${String(k + 1).padStart(4, "0")}`,
+      number: offset + k + 1,
+      category,
+      layout,
+      palette: recipe.palettes[p],
+      styles: [
+        LAYOUTS[layout].photo ? "photo" : "typo",
+        ...palette.tags,
+        ...(palette.tone === "dark" ? (["dark"] as const) : []),
+      ],
+      photo: LAYOUTS[layout].photo ? { theme, index: Math.floor(k / recipe.photos.length) % PHOTOS_PER_THEME } : null,
+      fonts: recipe.fonts[f],
+      decor: recipe.decors[d],
+      label: recipe.labels?.[k % recipe.labels.length],
+      seed: offset + k * 31 + 7,
+    };
+  });
 }
 
-/** Nombre de modèles de chaque catégorie. */
-export const CATEGORY_COUNTS = Object.fromEntries(CATEGORIES.map((category) => [category, TEMPLATE_IDS.filter((id) => templateMatches(id, category, null)).length])) as Record<Category, number>;
+let all: TemplateInfo[] | null = null;
+let byId: Map<string, TemplateInfo> | null = null;
 
-export function buildTemplate(id: TemplateId, usage: Usage, format: FormatId, ctx: TemplateContext): CanvasDoc {
-  const template: Template = TEMPLATES[id];
+/** Les 10 000 modèles, calculés à la première demande (quelques millisecondes). */
+export function allTemplates(): TemplateInfo[] {
+  if (!all) {
+    all = TEMPLATE_CATEGORIES.flatMap((category, i) => catalog(category, i * TEMPLATES_PER_CATEGORY));
+    byId = new Map(all.map((info) => [info.id, info]));
+  }
+  return all;
+}
+
+export function templateInfo(id: string): TemplateInfo | null {
+  allTemplates();
+  return byId!.get(id) ?? null;
+}
+
+export function templateMatches(info: TemplateInfo, category: Category, style: TemplateStyle | null): boolean {
+  return (category === "all" || info.category === category) && (!style || info.styles.includes(style));
+}
+
+/** Modèle par défaut d'une page neuve : vert Fleuve de kassEvent, ruban. */
+export const DEFAULT_TEMPLATE = "business-0001";
+
+/** Modèle sans rien : seulement le talon du billet. */
+export const BLANK_TEMPLATE = "blank";
+
+export function buildTemplate(id: string, usage: Usage, format: FormatId, ctx: TemplateContext): CanvasDoc {
   const f = frame(usage, format);
-  const t = template.theme;
-  const seed = TEMPLATE_IDS.indexOf(id) * 31 + 7;
+  const info = templateInfo(id);
+  if (!info) {
+    const t: Theme = { ...PALETTES.minimal, bg: "#FFFFFF", title: "poppins", body: "poppins" };
+    return { width: f.w, height: f.h, background: { color: t.bg, image: null }, elements: usage === "ticket" ? stub(f, t, ctx) : [] };
+  }
+  const [title, body, upper, italic] = FONT_PAIRS[info.fonts];
+  const t: Theme = { ...PALETTES[info.palette], title, body, upper, italic };
   const elements = [
     ...(t.bg2 ? [shape("rect", { x: 0, y: 0, width: f.w, height: f.h }, { fill: t.bg, fill2: t.bg2 })] : []),
-    ...template.layout(f, t, ctx, { seed, ...template.options }),
+    ...LAYOUTS[info.layout].draw(f, t, ctx, { seed: info.seed, decor: info.decor, label: info.label }),
     ...(usage === "ticket" ? stub(f, t, ctx) : []),
   ];
   return { width: f.w, height: f.h, background: { color: t.bg, image: null }, elements };

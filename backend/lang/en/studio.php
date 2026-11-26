@@ -9,4 +9,5 @@ return [
     'qr_size' => 'The QR code must stay square and be at least :min pixels wide to scan easily.',
     'qr_inside' => 'The QR code must be straight and fully inside the ticket.',
     'poster_no_ticket_fields' => 'The poster cannot contain a QR code or ticket fields.',
+    'stock_unavailable' => 'The photo library is not responding. Try again shortly or upload your own photo.',
 ];

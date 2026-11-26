@@ -13,6 +13,7 @@ import {
   FloppyDisk,
   ImageSquare,
   LineSegment,
+  MagnifyingGlass,
   PaintBucket,
   QrCode,
   Square,
@@ -53,27 +54,36 @@ import {
   type FieldName,
   type FormatId,
   type IconName,
+  type ImageElement,
   type ShapeElement,
   type StudioData,
   type Usage,
 } from "@/lib/canvas";
 import { FILLED_ICONS, ICON_PATHS } from "@/lib/canvas-icons";
 import {
+  BLANK_TEMPLATE,
   CATEGORIES,
+  DEFAULT_TEMPLATE,
+  PHOTO_THEMES,
   STYLES,
-  TEMPLATE_IDS,
+  TEMPLATES_PER_CATEGORY,
+  TEMPLATE_COUNT,
+  allTemplates,
   buildTemplate,
-  CATEGORY_COUNTS,
+  setTextMeasure,
+  templateInfo,
   templateMatches,
   type Category,
   type TemplateContext,
-  type TemplateId,
+  type TemplateInfo,
   type TemplateStyle,
+  type TextMeasure,
 } from "@/lib/canvas-templates";
+import { STOCK_SOURCES, importStock, loadThumb, searchStock, type StockCredit, type StockPhoto } from "@/lib/stock-photos";
 import { textOn } from "@/lib/designs";
 import { actionErrorMessage } from "@/lib/errors";
 import { formatEventDate, ticketPrice, type EventData } from "@/lib/events";
-import { format } from "@/lib/i18n/dictionaries";
+import { format, type Dictionary } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { loadCanvasFonts, ticketFontVariables } from "@/lib/ticket-fonts";
 import { IMAGE_ACCEPT, prepareImage } from "@/lib/images";
@@ -87,6 +97,10 @@ type Notice = { tone: "success" | "error"; text: string };
 const SAMPLE_CODE = "APER-CU0E-XEMP";
 const SWATCHES = ["#FFFFFF", "#0E1B1C", "#0B3B3C", "#F2B705", "#E4572E", "#17BEBB", "#C3315C", "#6B1E3A", "#D4AF37", "#14213D", "#FBF6EE", "#7209B7"];
 const HISTORY_LIMIT = 80;
+/** Modèles affichés à la fois dans la galerie ; « Voir plus » en ajoute autant. */
+const PAGE_SIZE = 36;
+/** Emplacements photo remplis par la banque quand on choisit un modèle (intervenants compris). */
+const MAX_STOCK_SLOTS = 4;
 /** Modifications rapprochées d'un même réglage (curseur, couleur) : une seule étape d'annulation. */
 const MERGE_DELAY = 700;
 
@@ -145,14 +159,21 @@ export default function Studio({ event, studio: initial, organizationId, organiz
 
   const [studio, setStudio] = useState(initial);
   const [docs, setDocs] = useState<Record<Usage, CanvasDoc>>(() => ({
-    ticket: initial.ticket ?? buildTemplate("fleuve", "ticket", USAGE_FORMATS.ticket[0], context),
-    poster: initial.poster ?? buildTemplate("fleuve", "poster", USAGE_FORMATS.poster[0], context),
+    ticket: initial.ticket ?? buildTemplate(DEFAULT_TEMPLATE, "ticket", USAGE_FORMATS.ticket[0], context),
+    poster: initial.poster ?? buildTemplate(DEFAULT_TEMPLATE, "poster", USAGE_FORMATS.poster[0], context),
   }));
   const [history, setHistory] = useState<Record<Usage, History>>({ ticket: { past: [], future: [] }, poster: { past: [], future: [] } });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>(initial[usage] ? "photos" : "templates");
   const [category, setCategory] = useState<Category>("all");
   const [style, setStyle] = useState<TemplateStyle | null>(null);
+  const [query, setQuery] = useState("");
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  /** Banque de photos : null tant que le serveur n'a pas répondu. */
+  const [stockEnabled, setStockEnabled] = useState<boolean | null>(null);
+  const [stockQuery, setStockQuery] = useState("");
+  const [stockResults, setStockResults] = useState<StockPhoto[] | null>(null);
+  const [credits, setCredits] = useState<Record<string, StockCredit>>({});
   const [fonts, setFonts] = useState<Record<CanvasFont, string> | null>(null);
   const [assets, setAssets] = useState<string[]>([]);
   const [images, setImages] = useState<Record<string, HTMLImageElement | undefined>>({});
@@ -167,13 +188,27 @@ export default function Studio({ event, studio: initial, organizationId, organiz
   const dirty = useMemo(() => JSON.stringify(saved) !== JSON.stringify(doc), [saved, doc]);
   const problem = canvasProblem(doc, usage);
   const pageFormat = formatOf(doc, usage);
-  const shown = useMemo(() => TEMPLATE_IDS.filter((id) => templateMatches(id, category, style)), [category, style]);
+  const searchIndex = useMemo(() => searchTexts(s), [s]);
+  const shown = useMemo(() => {
+    const words = searchable(query).split(" ").filter(Boolean);
+    return allTemplates().filter((info, i) => templateMatches(info, category, style) && words.every((word) => searchIndex[i].includes(word)));
+  }, [category, style, query, searchIndex]);
+  const filterTemplates = (next: () => void) => {
+    next();
+    setLimit(PAGE_SIZE);
+  };
   const used = useMemo(() => usedAssets(docs), [docs]);
   const library = useMemo(() => [...new Set([...assets, ...used])], [assets, used]);
 
-  // Polices réelles du dessin, chargées avant le premier rendu du canvas.
+  // Polices réelles du dessin, chargées avant le premier rendu du canvas ; les modèles mesurent
+  // ensuite leurs titres avec elles.
   useEffect(() => {
-    if (rootRef.current) loadCanvasFonts(rootRef.current).then(setFonts);
+    if (!rootRef.current) return;
+    loadCanvasFonts(rootRef.current).then((loaded) => {
+      setTextMeasure(textMeasure(loaded));
+      setFonts(loaded);
+    });
+    return () => setTextMeasure(null);
   }, []);
 
   // Images de l'événement, lues à travers l'API (connexion de l'organisateur) puis gardées en mémoire.
@@ -348,22 +383,82 @@ export default function Studio({ event, studio: initial, organizationId, organiz
     setSelectedId(null);
   }
 
+
+  /**
+   * Pose le modèle. Avec la banque de photos, ses emplacements reçoivent les photos de son thème,
+   * copiées dans l'événement ; sinon les photos déjà posées les remplissent, dans l'ordre.
+   */
+  function applyTemplate(id: string) {
+    const built = buildTemplate(id, usage, pageFormat, context);
+    const next = fonts ? fitTexts(built, fonts) : built;
+    const own = doc.elements.flatMap((element) => (element.type === "image" && element.asset ? [element.asset] : []));
+    const withOwn = { ...next, elements: next.elements.map((element) => (element.type === "image" && !element.asset && own.length > 0 ? { ...element, asset: own.shift()! } : element)) };
+    const info = templateInfo(id);
+    const slots = photoSlots(next, context).slice(0, MAX_STOCK_SLOTS);
+    setSelectedId(null);
+    if (!stockEnabled || !info?.photo || slots.length === 0) {
+      change(withOwn);
+      return;
+    }
+    const photo = info.photo;
+    run(async () => {
+      setNotice({ tone: "success", text: s.applyingTemplate });
+      try {
+        const { photos } = await searchStock(PHOTO_THEMES[photo.theme], organizationId);
+        if (photos.length === 0) throw new Error("empty");
+        const picked = slots.map((_, i) => photos[(photo.index + i) % photos.length]);
+        const imported = await Promise.all(picked.map((item) => importStock(item, event.id, organizationId)));
+        const decoded = await Promise.all(imported.map(({ name }) => apiBlob(`/events/${event.id}/studio/assets/${name}`, organizationId).then(decode)));
+        imported.forEach(({ name }) => requested.current.add(name));
+        setAssets((current) => [...current, ...imported.map(({ name }) => name)]);
+        setImages((current) => ({ ...current, ...Object.fromEntries(imported.map(({ name }, i) => [name, decoded[i]])) }));
+        setCredits((current) => ({ ...current, ...Object.fromEntries(imported.map(({ name, credit }) => [name, credit])) }));
+        const filled = new Map(slots.map((index, i) => [index, imported[i].name]));
+        change({ ...next, elements: next.elements.map((element, i) => (filled.has(i) ? { ...(element as ImageElement), asset: filled.get(i)!, fit: "cover" as const } : element)) });
+        setNotice(null);
+      } catch {
+        change(withOwn);
+        setNotice({ tone: "error", text: s.stockFailed });
+      }
+    });
+  }
+
   // Fonction stable pour les vignettes (mémoïsées) : elle appelle toujours la dernière version.
-  const applyRef = useRef(applyTemplate);
+  const applyRef = useRef<(id: string) => void>(() => undefined);
   useEffect(() => {
     applyRef.current = applyTemplate;
   });
-  const pickTemplate = useCallback((id: TemplateId) => applyRef.current(id), []);
+  const pickTemplate = useCallback((id: string) => applyRef.current(id), []);
 
-  function applyTemplate(id: TemplateId) {
-    const built = buildTemplate(id, usage, pageFormat, context);
-    const next = fonts ? fitTexts(built, fonts) : built;
-    // Les photos déjà posées remplissent les emplacements du modèle, dans l'ordre.
-    const photos = doc.elements.flatMap((element) => (element.type === "image" && element.asset ? [element.asset] : []));
-    next.elements = next.elements.map((element) => (element.type === "image" && !element.asset && photos.length > 0 ? { ...element, asset: photos.shift()! } : element));
-    change(next);
-    setSelectedId(null);
-  }
+  // La banque est-elle activée ? Une recherche suffit, et ses résultats servent ensuite.
+  useEffect(() => {
+    if (!canManage) return;
+    let live = true;
+    searchStock(PHOTO_THEMES.weddingCouple, organizationId)
+      .then(({ enabled }) => live && setStockEnabled(enabled))
+      .catch(() => live && setStockEnabled(false));
+    return () => {
+      live = false;
+    };
+  }, [canManage, organizationId]);
+
+  const searchPhotos = (value: string) =>
+    run(async () => {
+      if (!value.trim()) return;
+      setStockResults((await searchStock(value, organizationId)).photos);
+    });
+
+  /** Photo de la banque copiée dans l'événement, puis posée comme une photo envoyée. */
+  const placeStock = (photo: StockPhoto) =>
+    run(async () => {
+      const { name, credit } = await importStock(photo, event.id, organizationId);
+      const image = await decode(await apiBlob(`/events/${event.id}/studio/assets/${name}`, organizationId));
+      requested.current.add(name);
+      setAssets((current) => [...current, name]);
+      setImages((current) => ({ ...current, [name]: image }));
+      setCredits((current) => ({ ...current, [name]: credit }));
+      place(name, image);
+    });
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -567,36 +662,52 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                 <>
                   <h2 className={styles.panelTitle}>{s.panels.templates}</h2>
                   <p className={styles.hint}>{s.templatesHint}</p>
+                  <label className={styles.search}>
+                    <MagnifyingGlass size={18} aria-hidden />
+                    <input type="search" value={query} placeholder={s.searchPlaceholder} aria-label={s.searchLabel} onChange={(e) => filterTemplates(() => setQuery(e.target.value))} />
+                  </label>
                   <div className={styles.chips} role="group" aria-label={s.categoryLabel}>
                     {CATEGORIES.map((value) => (
-                      <button key={value} type="button" className={styles.chip} aria-pressed={category === value} onClick={() => setCategory(value)}>
-                        {s.categories[value]} <small>{CATEGORY_COUNTS[value]}</small>
+                      <button key={value} type="button" className={styles.chip} aria-pressed={category === value} onClick={() => filterTemplates(() => setCategory(value))}>
+                        {s.categories[value]} <small>{count(value === "all" ? TEMPLATE_COUNT : TEMPLATES_PER_CATEGORY, locale)}</small>
                       </button>
                     ))}
                   </div>
                   <div className={styles.chips} role="group" aria-label={s.styleLabel}>
                     {STYLES.map((value) => (
-                      <button key={value} type="button" className={styles.chipSoft} aria-pressed={style === value} onClick={() => setStyle(style === value ? null : value)}>
+                      <button key={value} type="button" className={styles.chipSoft} aria-pressed={style === value} onClick={() => filterTemplates(() => setStyle(style === value ? null : value))}>
                         {s.styles[value]}
                       </button>
                     ))}
                   </div>
+                  <p className={styles.count} aria-live="polite">
+                    {shown.length === 0 ? s.templateCountNone : shown.length === 1 ? s.templateCountOne : format(s.templateCount, { count: count(shown.length, locale) })}
+                  </p>
+                  {!query && category === "all" && (
+                    <button type="button" className={buttonClass("secondary", styles.full)} onClick={() => pickTemplate(BLANK_TEMPLATE)}>
+                      {s.blankTemplate}
+                    </button>
+                  )}
                   <ul className={styles.templates} data-format={pageFormat}>
-                    {shown.map((id) => (
-                      <li key={id}>
+                    {shown.slice(0, limit).map((info) => (
+                      <li key={info.id}>
                         <TemplateThumb
-                          id={id}
+                          info={info}
                           usage={usage}
                           format={pageFormat}
                           context={context}
                           fonts={fonts}
                           samples={samples}
-                          label={s.templates[id]}
+                          organizationId={organizationId}
+                          stock={!!stockEnabled}
+                          label={format(s.templateName, { palette: s.palettes[info.palette], layout: s.layouts[info.layout] })}
+                          number={format(s.templateNumber, { number: count(info.number, locale) })}
                           onPick={pickTemplate}
                         />
                       </li>
                     ))}
                   </ul>
+                  {shown.length > limit && <MoreButton label={s.moreTemplates} onMore={() => setLimit((current) => current + PAGE_SIZE)} />}
                   {shown.length === 0 && <p className={styles.hint}>{s.noTemplates}</p>}
                 </>
               )}
@@ -725,6 +836,52 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                     </button>
                   )}
                   <PhotoGrid names={library} images={images} label={s.placePhoto} onPick={place} />
+
+                  <h3 className={styles.subTitle}>{s.stockTitle}</h3>
+                  {stockEnabled === false ? (
+                    <p className={styles.hint}>{s.stockOff}</p>
+                  ) : (
+                    <>
+                      <p className={styles.hint}>{s.stockHint}</p>
+                      <form
+                        className={styles.search}
+                        role="search"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          searchPhotos(stockQuery);
+                        }}
+                      >
+                        <MagnifyingGlass size={18} aria-hidden />
+                        <input type="search" value={stockQuery} placeholder={s.stockSearch} aria-label={s.stockSearch} maxLength={100} onChange={(e) => setStockQuery(e.target.value)} />
+                        <button type="submit" className={styles.linkButton} disabled={busy}>
+                          {s.stockSearchButton}
+                        </button>
+                      </form>
+                      {stockResults && stockResults.length === 0 && <p className={styles.hint}>{s.stockNone}</p>}
+                      {stockResults && stockResults.length > 0 && (
+                        <ul className={styles.stock}>
+                          {stockResults.map((photo) => (
+                            <li key={`${photo.source}-${photo.id}`}>
+                              <button
+                                type="button"
+                                className={styles.photo}
+                                style={{ background: photo.color || undefined }}
+                                onClick={() => placeStock(photo)}
+                                disabled={busy}
+                                aria-label={`${s.placePhoto} : ${photo.alt || photo.author}`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element -- miniature servie par la banque */}
+                                <img src={photo.thumb} alt="" loading="lazy" />
+                              </button>
+                              <a className={styles.credit} href={photo.author_url} target="_blank" rel="noopener noreferrer">
+                                {format(s.stockCredit, { author: photo.author, source: STOCK_SOURCES[photo.source] })}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
                 </>
               )}
 
@@ -844,6 +1001,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                 onRemove={() => remove(selected.id)}
                 onMove={(by) => move(selected.id, by)}
                 onReplacePhoto={() => setPanel("photos")}
+                credit={selected.type === "image" && selected.asset ? credits[selected.asset] : undefined}
               />
             ) : (
               <p className={styles.hint}>{s.selectHint}</p>
@@ -906,10 +1064,12 @@ type InspectorProps = {
   onRemove: () => void;
   onMove: (by: number) => void;
   onReplacePhoto: () => void;
+  /** Auteur d'une photo de la banque, à créditer. */
+  credit?: StockCredit;
 };
 
 /** Réglages du calque choisi. */
-function Inspector({ element, doc, textAreaRef, patch, onDuplicate, onRemove, onMove, onReplacePhoto }: InspectorProps) {
+function Inspector({ element, doc, textAreaRef, patch, onDuplicate, onRemove, onMove, onReplacePhoto, credit }: InspectorProps) {
   const { t } = useI18n();
   const s = t.studio;
   const number = (key: "x" | "y" | "width" | "height" | "rotation", label: string) => (
@@ -950,6 +1110,11 @@ function Inspector({ element, doc, textAreaRef, patch, onDuplicate, onRemove, on
               </button>
             ))}
           </div>
+          {credit && (
+            <a className={styles.credit} href={credit.author_url} target="_blank" rel="noopener noreferrer">
+              {format(s.stockCredit, { author: credit.author, source: STOCK_SOURCES[credit.source] })}
+            </a>
+          )}
         </>
       )}
       {element.type === "icon" && <ColorPicker label={s.fill} value={element.fill} onChange={(fill) => fill && patch({ fill }, "fill")} />}
@@ -1066,39 +1231,151 @@ function Inspector({ element, doc, textAreaRef, patch, onDuplicate, onRemove, on
 }
 
 const TemplateThumb = memo(function TemplateThumb({
-  id,
+  info,
   usage,
   format,
   context,
   fonts,
   samples,
+  organizationId,
+  stock,
   label,
+  number,
   onPick,
 }: {
-  id: TemplateId;
+  info: TemplateInfo;
   usage: Usage;
   format: FormatId;
   context: TemplateContext;
   fonts: Record<CanvasFont, string> | null;
   samples: Record<FieldName, string>;
+  organizationId: string;
+  stock: boolean;
   label: string;
-  onPick: (id: TemplateId) => void;
+  number: string;
+  onPick: (id: string) => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const visible = useVisible(ref);
+  const [photos, setPhotos] = useState<{ assets: string[]; images: Record<string, HTMLImageElement>; credit: string } | null>(null);
   // Construit seulement à l'approche de l'écran, avec les polices chargées.
-  const doc = useMemo(() => (visible && fonts ? fitTexts(buildTemplate(id, usage, format, context), fonts) : null), [visible, id, usage, format, context, fonts]);
+  const base = useMemo(() => (visible && fonts ? fitTexts(buildTemplate(info.id, usage, format, context), fonts) : null), [visible, info.id, usage, format, context, fonts]);
+  const slots = useMemo(() => (base ? photoSlots(base, context).slice(0, MAX_STOCK_SLOTS) : []), [base, context]);
+
+  // Les vraies photos du thème, en petite taille, depuis la banque (résultats partagés entre vignettes).
+  useEffect(() => {
+    const photo = info.photo;
+    if (!visible || !stock || !photo || slots.length === 0) return;
+    let live = true;
+    searchStock(PHOTO_THEMES[photo.theme], organizationId)
+      .then(async ({ photos: found }) => {
+        if (found.length === 0) return;
+        const picked = slots.map((_, i) => found[(photo.index + i) % found.length]);
+        const loaded = await Promise.all(picked.map((item) => loadThumb(item.thumb)));
+        if (!live) return;
+        const assets = picked.map((item) => `stock:${item.source}:${item.id}`);
+        setPhotos({ assets, images: Object.fromEntries(assets.map((asset, i) => [asset, loaded[i]])), credit: picked.map((item) => item.author).join(", ") });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [visible, stock, info.photo, slots, organizationId]);
+
+  const doc = useMemo(() => {
+    if (!base || !photos) return base;
+    const filled = new Map(slots.map((index, i) => [index, photos.assets[i]]));
+    return { ...base, elements: base.elements.map((element, i) => (filled.has(i) ? { ...(element as ImageElement), asset: filled.get(i)!, fit: "cover" as const } : element)) };
+  }, [base, photos, slots]);
+
   const [width, height] = FORMATS[format];
   const scale = (format === "landscape" ? 216 : 104) / width;
   return (
-    <button ref={ref} type="button" className={styles.template} onClick={() => onPick(id)}>
+    <button ref={ref} type="button" className={styles.template} onClick={() => onPick(info.id)} title={photos ? `${label} · ${photos.credit}` : label}>
       <span className={styles.thumb} style={{ width: width * scale, height: height * scale, background: doc?.background.color }}>
-        {doc && fonts && <CanvasStage doc={doc} scale={scale} fonts={fonts} images={{}} samples={samples} photoLabel={context.photoLabel} />}
+        {doc && fonts && <CanvasStage doc={doc} scale={scale} fonts={fonts} images={photos?.images ?? NO_IMAGES} samples={samples} photoLabel={context.photoLabel} />}
       </span>
       <span className={styles.templateName}>{label}</span>
+      <span className={styles.templateNumber}>{number}</span>
     </button>
   );
 });
+
+const NO_IMAGES: Record<string, HTMLImageElement | undefined> = {};
+
+/** « Voir plus » : charge aussi la page suivante dès que le bouton approche de l'écran. */
+function MoreButton({ label, onMore }: { label: string; onMore: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const onMoreRef = useRef(onMore);
+  useEffect(() => {
+    onMoreRef.current = onMore;
+  });
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && onMoreRef.current(), { rootMargin: "400px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <button ref={ref} type="button" className={buttonClass("secondary", styles.full)} onClick={onMore}>
+      {label}
+    </button>
+  );
+}
+
+/** Emplacements photo d'un modèle (pas les logos), dans l'ordre des calques. */
+function photoSlots(doc: CanvasDoc, ctx: TemplateContext): number[] {
+  return doc.elements.flatMap((element, i) => (element.type === "image" && !element.asset && element.name !== ctx.labels.logo ? [i] : []));
+}
+
+/** Minuscules, sans accents ni ponctuation : « Mariée » se trouve en tapant « mariee ». */
+function searchable(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Texte de recherche de chaque modèle, dans la langue de l'interface. */
+function searchTexts(s: Dictionary["studio"]): string[] {
+  return allTemplates().map((info) =>
+    searchable(
+      [
+        s.categories[info.category],
+        s.palettes[info.palette],
+        s.layouts[info.layout],
+        ...info.styles.map((style) => s.styles[style]),
+        info.photo ? s.photoThemes[info.photo.theme] : "",
+        String(info.number),
+        info.id,
+      ].join(" "),
+    ),
+  );
+}
+
+/** Largeur d'un titre (toujours en gras sur le canvas) dans une police du studio. */
+function textMeasure(fonts: Record<CanvasFont, string>): TextMeasure {
+  const context = document.createElement("canvas").getContext("2d");
+  const cache = new Map<string, number>();
+  return (value, font, size) => {
+    const key = `${font}|${size}|${value}`;
+    let width = cache.get(key);
+    if (width === undefined) {
+      if (!context) return value.length * size * 0.6;
+      context.font = `bold ${size}px ${fonts[font]}`;
+      width = context.measureText(value).width;
+      cache.set(key, width);
+    }
+    return width;
+  };
+}
+
+function count(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale).format(value);
+}
 
 function PhotoGrid({
   names,

@@ -162,6 +162,12 @@
   border-radius: var(--r-lg);
 }
 
+/* Panneau qui défile : ses blocs gardent leur hauteur au lieu de s'écraser. */
+.panel > *,
+.inspector > * {
+  flex-shrink: 0;
+}
+
 .panelTitle {
   margin: 0;
   font: 700 18px/1.2 var(--f-display), Georgia, serif;
@@ -460,8 +466,89 @@
 }
 
 .templateName {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 12px;
   font-weight: 600;
+  line-height: 1.25;
   text-align: center;
+}
+
+.templateNumber {
+  margin-top: -4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recherche (modèles, banque de photos) */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.search:focus-within {
+  border-color: var(--fleuve);
+  box-shadow: 0 0 0 3px var(--fleuve-soft);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+.count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.subTitle {
+  margin: 8px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.stock {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stock .photo {
+  aspect-ratio: 4 / 5;
+}
+
+.credit {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Photos */

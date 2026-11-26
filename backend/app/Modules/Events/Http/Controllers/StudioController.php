@@ -6,6 +6,7 @@ use App\Modules\Events\Models\Event;
 use App\Modules\Events\Models\EventDesign;
 use App\Modules\Events\Support\CanvasDocument;
 use App\Modules\Events\Support\DesignImage;
+use App\Modules\Events\Support\StockPhotos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -43,6 +44,38 @@ final class StudioController
         $path = DesignImage::store($request->file('image'), EventDesign::studioDirectory($event), 2000, 2000, 88);
 
         return response()->json(['data' => ['name' => basename($path)]], 201);
+    }
+
+    /**
+     * Recherche dans la banque de photos libres (Pexels ou Unsplash). Sans clé configurée : liste
+     * vide et `enabled` faux, le studio garde ses emplacements à remplir.
+     */
+    public function stockPhotos(Request $request): JsonResponse
+    {
+        $request->validate(['q' => ['required', 'string', 'max:100'], 'page' => ['sometimes', 'integer', 'between:1,20']]);
+        $source = StockPhotos::source();
+        $photos = $source ? StockPhotos::search($request->string('q'), $request->integer('page', 1)) : [];
+        $public = ['source', 'id', 'width', 'height', 'color', 'alt', 'thumb', 'preview', 'author', 'author_url', 'url'];
+
+        return response()->json([
+            'data' => array_map(fn (array $photo) => array_intersect_key($photo, array_flip($public)), $photos),
+            'meta' => ['enabled' => $source !== null, 'source' => $source],
+        ]);
+    }
+
+    /** Photo de la banque copiée dans les images de l'événement, comme une photo envoyée. */
+    public function storeStockAsset(Request $request, string $id): JsonResponse
+    {
+        $request->validate(['source' => ['required', 'string', 'in:'.implode(',', StockPhotos::SOURCES)], 'id' => ['required', 'string', 'max:32']]);
+        $event = Event::findOrFail($id);
+        ['file' => $file, 'credit' => $credit] = StockPhotos::download($request->string('source'), $request->string('id'));
+        try {
+            $path = DesignImage::store($file, EventDesign::studioDirectory($event), 2000, 2000, 88);
+        } finally {
+            @unlink($file->getRealPath());
+        }
+
+        return response()->json(['data' => ['name' => basename($path), 'credit' => $credit]], 201);
     }
 
     /**
