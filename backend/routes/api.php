@@ -151,6 +151,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                     ->middleware('throttle:design-test')->whereUuid('id')->name('events.design.test');
 
                 Route::post('/events/{id}/studio/assets', [StudioController::class, 'storeAsset'])->whereUuid('id')->name('events.studio.assets.store');
+                // Banque de photos libres : recherche, puis copie de la photo choisie dans l'événement.
+                Route::get('/stock-photos', [StudioController::class, 'stockPhotos'])->middleware('throttle:stock-photos')->name('stock-photos.index');
+                Route::post('/events/{id}/studio/assets/stock', [StudioController::class, 'storeStockAsset'])
+                    ->middleware('throttle:stock-imports')->whereUuid('id')->name('events.studio.assets.stock');
                 Route::post('/events/{id}/studio/ticket', [StudioController::class, 'saveTicket'])->whereUuid('id')->name('events.studio.ticket');
                 Route::post('/events/{id}/studio/poster', [StudioController::class, 'savePoster'])->whereUuid('id')->name('events.studio.poster');
                 Route::post('/events/{id}/studio/classic', [StudioController::class, 'useClassic'])->whereUuid('id')->name('events.studio.classic');

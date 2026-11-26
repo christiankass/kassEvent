@@ -57,14 +57,14 @@ export const homeFr = {
     },
   },
   studio: {
-    title: "42 modèles d'affiches, de billets et d'invitations.",
+    title: "10 000 modèles d'affiches, de billets et d'invitations.",
     body: "Concert, mariage, culte, gala, anniversaire : choisissez un modèle, ajoutez votre photo et vos couleurs.",
     points: [
       "Portrait, carré, story ou paysage, au bon format pour chaque réseau",
-      "Votre photo, vos textes et vos couleurs, modifiables à la main",
+      "De vraies photos libres de droits, ou la vôtre, et vos couleurs",
       "Le QR code ajouté tout seul sur chaque billet",
     ],
-    alt: "Planche des 42 modèles d'affiches kassEvent",
+    alt: "Planche de modèles d'affiches kassEvent",
   },
   private: {
     eyebrow: "Pour les particuliers",
@@ -148,14 +148,14 @@ export const homeEn: typeof homeFr = {
     },
   },
   studio: {
-    title: "42 poster, ticket and invitation templates.",
+    title: "10,000 poster, ticket and invitation templates.",
     body: "Concert, wedding, church service, gala, birthday: pick a template, add your photo and your colours.",
     points: [
       "Portrait, square, story or landscape, the right size for every network",
-      "Your photo, text and colours, all editable by hand",
+      "Real royalty-free photos, or your own, and your colours",
       "The QR code added automatically to every ticket",
     ],
-    alt: "Sheet of the 42 kassEvent poster templates",
+    alt: "Sheet of kassEvent poster templates",
   },
   private: {
     eyebrow: "For private events",

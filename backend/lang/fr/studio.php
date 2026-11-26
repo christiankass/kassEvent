@@ -9,4 +9,5 @@ return [
     'qr_size' => 'Le QR code doit rester carré et mesurer au moins :min pixels pour se scanner facilement.',
     'qr_inside' => 'Le QR code doit être droit et entièrement dans le billet.',
     'poster_no_ticket_fields' => 'L\'affiche ne peut pas contenir de QR code ni de champ de billet.',
+    'stock_unavailable' => 'La banque de photos ne répond pas. Réessayez dans un instant ou envoyez votre propre photo.',
 ];

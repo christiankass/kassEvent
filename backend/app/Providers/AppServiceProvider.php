@@ -67,6 +67,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('order-tickets', fn (Request $request) => Limit::perMinute(1200)->by($request->ip().'|'.$request->route('id')));
         // E-mail d'exemple de l'atelier : envoyé à soi-même, quelques fois seulement.
         RateLimiter::for('design-test', fn (Request $request) => Limit::perMinute(3)->by($request->user()?->id ?: $request->ip()));
+        // Banque de photos du studio : la galerie demande un thème par groupe de modèles affichés.
+        RateLimiter::for('stock-photos', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->id ?: $request->ip()));
+        // Copie d'une photo de la banque : quelques-unes par modèle choisi.
+        RateLimiter::for('stock-imports', fn (Request $request) => Limit::perMinute(40)->by($request->user()?->id ?: $request->ip()));
         // Une entrée qui se presse : un scan par seconde et par agent, et la synchro des lots hors ligne.
         RateLimiter::for('scans', fn (Request $request) => Limit::perMinute(240)->by($request->user()?->id ?: $request->ip()));
         // Compte de reversement (code de double authentification) et « Reverser maintenant ».
