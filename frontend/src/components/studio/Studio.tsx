@@ -66,11 +66,10 @@ import {
   DEFAULT_TEMPLATE,
   PHOTO_THEMES,
   STYLES,
-  TEMPLATES_PER_CATEGORY,
-  TEMPLATE_COUNT,
   allTemplates,
   buildTemplate,
   setTextMeasure,
+  templateCount,
   templateInfo,
   templateMatches,
   type Category,
@@ -669,7 +668,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                   <div className={styles.chips} role="group" aria-label={s.categoryLabel}>
                     {CATEGORIES.map((value) => (
                       <button key={value} type="button" className={styles.chip} aria-pressed={category === value} onClick={() => filterTemplates(() => setCategory(value))}>
-                        {s.categories[value]} <small>{count(value === "all" ? TEMPLATE_COUNT : TEMPLATES_PER_CATEGORY, locale)}</small>
+                        {s.categories[value]} <small>{count(templateCount(value), locale)}</small>
                       </button>
                     ))}
                   </div>
