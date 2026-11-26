@@ -57,7 +57,7 @@ export const homeFr = {
     },
   },
   studio: {
-    title: "10 000 modèles d'affiches, de billets et d'invitations.",
+    title: "Plus de 300 modèles d'affiches, de billets et d'invitations, tous différents.",
     body: "Concert, mariage, culte, gala, anniversaire : choisissez un modèle, ajoutez votre photo et vos couleurs.",
     points: [
       "Portrait, carré, story ou paysage, au bon format pour chaque réseau",
@@ -148,7 +148,7 @@ export const homeEn: typeof homeFr = {
     },
   },
   studio: {
-    title: "10,000 poster, ticket and invitation templates.",
+    title: "Over 300 poster, ticket and invitation templates, each one different.",
     body: "Concert, wedding, church service, gala, birthday: pick a template, add your photo and your colours.",
     points: [
       "Portrait, square, story or landscape, the right size for every network",

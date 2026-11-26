@@ -66,11 +66,10 @@ import {
   DEFAULT_TEMPLATE,
   PHOTO_THEMES,
   STYLES,
-  TEMPLATES_PER_CATEGORY,
-  TEMPLATE_COUNT,
   allTemplates,
   buildTemplate,
   setTextMeasure,
+  templateCount,
   templateInfo,
   templateMatches,
   type Category,
@@ -669,7 +668,7 @@ export default function Studio({ event, studio: initial, organizationId, organiz
                   <div className={styles.chips} role="group" aria-label={s.categoryLabel}>
                     {CATEGORIES.map((value) => (
                       <button key={value} type="button" className={styles.chip} aria-pressed={category === value} onClick={() => filterTemplates(() => setCategory(value))}>
-                        {s.categories[value]} <small>{count(value === "all" ? TEMPLATE_COUNT : TEMPLATES_PER_CATEGORY, locale)}</small>
+                        {s.categories[value]} <small>{count(templateCount(value), locale)}</small>
                       </button>
                     ))}
                   </div>
@@ -1289,7 +1288,7 @@ const TemplateThumb = memo(function TemplateThumb({
   }, [base, photos, slots]);
 
   const [width, height] = FORMATS[format];
-  const scale = (format === "landscape" ? 216 : 104) / width;
+  const scale = (width > height ? 216 : 104) / Math.min(width, height * 1.9);
   return (
     <button ref={ref} type="button" className={styles.template} onClick={() => onPick(info.id)} title={photos ? `${label} · ${photos.credit}` : label}>
       <span className={styles.thumb} style={{ width: width * scale, height: height * scale, background: doc?.background.color }}>

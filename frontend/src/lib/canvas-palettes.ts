@@ -1,4 +1,4 @@
-import type { Theme } from "./canvas-templates";
+import type { Theme } from "./canvas-kit";
 
 /**
  * Palettes des modèles du studio. Chacune est lisible partout où les compositions la posent :

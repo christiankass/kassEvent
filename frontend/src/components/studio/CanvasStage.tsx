@@ -15,6 +15,8 @@ import {
   type ShapeElement,
 } from "@/lib/canvas";
 import { FILLED_ICONS, ICON_PATHS } from "@/lib/canvas-icons";
+import { mix } from "@/lib/canvas-kit";
+import { HEX, textOn } from "@/lib/designs";
 
 export type StageHandle = {
   /** Image de la page au format exact ; `withDynamic` false : sans QR code, champs ni emplacements vides. */
@@ -180,7 +182,7 @@ export const CanvasStage = forwardRef<StageHandle, Props>(function CanvasStage(
           >
             {/* Zone de prise : tout le cadre, même pour une ligne fine ou un texte court. */}
             <Rect width={element.width} height={element.height} fill="rgba(0,0,0,0)" />
-            <ElementShape element={element} fonts={fonts} images={images} samples={samples} photoLabel={photoLabel} />
+            <ElementShape element={element} fonts={fonts} images={images} samples={samples} photoLabel={photoLabel} tint={doc.background.color} />
           </Group>
         ))}
         {guides.x && <Line name="guide" points={[doc.width / 2, 0, doc.width / 2, doc.height]} stroke="#F72585" strokeWidth={1 / scale} dash={[6 / scale, 4 / scale]} />}
@@ -217,7 +219,8 @@ function ElementShape({
   images,
   samples,
   photoLabel,
-}: Pick<Props, "fonts" | "images" | "samples" | "photoLabel"> & { element: CanvasElement }) {
+  tint,
+}: Pick<Props, "fonts" | "images" | "samples" | "photoLabel"> & { element: CanvasElement; tint: string }) {
   const { width, height } = element;
   switch (element.type) {
     case "text":
@@ -252,7 +255,7 @@ function ElementShape({
           <KonvaImage image={image} width={width} height={height} cornerRadius={element.cornerRadius ?? 0} crop={cover(image, width, height).crop} />
         );
       }
-      return <PhotoPlaceholder width={width} height={height} radius={element.cornerRadius ?? 0} label={element.asset ? null : `＋ ${element.name || photoLabel}`} />;
+      return <PhotoPlaceholder width={width} height={height} radius={element.cornerRadius ?? 0} tint={tint} label={element.asset ? null : `＋ ${element.name || photoLabel}`} />;
     }
     case "icon": {
       const filled = FILLED_ICONS.has(element.icon);
@@ -275,36 +278,30 @@ function ElementShape({
 }
 
 /**
- * Emplacement photo vide : silhouette sur fond teinté, pour voir la composition du modèle. Absent du
- * billet enregistré ; sur une photo introuvable (`label` null), seul le cadre reste.
+ * Emplacement photo vide : un aplat dans la teinte du fond, à peine plus clair ou plus foncé, pour
+ * que le modèle garde son allure tant que la photo n'est pas posée. Absent du billet enregistré ;
+ * sur une photo introuvable (`label` null), seul l'aplat reste.
  */
-function PhotoPlaceholder({ width, height, radius, label }: { width: number; height: number; radius: number; label: string | null }) {
+function PhotoPlaceholder({ width, height, radius, tint, label }: { width: number; height: number; radius: number; tint: string; label: string | null }) {
   const size = Math.min(width, height);
+  // Même règle que la couleur de texte par défaut du studio : on éclaircit un fond qui appelle du blanc.
+  const toward = HEX.test(tint) && textOn(tint) === "#FFFFFF" ? "#FFFFFF" : "#000000";
+  const ink = mix(tint, toward, 0.55);
   return (
     <Group name={label ? "placeholder" : undefined}>
-      <Rect width={width} height={height} cornerRadius={radius} fillLinearGradientStartPoint={{ x: 0, y: 0 }} fillLinearGradientEndPoint={{ x: 0, y: height }} fillLinearGradientColorStops={[0, "#E6EFED", 1, "#C5D7D3"]} />
-      <Group
-        clipFunc={(context) => {
-          context.beginPath();
-          context.roundRect(0, 0, width, height, Math.min(radius, size / 2));
-        }}
-      >
-        <Ellipse x={width / 2} y={height - size * 0.02} radiusX={size * 0.36} radiusY={size * 0.3} fill="#A9C2BD" />
-        <Ellipse x={width / 2} y={height - size * 0.52} radiusX={size * 0.17} radiusY={size * 0.19} fill="#A9C2BD" />
-      </Group>
-      <Rect width={width} height={height} cornerRadius={radius} stroke="#0B3B3C" strokeWidth={Math.max(2, size / 150)} dash={[14, 10]} />
+      <Rect
+        width={width}
+        height={height}
+        cornerRadius={radius}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: width, y: height }}
+        fillLinearGradientColorStops={[0, mix(tint, toward, 0.1), 1, mix(tint, toward, 0.2)]}
+      />
       {label && (
-        <Text
-          width={width}
-          height={height * 0.4}
-          text={label}
-          align="center"
-          verticalAlign="middle"
-          fontSize={Math.max(18, size / 11)}
-          fill="#0B3B3C"
-          fontStyle="bold"
-          padding={12}
-        />
+        <>
+          <Rect width={width} height={height} cornerRadius={radius} stroke={ink} opacity={0.5} strokeWidth={Math.max(2, size / 200)} dash={[12, 10]} />
+          <Text width={width} height={height} text={label} align="center" verticalAlign="middle" fontSize={Math.max(18, size / 13)} fill={ink} fontStyle="bold" padding={16} />
+        </>
       )}
     </Group>
   );

@@ -16,12 +16,15 @@ final class CanvasDocument
 
     public const POSTER = 'poster';
 
-    /** Formats de page (pixels) : portrait 4:5, carré, story 9:16 et paysage 1,91:1 (partages). */
-    public const FORMATS = ['portrait' => [1080, 1350], 'square' => [1080, 1080], 'story' => [1080, 1920], 'landscape' => [1200, 630]];
+    /**
+     * Formats de page (pixels) : portrait 4:5, carré, story 9:16, paysage 1,91:1 (partages) et ticket
+     * en bande, talon détachable à droite.
+     */
+    public const FORMATS = ['portrait' => [1080, 1350], 'square' => [1080, 1080], 'story' => [1080, 1920], 'landscape' => [1200, 630], 'strip' => [1660, 640]];
 
     /** Formats permis pour chaque usage, le premier par défaut. */
     public const USAGE_FORMATS = [
-        self::TICKET => ['portrait', 'square', 'story'],
+        self::TICKET => ['portrait', 'strip', 'square', 'story'],
         self::POSTER => ['landscape', 'portrait', 'square', 'story'],
     ];
 
