@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -16,6 +17,7 @@ return new class extends Migration
         Schema::table('wish_books', function (Blueprint $table) {
             $table->string('tone', 20)->default('celebration');
         });
+        DB::statement("ALTER TABLE wish_books ADD CONSTRAINT wish_books_tone_check CHECK (tone IN ('celebration', 'tribute', 'guestbook'))");
     }
 
     public function down(): void

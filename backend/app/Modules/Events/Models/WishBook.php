@@ -22,7 +22,8 @@ class WishBook extends Model
 
     /**
      * Ton de la page, choisi par l'organisateur selon l'événement : fête (vœux), hommage
-     * (condoléances, obsèques) ou livre d'or (tout autre événement).
+     * (condoléances, obsèques) ou livre d'or (tout autre événement). Même liste que la contrainte
+     * wish_books_tone_check en base.
      */
     public const TONES = ['celebration', 'tribute', 'guestbook'];
 

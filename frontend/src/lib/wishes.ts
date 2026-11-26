@@ -6,12 +6,17 @@ export type WishTone = (typeof WISH_TONES)[number];
 
 export type WishBook = { id: string; open: boolean; public: boolean; tone: WishTone; url: string };
 
-/** Mots du titre qui font proposer un ton à l'ouverture (titre sans accents, en minuscules). */
+/** Débuts de mots du titre qui font proposer un ton à l'ouverture (titre sans accents, en minuscules). */
 const TONE_WORDS: [WishTone, RegExp][] = [
-  ["tribute", /obseques|funerailles|deuil|deces|veillee|hommage|in memoriam|condoleances|inhumation|requiem|funeral|mourning|memorial/],
-  ["celebration", /anniv|mariage|noces|naissance|bapteme|diplome|birthday|wedding|baby shower|graduation/],
-  ["guestbook", /conference|culte|seminaire|forum|lancement|concert|soiree|gala|salon|launch|summit|workshop/],
+  ["tribute", /\b(obseques|funerailles|deuil|deces|veillee|hommage|in memoriam|condoleances|inhumation|commemoration|requiem|funeral|mourning|memorial)/],
+  ["celebration", /\b(anniv|mariage|noces|naissance|bapteme|diplome|birthday|wedding|baby shower|graduation)/],
+  ["guestbook", /\b(conference|culte|seminaire|forum|lancement|concert|soiree|gala\b|salon|launch|summit|workshop)/],
 ];
+
+/** Ton connu, ou la fête si l'API n'en donne pas (ancienne version du serveur). */
+export function toneOf(tone: string | undefined): WishTone {
+  return WISH_TONES.find((known) => known === tone) ?? "celebration";
+}
 
 /** Ton proposé d'après le titre (« Obsèques de Papa Jean » : hommage), la fête sinon ; l'organisateur peut le changer. */
 export function suggestedTone(title: string): WishTone {

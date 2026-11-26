@@ -10,14 +10,15 @@ import { FONT_STACKS, textOn } from "@/lib/designs";
 import { formErrorMessage } from "@/lib/errors";
 import { formatEventDate } from "@/lib/events";
 import { ticketFontVariables } from "@/lib/ticket-fonts";
-import { formatWishDate, type PublicWishBook } from "@/lib/wishes";
+import { formatWishDate, toneOf, type PublicWishBook } from "@/lib/wishes";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import styles from "./wishes.module.css";
 
 /**
  * Livre public (vœux, condoléances ou livre d'or selon le ton) : les proches écrivent leur nom et leur
- * message, sans compte. En hommage, la page est sobre : les couleurs de fête de l'atelier sont laissées de côté.
+ * message, sans compte. En hommage, la page est sobre : gris et pierre au lieu des couleurs de l'atelier ; l'affiche
+ * et le message restent ceux que l'organisateur a choisis.
  */
 export function WishBookView() {
   const { t } = useI18n();
@@ -28,7 +29,7 @@ export function WishBookView() {
   const load = useCallback(
     () =>
       api<{ data: PublicWishBook }>(`/public/wish-books/${id}`)
-        .then(({ data }) => setBook(data))
+        .then(({ data }) => setBook({ ...data, tone: toneOf(data.tone) }))
         .catch(setError),
     [id],
   );

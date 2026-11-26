@@ -8,7 +8,7 @@ import { Alert, Button, Checkbox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { actionErrorMessage, formErrorMessage } from "@/lib/errors";
 import type { EventData } from "@/lib/events";
-import { formatWishDate, suggestedTone, WISH_TONES, type Wish, type WishPage, type WishTone } from "@/lib/wishes";
+import { formatWishDate, suggestedTone, toneOf, WISH_TONES, type Wish, type WishPage, type WishTone } from "@/lib/wishes";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
@@ -37,7 +37,13 @@ export default function WishesPage() {
   // Ton choisi avant d'ouvrir le livre (proposé d'après le titre de l'événement).
   const [startTone, setStartTone] = useState<WishTone | null>(null);
 
-  const reload = useCallback(() => api<WishPage>(`/events/${id}/wishes`, { organizationId }).then(setPage), [id, organizationId]);
+  const reload = useCallback(
+    () =>
+      api<WishPage>(`/events/${id}/wishes`, { organizationId }).then((data) =>
+        setPage({ ...data, book: data.book && { ...data.book, tone: toneOf(data.book.tone) } }),
+      ),
+    [id, organizationId],
+  );
 
   useEffect(() => {
     Promise.all([api<{ data: EventData }>(`/events/${id}`, { organizationId }).then(({ data }) => setEvent(data)), reload()]).catch(setLoadError);
