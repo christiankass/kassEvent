@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 /** Livre de vœux vu par l'organisation : réglages (ouvert, vœux affichés), lecture et modération. */
 final class WishController
@@ -27,10 +28,14 @@ final class WishController
         ]);
     }
 
-    /** Ouvre le livre (créé au premier appel), le ferme, ou choisit d'afficher les vœux sur la page. */
+    /** Ouvre le livre (créé au premier appel), le ferme, choisit son ton ou d'afficher les vœux sur la page. */
     public function settings(Request $request, string $eventId): JsonResponse
     {
-        $data = $request->validate(['open' => ['sometimes', 'boolean'], 'public' => ['sometimes', 'boolean']]);
+        $data = $request->validate([
+            'open' => ['sometimes', 'boolean'],
+            'public' => ['sometimes', 'boolean'],
+            'tone' => ['sometimes', 'string', Rule::in(WishBook::TONES)],
+        ]);
         $event = Event::findOrFail($eventId);
 
         $book = WishBook::where('event_id', $event->id)->first();
@@ -68,7 +73,7 @@ final class WishController
     /** @return array<string, mixed> */
     public static function bookPayload(WishBook $book): array
     {
-        return ['id' => $book->id, 'open' => $book->open, 'public' => $book->public, 'url' => $book->publicUrl()];
+        return ['id' => $book->id, 'open' => $book->open, 'public' => $book->public, 'tone' => $book->tone, 'url' => $book->publicUrl()];
     }
 
     /** @return array<string, mixed> */

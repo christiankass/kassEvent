@@ -20,8 +20,14 @@ class WishBook extends Model
     /** Vœux montrés sur la page publique, les plus récents d'abord. */
     public const PUBLIC_LIMIT = 200;
 
+    /**
+     * Ton de la page, choisi par l'organisateur selon l'événement : fête (vœux), hommage
+     * (condoléances, obsèques) ou livre d'or (tout autre événement).
+     */
+    public const TONES = ['celebration', 'tribute', 'guestbook'];
+
     /** @var array<string, mixed> */
-    protected $attributes = ['open' => true, 'public' => true];
+    protected $attributes = ['open' => true, 'public' => true, 'tone' => 'celebration'];
 
     public function newUniqueId(): string
     {

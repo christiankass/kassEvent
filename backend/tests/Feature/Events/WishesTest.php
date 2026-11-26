@@ -82,6 +82,7 @@ class WishesTest extends TestCase
         $book = $this->openBook();
         $this->assertTrue($book['open']);
         $this->assertTrue($book['public']);
+        $this->assertSame('celebration', $book['tone']);
         $this->assertStringEndsWith('/voeux/'.$book['id'], $book['url']);
         // Lien public aléatoire (UUID v4), pas un UUID ordonné dans le temps.
         $this->assertSame('4', $book['id'][14]);
@@ -105,6 +106,28 @@ class WishesTest extends TestCase
         $page = $this->ownerPage();
         $this->assertSame(1, $page['summary']['total']);
         $this->assertSame('Maman', $page['data'][0]['name']);
+    }
+
+    public function test_any_event_gets_its_tone_even_a_funeral(): void
+    {
+        $book = $this->openBook(['tone' => 'tribute']);
+        $this->assertSame('tribute', $book['tone']);
+
+        $this->wish($book['id'], ['name' => 'Famille Mbuyi', 'message' => 'Nos sincères condoléances. Que son âme repose en paix.'])->assertCreated();
+        $this->asVisitor();
+        $this->getJson("/api/v1/public/wish-books/{$book['id']}")->assertOk()
+            ->assertJsonPath('data.tone', 'tribute')
+            ->assertJsonPath('data.wishes.0.name', 'Famille Mbuyi');
+
+        // Le ton se change ensuite sans toucher aux messages ni aux autres réglages.
+        $book = $this->openBook(['tone' => 'guestbook']);
+        $this->assertSame('guestbook', $book['tone']);
+        $this->assertTrue($book['open']);
+        $this->assertSame(1, $this->ownerPage()['summary']['total']);
+
+        $this->actAsOwner();
+        $this->putJson("/api/v1/events/{$this->eventId}/wishes/settings", ['tone' => 'party'], $this->headers())
+            ->assertUnprocessable()->assertJsonValidationErrors('tone');
     }
 
     public function test_spam_is_held_back(): void

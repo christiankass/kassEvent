@@ -10,6 +10,32 @@
   background: var(--bg);
 }
 
+/*
+ * Hommage (obsèques, deuil) : page sobre, gris anthracite et pierre, quelles que soient les couleurs
+ * de fête choisies dans l'atelier, titres en Fraunces.
+ */
+.page[data-tone="tribute"] {
+  --invite-primary: #2b3032;
+  --invite-on-primary: #ffffff;
+  --invite-accent: #4a5254;
+  --invite-on-accent: #ffffff;
+  --invite-font: var(--f-display);
+  background: #f4f2ee;
+}
+
+.page[data-tone="tribute"] .wish {
+  border-left-color: #b9b3a8;
+}
+
+.page[data-tone="tribute"] .thanks {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.page[data-tone="tribute"] .okIcon {
+  color: var(--invite-accent);
+}
+
 .header {
   display: flex;
   align-items: center;

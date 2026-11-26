@@ -1,6 +1,23 @@
 import type { TicketDesign } from "./designs";
 
-export type WishBook = { id: string; open: boolean; public: boolean; url: string };
+/** Ton de la page, choisi selon l'événement : fête (vœux), hommage (condoléances, obsèques), livre d'or. */
+export const WISH_TONES = ["celebration", "tribute", "guestbook"] as const;
+export type WishTone = (typeof WISH_TONES)[number];
+
+export type WishBook = { id: string; open: boolean; public: boolean; tone: WishTone; url: string };
+
+/** Mots du titre qui font proposer un ton à l'ouverture (titre sans accents, en minuscules). */
+const TONE_WORDS: [WishTone, RegExp][] = [
+  ["tribute", /obseques|funerailles|deuil|deces|veillee|hommage|in memoriam|condoleances|inhumation|requiem|funeral|mourning|memorial/],
+  ["celebration", /anniv|mariage|noces|naissance|bapteme|diplome|birthday|wedding|baby shower|graduation/],
+  ["guestbook", /conference|culte|seminaire|forum|lancement|concert|soiree|gala|salon|launch|summit|workshop/],
+];
+
+/** Ton proposé d'après le titre (« Obsèques de Papa Jean » : hommage), la fête sinon ; l'organisateur peut le changer. */
+export function suggestedTone(title: string): WishTone {
+  const text = title.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  return TONE_WORDS.find(([, words]) => words.test(text))?.[0] ?? "celebration";
+}
 
 /** Vœu vu par l'organisateur. */
 export type Wish = { id: string; name: string; message: string; hidden: boolean; created_at: string };
@@ -20,6 +37,7 @@ export type PublicWishBook = {
   design: TicketDesign;
   open: boolean;
   public: boolean;
+  tone: WishTone;
   count: number;
   wishes: { name: string; message: string; created_at: string }[];
 };
