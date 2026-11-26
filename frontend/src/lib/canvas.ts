@@ -7,14 +7,14 @@ export const USAGES = ["ticket", "poster"] as const;
 export type Usage = (typeof USAGES)[number];
 
 /** Formats de page, en pixels : portrait 4:5 (téléphone, WhatsApp), carré, story 9:16, paysage (partages). */
-export const FORMATS = { portrait: [1080, 1350], square: [1080, 1080], story: [1080, 1920], landscape: [1200, 630] } as const satisfies Record<
+export const FORMATS = { portrait: [1080, 1350], square: [1080, 1080], story: [1080, 1920], landscape: [1200, 630], strip: [1660, 640] } as const satisfies Record<
   string,
   readonly [number, number]
 >;
 export type FormatId = keyof typeof FORMATS;
 
 /** Formats permis pour chaque usage, le premier par défaut. */
-export const USAGE_FORMATS: Record<Usage, FormatId[]> = { ticket: ["portrait", "square", "story"], poster: ["landscape", "portrait", "square", "story"] };
+export const USAGE_FORMATS: Record<Usage, FormatId[]> = { ticket: ["portrait", "strip", "square", "story"], poster: ["landscape", "portrait", "square", "story"] };
 
 /** Format d'une page (le format par défaut de l'usage si la taille est inconnue). */
 export function formatOf(doc: Pick<CanvasDoc, "width" | "height">, usage: Usage): FormatId {

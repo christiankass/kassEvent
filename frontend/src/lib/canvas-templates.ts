@@ -1,10 +1,10 @@
-import type { CanvasDoc, CanvasFont, FormatId, Usage } from "./canvas";
+import { FORMATS, type CanvasDoc, type CanvasFont, type FormatId, type Usage } from "./canvas";
 import { frame, shape, stub, type Decor, type Layout, type TemplateContext, type Theme } from "./canvas-kit";
 import * as classic from "./canvas-layouts-classic";
 import * as pro from "./canvas-layouts";
 import { PALETTES, type PaletteId } from "./canvas-palettes";
 
-export { measuredLines, setTextMeasure, type TemplateContext, type TextMeasure, type Theme } from "./canvas-kit";
+export { setTextMeasure, type TemplateContext, type TextMeasure, type Theme } from "./canvas-kit";
 
 /**
  * Bibliothèque de modèles du studio. Un modèle = une composition qui a sa propre structure (grille
@@ -40,7 +40,7 @@ const FONT_PAIRS: [CanvasFont, CanvasFont, boolean?, boolean?][] = [
   ["instrument", "instrument", true], // 14
 ];
 
-type LayoutMeta = { draw: Layout; photo: boolean; dark?: boolean; light?: boolean; fonts: number[] };
+type LayoutMeta = { draw: Layout; photo: boolean; tone?: "dark" | "light"; fonts: number[] };
 
 /** Compositions : dessin, présence d'une photo, fond imposé, polices qui leur vont. */
 const LAYOUTS = {
@@ -54,7 +54,7 @@ const LAYOUTS = {
   sunburst: { draw: pro.sunburst, photo: false, fonts: [0, 7, 11] },
   diagonal: { draw: pro.diagonal, photo: true, fonts: [1, 0] },
   magazine: { draw: pro.magazine, photo: true, fonts: [5, 6, 0] },
-  classicInvite: { draw: pro.classicInvite, photo: false, light: true, fonts: [8, 6, 9, 4] },
+  classicInvite: { draw: pro.classicInvite, photo: false, tone: "light", fonts: [8, 6, 9, 4] },
   minimal: { draw: pro.minimal, photo: false, fonts: [6, 5, 14] },
   kente: { draw: pro.kente, photo: false, fonts: [13, 7, 11] },
   polaroid: { draw: pro.polaroid, photo: true, fonts: [9, 8, 11] },
@@ -68,7 +68,7 @@ const LAYOUTS = {
   priceBurst: { draw: pro.priceBurst, photo: false, fonts: [0, 10, 2] },
   calendar: { draw: pro.calendar, photo: false, fonts: [4, 6, 13] },
   vinyl: { draw: pro.vinyl, photo: false, fonts: [0, 5, 2] },
-  waveform: { draw: pro.waveform, photo: false, dark: true, fonts: [2, 12, 0] },
+  waveform: { draw: pro.waveform, photo: false, tone: "dark", fonts: [2, 12, 0] },
   award: { draw: pro.award, photo: false, fonts: [5, 6, 7] },
   balloons: { draw: pro.balloons, photo: false, fonts: [10, 9, 11] },
   corporate: { draw: pro.corporate, photo: false, fonts: [12, 3, 13] },
@@ -82,7 +82,7 @@ const LAYOUTS = {
   infoCard: { draw: classic.infoCard, photo: true, fonts: [12, 2, 3] },
   framed: { draw: classic.framed, photo: true, fonts: [8, 6] },
   luxe: { draw: classic.luxe, photo: false, fonts: [5, 6] },
-  live: { draw: classic.live, photo: true, dark: true, fonts: [2, 11] },
+  live: { draw: classic.live, photo: true, tone: "dark", fonts: [2, 11] },
   versus: { draw: classic.versus, photo: true, fonts: [1, 0] },
   ribbon: { draw: classic.ribbon, photo: false, fonts: [3, 13, 12] },
 } satisfies Record<string, LayoutMeta>;
@@ -257,10 +257,8 @@ const RECIPES: Record<Exclude<Category, "all">, Recipe> = {
 };
 
 /** Variantes par composition et par catégorie : assez pour choisir, trop peu pour se répéter. */
-export const VARIANTS = 3;
+const VARIANTS = 3;
 const TEMPLATE_CATEGORIES = CATEGORIES.filter((category): category is Exclude<Category, "all"> => category !== "all");
-/** Nombre de photos proposées par la banque pour chaque thème (une page de résultats). */
-export const PHOTOS_PER_THEME = 30;
 
 /** Un modèle : son identifiant dit tout le reste. */
 export type TemplateInfo = {
@@ -290,7 +288,7 @@ function catalog(category: Exclude<Category, "all">, offset: number): Omit<Templ
   for (let v = 0; v < VARIANTS; v++) {
     recipe.layouts.forEach((layout, l) => {
       const meta: LayoutMeta = LAYOUTS[layout];
-      const tone = meta.dark ? "dark" : meta.light ? "light" : null;
+      const tone = meta.tone;
       const palettes = tone ? recipe.palettes.filter((id) => PALETTES[id].tone === tone) : recipe.palettes;
       // Pas de 3 sur la palette : les trois variantes d'une composition et ses voisines changent toutes de couleurs.
       const paletteId = palettes[(l * 5 + v * 3) % palettes.length];
@@ -351,8 +349,14 @@ export function templateMatches(info: TemplateInfo, category: Category, style: T
 }
 
 /** Nombre de modèles d'une catégorie (« all » : la bibliothèque entière). */
+let counts: Map<Category, number> | null = null;
+
 export function templateCount(category: Category): number {
-  return allTemplates().filter((info) => category === "all" || info.category === category).length;
+  if (!counts) {
+    counts = new Map([["all", allTemplates().length]]);
+    for (const info of allTemplates()) counts.set(info.category, (counts.get(info.category) ?? 0) + 1);
+  }
+  return counts.get(category) ?? 0;
 }
 
 /** Modèle par défaut d'une page neuve : vert Fleuve de kassEvent, ruban. */
@@ -363,17 +367,18 @@ export const BLANK_TEMPLATE = "blank";
 
 export function buildTemplate(id: string, usage: Usage, format: FormatId, ctx: TemplateContext): CanvasDoc {
   const f = frame(usage, format);
+  const [width, height] = FORMATS[format];
   const info = templateInfo(id);
   if (!info) {
     const t: Theme = { ...PALETTES.minimal, bg: "#FFFFFF", title: "poppins", body: "poppins" };
-    return { width: f.w, height: f.h, background: { color: t.bg, image: null }, elements: usage === "ticket" ? stub(f, t, ctx) : [] };
+    return { width, height, background: { color: t.bg, image: null }, elements: usage === "ticket" ? stub(f, t, ctx) : [] };
   }
   const [title, body, upper, italic] = FONT_PAIRS[info.fonts];
   const t: Theme = { ...PALETTES[info.palette], title, body, upper, italic };
   const elements = [
-    ...(t.bg2 ? [shape("rect", { x: 0, y: 0, width: f.w, height: f.h }, { fill: t.bg, fill2: t.bg2 })] : []),
+    ...(t.bg2 ? [shape("rect", { x: 0, y: 0, width, height }, { fill: t.bg, fill2: t.bg2 })] : []),
     ...LAYOUTS[info.layout].draw(f, t, ctx, { seed: info.seed, decor: info.decor, label: info.label }),
     ...(usage === "ticket" ? stub(f, t, ctx) : []),
   ];
-  return { width: f.w, height: f.h, background: { color: t.bg, image: null }, elements };
+  return { width, height, background: { color: t.bg, image: null }, elements };
 }

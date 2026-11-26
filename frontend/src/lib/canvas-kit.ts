@@ -46,8 +46,6 @@ export type TemplateContext = {
     logo: string;
     live: string;
     online: string;
-    quote: string;
-    author: string;
     invite: string;
     saveDate: string;
     rsvp: string;
@@ -55,22 +53,29 @@ export type TemplateContext = {
     entry: string;
     time: string;
     slots: string[];
-    contact: string;
     versus: string;
   };
 };
 
 // --- Cadre de page --------------------------------------------------------------------------------
 
-/** Page en cours de dessin : `bottom` est le bas de la zone libre (au-dessus du talon d'un billet). */
+/**
+ * Page en cours de dessin. `w` est la largeur de la zone de dessin : toute la page, sauf pour le
+ * ticket en bande (`strip`), dont le talon détachable occupe la droite. `bottom` est le bas de la
+ * zone libre (au-dessus du talon d'un billet vertical).
+ */
 export type Frame = { w: number; h: number; usage: Usage; format: FormatId; wide: boolean; bottom: number; k: number };
 
 /** Hauteur du talon d'un billet (nom de l'invité, type, code, QR code), selon le format. */
-const STUB: Record<FormatId, number> = { portrait: 410, square: 330, story: 460, landscape: 0 };
+const STUB: Record<FormatId, number> = { portrait: 410, square: 330, story: 460, landscape: 0, strip: 0 };
+
+/** Largeur du talon détachable du ticket en bande, à droite. */
+const SIDE_STUB = FORMATS.strip[0] - FORMATS.landscape[0];
 
 export function frame(usage: Usage, format: FormatId): Frame {
-  const [w, h] = FORMATS[format];
-  const wide = format === "landscape";
+  const [page, h] = FORMATS[format];
+  const wide = format === "landscape" || format === "strip";
+  const w = format === "strip" ? page - SIDE_STUB : page;
   const bottom = usage === "ticket" ? h - STUB[format] : h;
   return { w, h, usage, format, wide, bottom, k: wide ? 0.62 : Math.min(1.25, Math.max(0.68, bottom / 1000)) };
 }
@@ -115,7 +120,7 @@ export const text = (box: Box, value: string, style: Partial<TextElement> = {}):
   text: value,
 });
 
-export const field = (box: Box, name: FieldName, style: Partial<FieldElement> = {}): FieldElement => ({
+const field = (box: Box, name: FieldName, style: Partial<FieldElement> = {}): FieldElement => ({
   id: newId(),
   type: "field",
   rotation: 0,
@@ -158,9 +163,9 @@ export const icon = (name: IconName, x: number, y: number, size: number, fill: s
   ...style,
 });
 
-export const qr = (x: number, y: number, size: number): CanvasElement => ({ id: newId(), type: "qr", rotation: 0, ...round({ x, y, width: size, height: size }) });
+const qr = (x: number, y: number, size: number): CanvasElement => ({ id: newId(), type: "qr", rotation: 0, ...round({ x, y, width: size, height: size }) });
 
-export function round(box: Box): Box {
+function round(box: Box): Box {
   return { x: Math.round(box.x), y: Math.round(box.y), width: Math.max(1, Math.round(box.width)), height: Math.max(1, Math.round(box.height)) };
 }
 
@@ -209,7 +214,7 @@ export function setTextMeasure(value: TextMeasure | null): void {
 }
 
 /** Nombre de lignes d'un texte coupé aux espaces, mesuré mot à mot (Infinity : mot trop long). */
-export function measuredLines(words: string[], width: number, widthOf: (value: string) => number): number {
+function measuredLines(words: string[], width: number, widthOf: (value: string) => number): number {
   let lines = 1;
   let line = "";
   for (const word of words) {
@@ -313,7 +318,7 @@ export function bullets(box: Box, items: string[], o: { ink: string; iconColor: 
 }
 
 /** Canaux rouge, vert, bleu d'une couleur « #RRGGBB » (blanc si la couleur n'est pas lisible). */
-export function channels(color: string): [number, number, number] {
+function channels(color: string): [number, number, number] {
   if (!/^#[0-9a-f]{6}$/i.test(color)) return [255, 255, 255];
   return [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16)) as [number, number, number];
 }
@@ -346,9 +351,9 @@ export function seeded(seed: number) {
 
 // --- Décors ---------------------------------------------------------------------------------------
 
-export const glow = (x: number, y: number, size: number, color: string, opacity = 0.5) => shape("ellipse", { x: x - size / 2, y: y - size / 2, width: size, height: size }, { fill: color, opacity });
+const glow = (x: number, y: number, size: number, color: string, opacity = 0.5) => shape("ellipse", { x: x - size / 2, y: y - size / 2, width: size, height: size }, { fill: color, opacity });
 
-export function confetti(area: Box, colors: string[], count: number, seed: number): CanvasElement[] {
+function confetti(area: Box, colors: string[], count: number, seed: number): CanvasElement[] {
   const random = seeded(seed);
   return Array.from({ length: count }, (_, i) => {
     const size = 14 + random() * 26;
@@ -376,21 +381,21 @@ function waxCircles(area: Box, colors: string[], ring: string, count: number, se
 }
 
 /** Rayons de soleil partant d'un point. */
-export function rays(cx: number, cy: number, length: number, count: number, color: string, opacity: number): CanvasElement[] {
+function rays(cx: number, cy: number, length: number, count: number, color: string, opacity: number): CanvasElement[] {
   return Array.from({ length: count }, (_, i) =>
     shape("rect", { x: cx, y: cy - 22, width: length, height: 44 }, { fill: color, opacity, rotation: (360 / count) * i }),
   );
 }
 
 /** Pétales (ellipses tournées), pour les mariages. */
-export function petals(cx: number, cy: number, size: number, colors: string[], count: number): CanvasElement[] {
+function petals(cx: number, cy: number, size: number, colors: string[], count: number): CanvasElement[] {
   return Array.from({ length: count }, (_, i) =>
     shape("ellipse", { x: cx, y: cy, width: size, height: size * 0.42 }, { fill: colors[i % colors.length], opacity: 0.85, rotation: (360 / count) * i }),
   );
 }
 
 /** Points réguliers. */
-export function dots(area: Box, step: number, size: number, color: string, opacity: number): CanvasElement[] {
+function dots(area: Box, step: number, size: number, color: string, opacity: number): CanvasElement[] {
   const out: CanvasElement[] = [];
   for (let y = area.y; y < area.y + area.height; y += step) {
     for (let x = area.x; x < area.x + area.width; x += step) out.push(shape("ellipse", { x, y, width: size, height: size }, { fill: color, opacity }));
@@ -410,8 +415,9 @@ export function frameLines(f: Frame, color: string, inset = 30): CanvasElement[]
 
 /** Bas du billet : nom de l'invité, type de billet, code et QR code. */
 export function stub(f: Frame, t: Theme, ctx: TemplateContext): CanvasElement[] {
+  if (f.format === "strip") return sideStub(f, t, ctx);
   const top = f.bottom;
-  const size = { portrait: 270, square: 230, story: 300, landscape: 0 }[f.format];
+  const size = { portrait: 270, square: 230, story: 300, landscape: 0, strip: 0 }[f.format];
   const holder = f.format === "square" ? 44 : 50;
   const lines = (x: number, y: number, ink: string, soft: string) => [
     text({ x, y, width: 520, height: 36 }, ctx.guestLabel.toUpperCase(), { fontSize: 26, bold: true, letterSpacing: 3, fill: soft }),
@@ -444,6 +450,28 @@ export function stub(f: Frame, t: Theme, ctx: TemplateContext): CanvasElement[] 
         qr(f.w - 80 - size, middle, size),
       ];
   }
+}
+
+/** Talon détachable à droite du ticket en bande : pointillés, encoches, invité et QR code. */
+function sideStub(f: Frame, t: Theme, ctx: TemplateContext): CanvasElement[] {
+  const x = f.w;
+  const pad = 46;
+  const width = SIDE_STUB - pad * 2;
+  const size = 250;
+  const [ink, soft] = t.stub === "open" ? [t.ink, t.soft] : [t.cardInk, t.cardSoft];
+  const notch = pageColor(f, t, 0);
+  return [
+    ...(t.stub === "open" ? [] : [shape("rect", { x, y: 0, width: SIDE_STUB, height: f.h }, { fill: t.card })]),
+    ...Array.from({ length: 16 }, (_, i) => shape("rect", { x: x - 2, y: 30 + i * 38, width: 4, height: 20 }, { fill: t.stub === "open" ? t.accent : t.cardSoft })),
+    shape("ellipse", { x: x - 30, y: -30, width: 60, height: 60 }, { fill: notch }),
+    shape("ellipse", { x: x - 30, y: f.h - 30, width: 60, height: 60 }, { fill: pageColor(f, t, f.h) }),
+    text({ x: x + pad, y: 48, width, height: 32 }, ctx.guestLabel.toUpperCase(), { fontSize: 22, bold: true, letterSpacing: 3, fill: soft }),
+    field({ x: x + pad, y: 86, width, height: 56 }, "holder", { font: t.title === "script" || t.title === "pacifico" ? t.title : t.body, fontSize: 42, bold: true, fill: ink }),
+    field({ x: x + pad, y: 150, width, height: 38 }, "ticket_type", { font: t.body, fontSize: 28, fill: ink }),
+    field({ x: x + pad, y: 194, width, height: 34 }, "code", { font: "mono", fontSize: 24, fill: soft }),
+    ...(t.stub === "open" ? [shape("rect", { x: x + (SIDE_STUB - size) / 2 - 14, y: f.h - pad - size - 14, width: size + 28, height: size + 28 }, { fill: "#FFFFFF", cornerRadius: 18 })] : []),
+    qr(x + (SIDE_STUB - size) / 2, f.h - pad - size, size),
+  ];
 }
 
 // --- Compositions ---------------------------------------------------------------------------------
@@ -490,5 +518,3 @@ export function decor(kind: Decor | undefined, area: Box, t: Theme, seed: number
       return [];
   }
 }
-
-/** A. Grande photo qui s'efface dans le fond, titre massif en bas (campagne grand public). */

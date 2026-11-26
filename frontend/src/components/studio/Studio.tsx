@@ -1288,7 +1288,7 @@ const TemplateThumb = memo(function TemplateThumb({
   }, [base, photos, slots]);
 
   const [width, height] = FORMATS[format];
-  const scale = (format === "landscape" ? 216 : 104) / width;
+  const scale = (width > height ? 216 : 104) / Math.min(width, height * 1.9);
   return (
     <button ref={ref} type="button" className={styles.template} onClick={() => onPick(info.id)} title={photos ? `${label} · ${photos.credit}` : label}>
       <span className={styles.thumb} style={{ width: width * scale, height: height * scale, background: doc?.background.color }}>

@@ -185,6 +185,21 @@ class StudioTest extends TestCase
         $this->save($this->ticket([['type' => 'image', 'x' => 0, 'y' => 0, 'width' => 10, 'height' => 10, 'asset' => null, 'fit' => 'stretch']]))->assertInvalid('canvas');
     }
 
+    public function test_a_classic_strip_ticket_with_its_tear_off_stub_on_the_right(): void
+    {
+        $strip = $this->ticket([], ['id' => 'qr', 'type' => 'qr', 'x' => 1305, 'y' => 344, 'width' => 250, 'height' => 250, 'rotation' => 0]);
+        [$strip['width'], $strip['height']] = [1660, 640];
+        $strip['elements'][1]['height'] = 300;
+        $strip['elements'][2] = [...$strip['elements'][2], 'x' => 1246, 'y' => 86, 'width' => 368, 'rotation' => 0];
+
+        $this->save($strip)->assertOk()->assertJsonPath('data.ticket.width', 1660)->assertJsonPath('data.ticket.height', 640);
+        $preview = $this->get("/api/v1/events/{$this->event}/studio/preview", $this->headers())->assertOk();
+        $this->assertSame([1660, 640], array_slice(getimagesizefromstring($preview->getContent()), 0, 2));
+
+        // Le ticket en bande reste un format de billet : pas d'affiche à ce format.
+        $this->save(['width' => 1660, 'height' => 640, 'background' => ['color' => '#123456', 'image' => null], 'elements' => []], 'poster')->assertInvalid('canvas');
+    }
+
     public function test_a_viewer_sees_the_studio_but_cannot_change_it(): void
     {
         $viewer = User::factory()->create();

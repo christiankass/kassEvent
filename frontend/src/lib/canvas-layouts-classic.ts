@@ -16,6 +16,7 @@ import {
 
 /** Compositions de la première bibliothèque (affiches de Kinshasa), gardées pour les meilleures. */
 
+/** Grande photo qui s'efface dans le fond, titre massif en bas (campagne grand public). */
 export const heroPhoto: Layout = (f, t, ctx, o) => {
   if (f.wide) {
     return [
@@ -274,12 +275,12 @@ export const ribbon: Layout = (f, t, ctx, o) => {
   if (f.wide) {
     return [
       ...decor(o.decor, { x: 0, y: 0, width: f.w, height: f.h }, t, o.seed),
-      shape("rect", { x: 760, y: -80, width: 140, height: 900 }, { fill: t.accent, rotation: 18 }),
-      shape("rect", { x: 940, y: -80, width: 60, height: 900 }, { fill: t.accent, rotation: 18, opacity: 0.5 }),
-      text({ x: 70, y: 60, width: 700, height: 36 }, ctx.organizer.toUpperCase(), { font: t.body, fontSize: 24, bold: true, letterSpacing: 4, fill: t.accent }),
-      title({ x: 70, y: 130, width: 700, height: 280 }, ctx, t, 84, 3),
-      text({ x: 70, y: 450, width: 700, height: 44 }, ctx.date, { font: t.body, fontSize: 32, fill: t.accent, bold: true }),
-      text({ x: 70, y: 504, width: 700, height: 80 }, ctx.venue, { font: t.body, fontSize: 28, fill: t.soft }),
+      shape("rect", { x: 900, y: -80, width: 140, height: 900 }, { fill: t.accent, rotation: 18 }),
+      shape("rect", { x: 1080, y: -80, width: 60, height: 900 }, { fill: t.accent, rotation: 18, opacity: 0.5 }),
+      text({ x: 70, y: 60, width: 600, height: 36 }, ctx.organizer.toUpperCase(), { font: t.body, fontSize: 24, bold: true, letterSpacing: 4, fill: t.accent }),
+      title({ x: 70, y: 130, width: 600, height: 280 }, ctx, t, 84, 3),
+      text({ x: 70, y: 450, width: 600, height: 44 }, ctx.date, { font: t.body, fontSize: 32, fill: t.accent, bold: true }),
+      text({ x: 70, y: 504, width: 600, height: 80 }, ctx.venue, { font: t.body, fontSize: 28, fill: t.soft }),
     ];
   }
   const b = f.bottom;

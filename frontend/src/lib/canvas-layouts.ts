@@ -148,12 +148,12 @@ function facts(box: Box, items: [string, string][], o: { label: string; value: s
 }
 
 /** Composition paysage commune : colonne de textes à gauche, motif du modèle à droite. */
-function wide(t: Theme, ctx: TemplateContext, art: (area: Box) => CanvasElement[], o: { align?: "left" | "center"; artFirst?: boolean } = {}): CanvasElement[] {
+function wide(t: Theme, ctx: TemplateContext, art: (area: Box) => CanvasElement[]): CanvasElement[] {
   const col = { x: 60, y: 50, width: 560, height: 530 };
   return [
     ...art({ x: 640, y: 0, width: 560, height: 630 }),
     kicker({ x: col.x, y: col.y + 10, width: col.width, height: 30 }, ctx.organizer, t.accent, t.body, 22),
-    title({ x: col.x, y: col.y + 60, width: col.width, height: 300 }, ctx, t, 92, 3, { align: o.align ?? "left" }),
+    title({ x: col.x, y: col.y + 60, width: col.width, height: 300 }, ctx, t, 92, 3),
     rule(col.x, 440, 120, t.accent, 4),
     text({ x: col.x, y: 462, width: col.width, height: 40 }, ctx.date, { font: t.body, fontSize: 26, bold: true, fill: t.ink }),
     text({ x: col.x, y: 506, width: col.width, height: 40 }, ctx.venue, { font: t.body, fontSize: 24, fill: t.soft }),
@@ -182,7 +182,7 @@ export const editorial: Layout = (f, t, ctx) => {
 
 /** 2. Arche : photo en arche, invitation centrée, filets fins (mariage, dot, culte). */
 export const arch: Layout = (f, t, ctx) => {
-  if (f.wide) return wide(t, ctx, (a) => [photo({ x: a.x + 100, y: 60, width: 360, height: 530 }, ctx.photoLabel, { cornerRadius: 180 }), shape("rect", { x: a.x + 80, y: 40, width: 400, height: 570 }, { stroke: t.accent, strokeWidth: 3, cornerRadius: 200 })], { align: "left" });
+  if (f.wide) return wide(t, ctx, (a) => [photo({ x: a.x + 100, y: 60, width: 360, height: 530 }, ctx.photoLabel, { cornerRadius: 180 }), shape("rect", { x: a.x + 80, y: 40, width: 400, height: 570 }, { stroke: t.accent, strokeWidth: 3, cornerRadius: 200 })]);
   const { b, k, W } = room(f);
   const aw = Math.min(560, b * 0.42);
   const ah = b * 0.5;
@@ -224,7 +224,7 @@ export const monogram: Layout = (f, t, ctx) => {
 
 /** 4. Bandes wax : motif en haut et en bas, titre condensé au centre (concert, soirée, fête). */
 export const waxBands: Layout = (f, t, ctx, o) => {
-  if (f.wide) return wide(t, ctx, (a) => waxBand({ x: a.x, y: 0, width: a.width, height: 210 }, t, o.seed).concat(waxBand({ x: a.x, y: 420, width: a.width, height: 210 }, t, o.seed + 1), [backdrop(f, t, { x: a.x, y: 210, width: a.width, height: 210 })]));
+  if (f.wide) return wide(t, ctx, (a) => waxBand({ x: a.x, y: 0, width: a.width, height: 210 }, t, o.seed).concat(waxBand({ x: a.x, y: 420, width: a.width, height: 210 }, t, o.seed + 1)));
   const { b, k, W } = room(f);
   const band = Math.min(220, b * 0.17);
   return [
@@ -306,7 +306,7 @@ export const sunburst: Layout = (f, t, ctx) => {
   const cy = b * 0.34;
   const d = Math.min(W * 0.62, b * 0.42);
   return [
-    ...sunRays(W / 2, cy, Math.max(W, b) * 0.75, 28, t.accent, 0.18, 16),
+    ...sunRays(W / 2, cy, Math.max(W, b) * 0.75, 18, t.accent, 0.18, 24),
     shape("ellipse", { x: (W - d) / 2, y: cy - d / 2, width: d, height: d }, { fill: t.accent }),
     shape("ellipse", { x: (W - d) / 2 + 26, y: cy - d / 2 + 26, width: d - 52, height: d - 52 }, { stroke: t.onAccent, strokeWidth: 3, opacity: 0.6 }),
     line({ x: (W - d) / 2 + 40, y: cy - d * 0.22, width: d - 80, height: d * 0.3 }, ctx.dayNumber, t.title, d * 0.32, t.onAccent, { align: "center", lineHeight: 1 }),
@@ -471,7 +471,7 @@ export const light: Layout = (f, t, ctx) => {
   const { b, k, W } = room(f);
   return [
     ...softGlow(W / 2, b * 0.2, Math.max(W, b) * 0.9, t.accent, 6),
-    ...sunRays(W / 2, b * 0.2, b * 0.5, 36, t.accent, 0.12, 6),
+    ...sunRays(W / 2, b * 0.2, b * 0.5, 18, t.accent, 0.12, 10),
     icon("cross", W / 2 - 55 * k, b * 0.12, 110 * k, t.ink),
     kicker({ x: M, y: b * 0.33, width: W - M * 2, height: 36 }, ctx.organizer, t.soft, t.body, 24 * k, { align: "center" }),
     title({ x: M, y: b * 0.39, width: W - M * 2, height: b * 0.28 }, ctx, t, 140 * k, 3, { align: "center" }),
@@ -513,7 +513,7 @@ export const keynote: Layout = (f, t, ctx) => {
     kicker({ x: M + 54, y: 60 * k + ph - 38 * k, width: 380, height: 28 }, ctx.labels.with, t.onAccent, t.body, 20 * k),
     line({ x: M + 54, y: 60 * k + ph - 6 * k, width: 380, height: 40 * k }, ctx.labels.speaker, t.body, 34 * k, t.onAccent),
     title({ x: M, y: 60 * k + ph + 80 * k, width: W - M * 2, height: b - ph - 280 * k }, ctx, t, 120 * k, 3),
-    shape("rect", { x: M, y: b - 120 * k, width: W - M * 2, height: 2 }, { fill: t.soft, opacity: 0.6 }),
+    rule(M, b - 120 * k, W - M * 2, t.soft, 2, 0.6),
     text({ x: M, y: b - 96 * k, width: W - M * 2, height: 50 * k }, `${ctx.date}  ·  ${ctx.venue}`, { font: t.body, fontSize: 28 * k, bold: true, fill: t.ink }),
   ];
 };
@@ -543,7 +543,7 @@ export const patternCard: Layout = (f, t, ctx) => {
   const { b, k, W } = room(f);
   const card = { x: M, y: b * 0.12, width: W - M * 2, height: b * 0.76 };
   return [
-    ...diamonds({ x: -40, y: -40, width: W + 80, height: b + 80 }, 120, t.accent, 0.28),
+    ...diamonds({ x: -40, y: -40, width: W + 80, height: b + 80 }, 200, t.accent, 0.28),
     shape("rect", card, { fill: t.card, cornerRadius: 8 }),
     shape("rect", { x: card.x + 22, y: card.y + 22, width: card.width - 44, height: card.height - 44 }, { stroke: t.cardSoft, strokeWidth: 2 }),
     kicker({ x: card.x + 60, y: card.y + 70 * k, width: card.width - 120, height: 36 }, ctx.labels.saveDate, t.cardSoft, t.body, 24 * k, { align: "center" }),
@@ -587,7 +587,7 @@ export const priceBurst: Layout = (f, t, ctx) => {
   const { b, k, W } = room(f);
   const d = Math.min(470, b * 0.36);
   return [
-    ...halftone({ x: 0, y: 0, width: W, height: b * 0.4 }, 36, t.accent2),
+    ...halftone({ x: 0, y: 0, width: W, height: b * 0.4 }, 60, t.accent2),
     title({ x: M, y: 80 * k, width: W - M * 2 - d * 0.4, height: b * 0.36 }, ctx, t, 160 * k, 3, { lineHeight: 0.95 }),
     ...burst(W - M - d * 0.4, b * 0.52, d),
     line({ x: M, y: b * 0.5, width: W - M * 2 - d * 0.9, height: 50 * k }, ctx.day, t.body, 32 * k, t.ink),
@@ -794,10 +794,10 @@ export const orbit: Layout = (f, t, ctx) => {
 
 /** 31. Demi-teinte : trame de points en coin, titre massif aligné à gauche (moderne, urbain). */
 export const halftoneBold: Layout = (f, t, ctx) => {
-  if (f.wide) return wide(t, ctx, (a) => halftone(a, 34, t.accent));
+  if (f.wide) return wide(t, ctx, (a) => halftone(a, 56, t.accent));
   const { b, k, W } = room(f);
   return [
-    ...halftone({ x: W * 0.35, y: 0, width: W * 0.65, height: b * 0.45 }, 38, t.accent),
+    ...halftone({ x: W * 0.35, y: 0, width: W * 0.65, height: b * 0.45 }, 56, t.accent),
     shape("rect", { x: M, y: 70 * k, width: 16, height: 120 * k }, { fill: t.accent }),
     kicker({ x: M + 40, y: 74 * k, width: 500, height: 34 }, ctx.organizer, t.ink, t.body, 24 * k),
     kicker({ x: M + 40, y: 124 * k, width: 500, height: 34 }, ctx.shortDate, t.soft, t.body, 24 * k),

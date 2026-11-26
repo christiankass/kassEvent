@@ -15,7 +15,8 @@ import {
   type ShapeElement,
 } from "@/lib/canvas";
 import { FILLED_ICONS, ICON_PATHS } from "@/lib/canvas-icons";
-import { channels, mix } from "@/lib/canvas-kit";
+import { mix } from "@/lib/canvas-kit";
+import { HEX, textOn } from "@/lib/designs";
 
 export type StageHandle = {
   /** Image de la page au format exact ; `withDynamic` false : sans QR code, champs ni emplacements vides. */
@@ -283,9 +284,8 @@ function ElementShape({
  */
 function PhotoPlaceholder({ width, height, radius, tint, label }: { width: number; height: number; radius: number; tint: string; label: string | null }) {
   const size = Math.min(width, height);
-  const [r, g, b] = channels(tint);
-  const dark = r * 0.3 + g * 0.59 + b * 0.11 < 128;
-  const toward = dark ? "#FFFFFF" : "#000000";
+  // Même règle que la couleur de texte par défaut du studio : on éclaircit un fond qui appelle du blanc.
+  const toward = HEX.test(tint) && textOn(tint) === "#FFFFFF" ? "#FFFFFF" : "#000000";
   const ink = mix(tint, toward, 0.55);
   return (
     <Group name={label ? "placeholder" : undefined}>
