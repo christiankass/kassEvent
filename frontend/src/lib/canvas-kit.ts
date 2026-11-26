@@ -312,6 +312,28 @@ export function bullets(box: Box, items: string[], o: { ink: string; iconColor: 
   });
 }
 
+/** Canaux rouge, vert, bleu d'une couleur « #RRGGBB » (blanc si la couleur n'est pas lisible). */
+export function channels(color: string): [number, number, number] {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return [255, 255, 255];
+  return [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+/** Mélange de deux couleurs (`amount` de la seconde). */
+export function mix(color: string, other: string, amount: number): string {
+  const [a, b] = [channels(color), channels(other)];
+  return `#${a.map((value, i) => Math.round(value + (b[i] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Couleur du fond de la page à la hauteur `y` (le fond peut être un dégradé `bg → bg2`). */
+export function pageColor(f: Frame, t: Theme, y: number): string {
+  return t.bg2 ? mix(t.bg, t.bg2, Math.min(1, Math.max(0, y / f.h))) : t.bg;
+}
+
+/** Aplat qui reprend exactement le fond de la page sur sa zone, dégradé compris. */
+export function backdrop(f: Frame, t: Theme, box: Box, style: Partial<ShapeElement> = {}): ShapeElement {
+  return shape("rect", box, { fill: pageColor(f, t, box.y), ...(t.bg2 ? { fill2: pageColor(f, t, box.y + box.height) } : {}), ...style });
+}
+
 /** Suite pseudo-aléatoire fixe : un modèle se dessine toujours pareil. */
 export function seeded(seed: number) {
   return () => {

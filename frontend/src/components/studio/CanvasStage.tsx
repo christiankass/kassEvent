@@ -15,6 +15,7 @@ import {
   type ShapeElement,
 } from "@/lib/canvas";
 import { FILLED_ICONS, ICON_PATHS } from "@/lib/canvas-icons";
+import { channels, mix } from "@/lib/canvas-kit";
 
 export type StageHandle = {
   /** Image de la page au format exact ; `withDynamic` false : sans QR code, champs ni emplacements vides. */
@@ -275,13 +276,6 @@ function ElementShape({
   }
 }
 
-/** Mélange de deux couleurs « #RRGGBB » (`amount` de la seconde). */
-function mix(color: string, other: string, amount: number): string {
-  const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
-  const [a, b] = [channels(/^#[0-9a-f]{6}$/i.test(color) ? color : "#FFFFFF"), channels(other)];
-  return `#${a.map((value, i) => Math.round(value + (b[i] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-}
-
 /**
  * Emplacement photo vide : un aplat dans la teinte du fond, à peine plus clair ou plus foncé, pour
  * que le modèle garde son allure tant que la photo n'est pas posée. Absent du billet enregistré ;
@@ -289,8 +283,8 @@ function mix(color: string, other: string, amount: number): string {
  */
 function PhotoPlaceholder({ width, height, radius, tint, label }: { width: number; height: number; radius: number; tint: string; label: string | null }) {
   const size = Math.min(width, height);
-  const channels = [1, 3, 5].map((i) => parseInt(tint.slice(i, i + 2), 16) || 255);
-  const dark = channels[0] * 0.3 + channels[1] * 0.59 + channels[2] * 0.11 < 128;
+  const [r, g, b] = channels(tint);
+  const dark = r * 0.3 + g * 0.59 + b * 0.11 < 128;
   const toward = dark ? "#FFFFFF" : "#000000";
   const ink = mix(tint, toward, 0.55);
   return (

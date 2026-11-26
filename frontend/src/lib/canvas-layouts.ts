@@ -1,5 +1,5 @@
 import type { CanvasElement, CanvasFont, IconName, TextElement } from "./canvas";
-import { caps, fit, icon, photo, seeded, shape, text, title, type Box, type Frame, type Layout, type TemplateContext, type Theme } from "./canvas-kit";
+import { backdrop, caps, fit, icon, pageColor, photo, seeded, shape, text, title, type Box, type Frame, type Layout, type TemplateContext, type Theme } from "./canvas-kit";
 
 /**
  * Compositions de la bibliothèque : chacune a sa structure, sa hiérarchie et son motif propres
@@ -182,7 +182,7 @@ export const editorial: Layout = (f, t, ctx) => {
 
 /** 2. Arche : photo en arche, invitation centrée, filets fins (mariage, dot, culte). */
 export const arch: Layout = (f, t, ctx) => {
-  if (f.wide) return wide(t, ctx, (a) => [photo({ x: a.x + 90, y: 60, width: 380, height: 700 }, ctx.photoLabel, { cornerRadius: 190 }), shape("rect", { x: a.x + 70, y: 40, width: 420, height: 720 }, { stroke: t.accent, strokeWidth: 3, cornerRadius: 210 })], { align: "left" });
+  if (f.wide) return wide(t, ctx, (a) => [photo({ x: a.x + 100, y: 60, width: 360, height: 530 }, ctx.photoLabel, { cornerRadius: 180 }), shape("rect", { x: a.x + 80, y: 40, width: 400, height: 570 }, { stroke: t.accent, strokeWidth: 3, cornerRadius: 200 })], { align: "left" });
   const { b, k, W } = room(f);
   const aw = Math.min(560, b * 0.42);
   const ah = b * 0.5;
@@ -192,7 +192,7 @@ export const arch: Layout = (f, t, ctx) => {
     shape("rect", { x: ax - 22, y: top - 22, width: aw + 44, height: ah + 300 }, { stroke: t.accent, strokeWidth: 3, cornerRadius: (aw + 44) / 2 }),
     photo({ x: ax, y: top, width: aw, height: ah + 260 }, ctx.photoLabel, { cornerRadius: aw / 2 }),
     // Le bas de l'arche passe sous le panneau de texte : seule la voûte reste visible.
-    shape("rect", { x: 0, y: top + ah, width: W, height: b - top - ah }, { fill: t.bg }),
+    backdrop(f, t, { x: 0, y: top + ah, width: W, height: b - top - ah }),
     rule(ax - 22, top + ah, aw + 44, t.accent, 3),
     text({ x: M, y: top + ah + 36 * k, width: W - M * 2, height: 60 * k }, ctx.labels.invite, { font: t.body, fontSize: 32 * k, italic: true, fill: t.soft, align: "center" }),
     title({ x: M, y: top + ah + 100 * k, width: W - M * 2, height: b - 170 * k - (top + ah + 100 * k) }, ctx, t, 120 * k, 2, { align: "center" }),
@@ -224,7 +224,7 @@ export const monogram: Layout = (f, t, ctx) => {
 
 /** 4. Bandes wax : motif en haut et en bas, titre condensé au centre (concert, soirée, fête). */
 export const waxBands: Layout = (f, t, ctx, o) => {
-  if (f.wide) return wide(t, ctx, (a) => waxBand({ x: a.x, y: 0, width: a.width, height: 210 }, t, o.seed).concat(waxBand({ x: a.x, y: 420, width: a.width, height: 210 }, t, o.seed + 1), [shape("rect", { x: a.x, y: 210, width: a.width, height: 210 }, { fill: t.bg })]));
+  if (f.wide) return wide(t, ctx, (a) => waxBand({ x: a.x, y: 0, width: a.width, height: 210 }, t, o.seed).concat(waxBand({ x: a.x, y: 420, width: a.width, height: 210 }, t, o.seed + 1), [backdrop(f, t, { x: a.x, y: 210, width: a.width, height: 210 })]));
   const { b, k, W } = room(f);
   const band = Math.min(220, b * 0.17);
   return [
@@ -259,8 +259,8 @@ export const retroTicket: Layout = (f, t, ctx) => {
     const notch = a.width * 0.09;
     return [
       shape("rect", a, { fill: t.card, cornerRadius: 26 }),
-      shape("ellipse", { x: a.x - notch / 2, y: a.y + a.height * 0.62 - notch / 2, width: notch, height: notch }, { fill: t.bg }),
-      shape("ellipse", { x: a.x + a.width - notch / 2, y: a.y + a.height * 0.62 - notch / 2, width: notch, height: notch }, { fill: t.bg }),
+      shape("ellipse", { x: a.x - notch / 2, y: a.y + a.height * 0.62 - notch / 2, width: notch, height: notch }, { fill: pageColor(f, t, a.y + a.height * 0.62) }),
+      shape("ellipse", { x: a.x + a.width - notch / 2, y: a.y + a.height * 0.62 - notch / 2, width: notch, height: notch }, { fill: pageColor(f, t, a.y + a.height * 0.62) }),
       ...Array.from({ length: 14 }, (_, i) => shape("rect", { x: a.x + notch * 0.7 + i * ((a.width - notch * 1.4) / 14), y: a.y + a.height * 0.62 - 2, width: (a.width - notch * 1.4) / 28, height: 4 }, { fill: t.cardSoft })),
     ];
   };
@@ -323,7 +323,7 @@ export const diagonal: Layout = (f, t, ctx) => {
   const cut = b * 0.5;
   return [
     photo({ x: 0, y: 0, width: W, height: cut + 120 }, ctx.photoLabel),
-    shape("rect", { x: -100, y: cut, width: W * 1.5, height: b }, { fill: t.bg, rotation: -8 }),
+    backdrop(f, t, { x: -100, y: cut, width: W * 1.5, height: b - cut + 200 }, { rotation: -8 }),
     shape("rect", { x: -100, y: cut - 30, width: W * 1.5, height: 26 }, { fill: t.accent, rotation: -8 }),
     shape("rect", { x: M, y: 60 * k, width: 260, height: 60 * k }, { fill: t.accent }),
     line({ x: M + 16, y: 70 * k, width: 228, height: 40 * k }, ctx.shortDate, t.body, 30 * k, t.onAccent, { align: "center" }),
@@ -530,7 +530,7 @@ export const duo: Layout = (f, t, ctx) => {
     title({ x: M, y: 110 * k, width: W - M * 2, height: top - 140 * k }, ctx, t, 120 * k, 2, { align: "center" }),
     photo({ x: M, y: top, width: pw, height: ph }, ctx.photoLabel, { cornerRadius: pw / 2 }),
     photo({ x: M + pw + 30, y: top, width: pw, height: ph }, ctx.photoLabel, { cornerRadius: pw / 2 }),
-    shape("ellipse", { x: W / 2 - 70 * k, y: top + ph / 2 - 70 * k, width: 140 * k, height: 140 * k }, { fill: t.accent, stroke: t.bg, strokeWidth: 10 }),
+    shape("ellipse", { x: W / 2 - 70 * k, y: top + ph / 2 - 70 * k, width: 140 * k, height: 140 * k }, { fill: t.accent, stroke: pageColor(f, t, top + ph / 2), strokeWidth: 10 }),
     line({ x: W / 2 - 50 * k, y: top + ph / 2 - 40 * k, width: 100 * k, height: 80 * k }, "&", t.title, 80 * k, t.onAccent, { align: "center", lineHeight: 1 }),
     kicker({ x: M, y: top + ph + 50 * k, width: W - M * 2, height: 40 }, ctx.day, t.ink, t.body, 28 * k, { align: "center" }),
     text({ x: M, y: top + ph + 100 * k, width: W - M * 2, height: 50 * k }, `${ctx.time}  ·  ${ctx.venue}`, { font: t.body, fontSize: 28 * k, fill: t.soft, align: "center" }),
@@ -556,7 +556,9 @@ export const patternCard: Layout = (f, t, ctx) => {
 
 /** 21. Mots empilés : un mot par ligne, couleurs alternées, très gros (soirée, concert, sport). */
 export const stacked: Layout = (f, t, ctx) => {
-  const words = caps(ctx.title, true).split(/\s+/).filter(Boolean).slice(0, 6);
+  const all = caps(ctx.title, true).split(/\s+/).filter(Boolean);
+  // Six lignes au plus : les mots en trop rejoignent la dernière.
+  const words = all.length > 6 ? [...all.slice(0, 5), all.slice(5).join(" ")] : all;
   const stack = (a: Box, size: number) => {
     const h = a.height / words.length;
     return words.map((word, i) => line({ x: a.x, y: a.y + i * h, width: a.width, height: h }, word, t.title, Math.min(size, h * 1.05), i % 2 ? t.accent : t.ink, { lineHeight: 0.9 }));
@@ -726,7 +728,7 @@ export const balloons: Layout = (f, t, ctx, o) => {
 /** 28. Barre d'entreprise : colonne de couleur, logo, titre, trois faits clés (séminaire, lancement). */
 export const corporate: Layout = (f, t, ctx) => {
   const rows: [IconName, string][] = [["calendar", ctx.day], ["clock", ctx.time], ["pin", ctx.venue]];
-  if (f.wide) return wide(t, ctx, (a) => [shape("rect", { x: a.x + 300, y: 0, width: 260, height: 630 }, { fill: t.accent }), photo({ x: a.x + 20, y: 80, width: 440, height: 470 }, ctx.photoLabel)]);
+  if (f.wide) return wide(t, ctx, (a) => [shape("rect", { x: a.x + 120, y: 0, width: 440, height: 630 }, { fill: t.accent }), shape("rect", { x: a.x + 100, y: 0, width: 12, height: 630 }, { fill: t.accent2 }), line({ x: a.x + 160, y: 150, width: 360, height: 240 }, ctx.dayNumber, t.title, 240, t.onAccent, { lineHeight: 1 }), kicker({ x: a.x + 160, y: 410, width: 360, height: 40 }, `${ctx.month} ${ctx.year}`, t.onAccent, t.body, 30)]);
   const { b, k, W } = room(f);
   const bar = 150;
   const step = 90 * k;
@@ -814,7 +816,7 @@ export const stainedGlass: Layout = (f, t, ctx) => {
     const cx = a.x + r;
     const rose = inner.width * 0.62;
     const roseY = a.y + r - rose * 0.42;
-    const lead = (box: Box) => shape("rect", box, { fill: t.bg });
+    const lead = (box: Box) => backdrop(f, t, box);
     const cols = 4;
     const cw = inner.width / cols;
     const top = a.y + r + rose * 0.3;
@@ -827,9 +829,9 @@ export const stainedGlass: Layout = (f, t, ctx) => {
       lead({ x: inner.x, y: top - 3, width: inner.width, height: 6 }),
       lead({ x: inner.x, y: top + (inner.y + inner.height - top) * 0.5 - 3, width: inner.width, height: 6 }),
       // Rosace : disque, couronne et rayons.
-      shape("ellipse", { x: cx - rose / 2, y: roseY, width: rose, height: rose }, { fill: t.accent2, stroke: t.bg, strokeWidth: 6 }),
-      ...sunRays(cx, roseY + rose / 2, rose / 2, 8, t.bg, 1, 6),
-      shape("ellipse", { x: cx - rose * 0.2, y: roseY + rose * 0.3, width: rose * 0.4, height: rose * 0.4 }, { fill: t.accent, stroke: t.bg, strokeWidth: 6 }),
+      shape("ellipse", { x: cx - rose / 2, y: roseY, width: rose, height: rose }, { fill: t.accent2, stroke: pageColor(f, t, roseY + rose / 2), strokeWidth: 6 }),
+      ...sunRays(cx, roseY + rose / 2, rose / 2, 8, pageColor(f, t, roseY + rose / 2), 1, 6),
+      shape("ellipse", { x: cx - rose * 0.2, y: roseY + rose * 0.3, width: rose * 0.4, height: rose * 0.4 }, { fill: t.accent, stroke: pageColor(f, t, roseY + rose / 2), strokeWidth: 6 }),
     ];
   };
   if (f.wide) return wide(t, ctx, (a) => glass({ x: a.x + 120, y: 60, width: 320, height: 560 }));
@@ -838,7 +840,7 @@ export const stainedGlass: Layout = (f, t, ctx) => {
   const gh = b * 0.5;
   return [
     ...glass({ x: (W - gw) / 2, y: 60 * k, width: gw, height: gh }),
-    shape("rect", { x: 0, y: 60 * k + gh, width: W, height: b }, { fill: t.bg }),
+    backdrop(f, t, { x: 0, y: 60 * k + gh, width: W, height: b - 60 * k - gh }),
     rule(M, 60 * k + gh, W - M * 2, t.ink, 3),
     title({ x: M, y: 60 * k + gh + 50 * k, width: W - M * 2, height: b - gh - 260 * k }, ctx, t, 130 * k, 3, { align: "center" }),
     kicker({ x: M, y: b - 140 * k, width: W - M * 2, height: 40 }, ctx.day, t.accent, t.body, 26 * k, { align: "center" }),

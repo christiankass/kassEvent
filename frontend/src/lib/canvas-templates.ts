@@ -240,6 +240,7 @@ const RECIPES: Record<Exclude<Category, "all">, Recipe> = {
     palettes: ["ocean", "electric", "slateLime", "cobalt", "plumNeon", "charcoalCoral", "neon", "tealCoral", "paperNavy", "mint", "lavender", "candy"],
     decors: ["glow", "dots", "none"],
     photos: ["videoCall", "laptop", "smartphone", "podcast", "streaming", "onlineClass", "headphones", "homeOffice", "parenting", "teamLaptop"],
+    labels: ["online"],
   },
   sport: {
     layouts: ["diagonal", "versus", "stacked", "retroTicket", "bigDate", "halftoneBold", "magazine", "swissBlocks", "heroPhoto", "sunburst"],
