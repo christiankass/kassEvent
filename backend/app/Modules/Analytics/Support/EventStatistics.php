@@ -12,6 +12,7 @@ use App\Modules\Ticketing\Models\OrderItem;
 use App\Modules\Ticketing\Models\Ticket;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * Statistiques d'un événement de l'organisation courante : ventes jour par jour, par type de billet,
@@ -21,10 +22,10 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class EventStatistics
 {
-    /** Courbe des ventes : au plus 120 jours (les plus récents). */
-    private const MAX_DAYS = 120;
+    /** Courbe des ventes : au plus un an (les jours les plus récents). */
+    private const MAX_DAYS = 366;
 
-    /** Entrées : au plus 72 heures à partir du premier scan. */
+    /** Entrées : les 72 dernières heures de scan (un scan d'essai la semaine d'avant ne cache pas la soirée). */
     private const MAX_HOURS = 72;
 
     public function __construct(private readonly Event $event) {}
@@ -43,8 +44,7 @@ final class EventStatistics
 
         $issued = Ticket::where('event_id', $this->event->id)
             ->whereHas('order', fn (Builder $query) => $query->where('status', Order::PAID))->count();
-        $admitted = TicketCheckIn::where('ticket_check_ins.event_id', $this->event->id)->toBase()
-            ->join('tickets', 'tickets.id', '=', 'ticket_check_ins.ticket_id')
+        $admitted = $this->checkIns()
             ->selectRaw('count(*) as tickets, coalesce(sum(tickets.companions), 0) as companions')->first();
 
         $capacity = $this->event->capacity ?? (int) $this->event->ticketTypes->sum('quantity');
@@ -82,6 +82,18 @@ final class EventStatistics
     public function paidSales(): Builder
     {
         return Order::where('event_id', $this->event->id)->where('source', Order::SALE)->where('status', Order::PAID);
+    }
+
+    /**
+     * Entrées des billets encore valables (commande payée) : une invitation retirée après son scan
+     * ne compte plus, comme dans les billets émis.
+     */
+    private function checkIns(): QueryBuilder
+    {
+        return TicketCheckIn::where('ticket_check_ins.event_id', $this->event->id)->toBase()
+            ->join('tickets', 'tickets.id', '=', 'ticket_check_ins.ticket_id')
+            ->join('orders', 'orders.id', '=', 'tickets.order_id')
+            ->where('orders.status', Order::PAID);
     }
 
     /** @return Builder<OrderItem> */
@@ -152,10 +164,15 @@ final class EventStatistics
      */
     private function payments(): array
     {
-        $rows = Payment::where('status', Payment::SUCCEEDED)
+        // Un seul paiement réussi par commande (le dernier) : une commande payée deux fois ne compte qu'une fois.
+        $succeeded = Payment::where('status', Payment::SUCCEEDED)
             ->whereIn('order_id', $this->paidSales()->select('id'))->toBase()
-            ->selectRaw('method, operator, count(distinct order_id) as orders, sum(amount) as revenue')
-            ->groupBy('method', 'operator')->get()
+            ->selectRaw('distinct on (order_id) order_id, method, operator')
+            ->orderBy('order_id')->orderByDesc('id');
+        $rows = $this->paidSales()->toBase()
+            ->joinSub($succeeded, 'paid_with', 'paid_with.order_id', '=', 'orders.id')
+            ->selectRaw('paid_with.method, paid_with.operator, count(*) as orders, sum(orders.total) as revenue')
+            ->groupBy('paid_with.method', 'paid_with.operator')->get()
             ->map(fn ($row) => [
                 'method' => $row->method,
                 'operator' => $row->operator,
@@ -204,15 +221,15 @@ final class EventStatistics
     /** @return list<array{hour: string, admitted: int}> entrées heure par heure (heure du lieu), heures creuses comprises */
     private function checkInsByHour(string $tz): array
     {
-        $counts = TicketCheckIn::where('event_id', $this->event->id)->toBase()
-            ->selectRaw("to_char(scanned_at AT TIME ZONE 'UTC' AT TIME ZONE ?, 'YYYY-MM-DD\"T\"HH24:00') as hour, count(*) as admitted", [$tz])
+        $counts = $this->checkIns()
+            ->selectRaw("to_char(ticket_check_ins.scanned_at AT TIME ZONE 'UTC' AT TIME ZONE ?, 'YYYY-MM-DD\"T\"HH24:00') as hour, count(*) as admitted", [$tz])
             ->groupBy('hour')->orderBy('hour')->pluck('admitted', 'hour');
         if ($counts->isEmpty()) {
             return [];
         }
 
-        $first = CarbonImmutable::parse($counts->keys()->first());
-        $last = CarbonImmutable::parse($counts->keys()->last())->min($first->addHours(self::MAX_HOURS - 1));
+        $last = CarbonImmutable::parse($counts->keys()->last());
+        $first = CarbonImmutable::parse($counts->keys()->first())->max($last->subHours(self::MAX_HOURS - 1));
         $series = [];
         for ($hour = $first; $hour->lte($last); $hour = $hour->addHour()) {
             $key = $hour->format('Y-m-d\TH:00');

@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Statistiques d'un événement et export comptable (orders.view, double authentification pour les
+ * Statistiques d'un événement et export comptable (reports.view, double authentification pour les
  * rôles argent). Événement d'une autre organisation : 404.
  */
 final class EventStatsController
@@ -47,7 +47,7 @@ final class EventStatsController
         $amount = fn (int $minor) => number_format($minor / (10 ** $decimals), $decimals, $french ? ',' : '.', '');
 
         $orders = (new EventStatistics($event))->paidSales()
-            ->with(['items', 'latestPayment'])->orderBy('paid_at')->orderBy('id');
+            ->with(['items', 'succeededPayment'])->orderBy('paid_at')->orderBy('id');
         $filename = 'kassevent-'.Str::limit($event->slug, 60, '').'-ventes.csv';
 
         // Le fichier s'écrit après la fin du middleware « tenant » : on rouvre le contexte de l'organisation.
@@ -64,7 +64,7 @@ final class EventStatsController
                     ->whereIn('order_id', $chunk->modelKeys())->pluck('amount', 'order_id');
                 foreach ($chunk as $order) {
                     $commission = -(int) ($commissions[$order->id] ?? 0);
-                    $payment = $order->latestPayment;
+                    $payment = $order->succeededPayment;
                     fputcsv($out, array_map(self::cell(...), [
                         $order->paid_at?->setTimezone($event->timezone)->format('Y-m-d H:i'),
                         $order->reference,

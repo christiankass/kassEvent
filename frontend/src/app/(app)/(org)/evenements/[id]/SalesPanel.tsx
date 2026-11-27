@@ -19,7 +19,7 @@ type Sales = { data: SalesOrder[]; summary: SalesSummary };
 /** Ventes de l'événement : montant encaissé, billets vendus par type, dernières commandes. */
 export function SalesPanel({ eventId }: { eventId: string }) {
   const { t, locale } = useI18n();
-  const { organization } = useOrganization();
+  const { organization, permissions } = useOrganization();
   const [sales, setSales] = useState<Sales | null>(null);
   const [error, setError] = useState<unknown>(null);
 
@@ -70,11 +70,13 @@ export function SalesPanel({ eventId }: { eventId: string }) {
               <dd>{sales.summary.orders}</dd>
             </div>
           </dl>
-          <p>
-            <Link href={`/evenements/${eventId}/statistiques`} className={buttonClass("secondary")}>
-              <ChartBar size={20} aria-hidden /> {t.sales.seeStats}
-            </Link>
-          </p>
+          {permissions.includes("reports.view") && (
+            <p>
+              <Link href={`/evenements/${eventId}/statistiques`} className={buttonClass("secondary")}>
+                <ChartBar size={20} aria-hidden /> {t.sales.seeStats}
+              </Link>
+            </p>
+          )}
 
           <h3 className={styles.subheading}>{t.sales.byType}</h3>
           <ul className={styles.progressList}>

@@ -212,13 +212,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/events/{id}/orders', [SalesController::class, 'index'])->whereUuid('id')->name('events.orders.index');
             });
 
-            // Compte de perception et reversements, sous la même protection.
             // Statistiques et export comptable : montants encaissés, donc double authentification pour les rôles argent.
             Route::middleware(['can:reports.view', RequireTwoFactorForMoney::class])->group(function () {
                 Route::get('/events/{id}/stats', [EventStatsController::class, 'show'])->whereUuid('id')->name('events.stats.show');
                 Route::get('/events/{id}/stats/export', [EventStatsController::class, 'export'])->whereUuid('id')->name('events.stats.export');
             });
 
+            // Compte de perception et reversements, sous la même protection.
             Route::middleware(['can:payouts.view', RequireTwoFactorForMoney::class])->group(function () {
                 Route::get('/payouts', [PayoutController::class, 'index'])->name('payouts.index');
                 // Contributions reçues sur le livre d'or d'un événement.

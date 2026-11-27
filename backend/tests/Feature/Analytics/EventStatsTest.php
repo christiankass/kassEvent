@@ -4,6 +4,7 @@ namespace Tests\Feature\Analytics;
 
 use App\Models\User;
 use App\Modules\Analytics\Models\EventVisit;
+use App\Modules\Payments\Models\Payment;
 use App\Modules\Tenancy\Models\Organization;
 use App\Modules\Tenancy\Support\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -165,6 +166,35 @@ class EventStatsTest extends TestCase
             ->assertJsonPath('data.summary.attendance', 0.75)
             ->assertJsonCount(1, 'data.check_ins')
             ->assertJsonPath('data.check_ins.0.admitted', 3);
+    }
+
+    public function test_the_hourly_entries_follow_the_latest_scans(): void
+    {
+        $order = $this->buy($this->free, 3, null, null);
+        Sanctum::actingAs($this->owner);
+        $scan = fn (string $code) => $this->postJson("/api/v1/events/{$this->event['id']}/check-in/scans", ['scans' => [['id' => (string) Str::uuid7(), 'code' => $code]]], $this->headers())->assertOk();
+        $scan($order['tickets'][0]['code']); // essai du scanner, quelques jours avant
+        $this->travel(5)->days();
+        $scan($order['tickets'][1]['code']);
+        $scan($order['tickets'][2]['code']);
+
+        $hours = $this->stats()->assertJsonPath('data.summary.admitted', 3)->json('data.check_ins');
+
+        $this->assertCount(72, $hours);
+        $this->assertSame(2, end($hours)['admitted']);
+    }
+
+    public function test_an_order_paid_twice_counts_once_in_payment_methods(): void
+    {
+        $order = $this->buy($this->paid, 1, ['method' => 'mobile_money', 'operator' => 'orange', 'phone' => '0841234567'], null);
+        app(TenantContext::class)->run($this->organization->id, fn () => Payment::create([
+            'order_id' => $order['id'], 'method' => 'card', 'provider' => 'simulated', 'status' => Payment::SUCCEEDED,
+            'amount' => 2000, 'currency' => 'USD', 'completed_at' => now(),
+        ]));
+
+        $this->stats()->assertJsonCount(1, 'data.payments')
+            ->assertJsonPath('data.payments.0.method', 'card')
+            ->assertJsonPath('data.payments.0.revenue', 2000);
     }
 
     public function test_the_accounting_export_lists_paid_orders_without_spreadsheet_formulas(): void

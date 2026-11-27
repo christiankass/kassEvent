@@ -63,7 +63,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('public', fn (Request $request) => Limit::perMinute(1200)->by($request->ip()));
         // Visites de la page publique : une par session et par événement, mais un réseau mobile partage
         // souvent une adresse IP entre beaucoup de visiteurs.
-        RateLimiter::for('visits', fn (Request $request) => Limit::perMinute(120)->by($request->ip().'|'.$request->route('slug')));
+        RateLimiter::for('visits', fn (Request $request) => Limit::perMinute(30)->by($request->ip().'|'.$request->route('slug')));
         // Commandes et paiements : un réseau mobile partage souvent une adresse IP entre beaucoup d'acheteurs.
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         // Page de commande, consultée toutes les quelques secondes pendant un paiement mobile money.

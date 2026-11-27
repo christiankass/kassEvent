@@ -103,6 +103,17 @@ class Order extends Model implements Payable
         return $this->hasOne(Payment::class)->orderByDesc('id');
     }
 
+    /**
+     * Paiement réussi (le dernier, si l'acheteur a payé deux fois) : moyen et référence du prestataire
+     * pour la comptabilité.
+     *
+     * @return HasOne<Payment, $this>
+     */
+    public function succeededPayment(): HasOne
+    {
+        return $this->hasOne(Payment::class)->where('status', Payment::SUCCEEDED)->orderByDesc('id');
+    }
+
     public function isPaid(): bool
     {
         return $this->status === self::PAID;
