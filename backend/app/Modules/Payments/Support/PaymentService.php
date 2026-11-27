@@ -113,7 +113,7 @@ final class PaymentService
         $this->settle($payment, $status);
 
         // Mobile money toujours en attente : on garde les places le temps que l'opérateur réponde.
-        if ($status->status === Payment::PENDING && $payment->method === Payment::MOBILE_MONEY) {
+        if ($status->status === Payment::PENDING && $payment->method === Payment::MOBILE_MONEY && $payment->order_id !== null) {
             $order = $payment->order;
             if ($order !== null && ! $order->isExpired()) {
                 $this->extendHold($order, self::MOBILE_MONEY_EXTENSION_MINUTES);

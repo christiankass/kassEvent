@@ -45,7 +45,7 @@ final class ContributionController
     {
         $data = $request->validate([
             'open' => ['sometimes', 'boolean'],
-            'beneficiary' => ['sometimes', 'nullable', 'string', 'max:80', PlainText::noLinks()],
+            'beneficiary' => ['sometimes', 'nullable', 'string', 'max:80', PlainText::noLinks('events.no_links')],
         ]);
         $book = WishBook::where('event_id', Event::findOrFail($eventId)->id)->firstOrFail();
 

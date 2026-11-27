@@ -10,5 +10,6 @@ return [
     'capacity_below_tickets' => 'La capacité ne peut pas être inférieure au total des billets déjà prévus (:count).',
     'cdf_no_cents' => 'Les prix en francs congolais s\'écrivent sans centimes.',
     'wishes_closed' => 'Ce livre est fermé : il n\'accepte plus de messages.',
+    'no_links' => 'Les liens ne sont pas acceptés ici.',
     'wishes_no_links' => 'Les liens ne sont pas acceptés dans un message.',
 ];

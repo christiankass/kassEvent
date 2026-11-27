@@ -196,6 +196,7 @@ class ContributionTest extends TestCase
         $this->contribute(['amount' => 100050, 'currency' => 'CDF'])->assertUnprocessable()->assertJsonValidationErrors('amount');
         $this->contribute(['amount' => 500000, 'currency' => 'CDF'])->assertCreated()->assertJsonPath('data.currency', 'CDF');
         $this->contribute(['message' => 'Voir www.arnaque.com'])->assertUnprocessable()->assertJsonValidationErrors('message');
+        $this->contribute(['name' => 'J'])->assertUnprocessable()->assertJsonValidationErrors('name');
     }
 
     public function test_an_anonymous_contribution_can_be_retried_by_card_after_a_failure(): void
@@ -236,6 +237,22 @@ class ContributionTest extends TestCase
 
         $first = $this->contribute(['idempotency_key' => $key])->assertCreated();
         $this->contribute(['idempotency_key' => $key])->assertOk()->assertJsonPath('data.id', $first->json('data.id'));
+        $this->assertSame(1, app(TenantContext::class)->run($this->organization->id, fn () => Contribution::count()));
+
+        // Réponse perdue, puis contributions fermées : le même envoi rend encore le lien personnel.
+        $this->openContributions(['open' => false])->assertOk();
+        $this->contribute(['idempotency_key' => $key])->assertOk()
+            ->assertJsonPath('data.id', $first->json('data.id'))->assertJsonPath('access_key', $first->json('access_key'));
+    }
+
+    public function test_an_event_that_received_contributions_cannot_be_deleted(): void
+    {
+        $this->addPayoutAccount();
+        $this->openContributions()->assertOk();
+        $this->contribute()->assertCreated();
+
+        $this->asOwner();
+        $this->deleteJson("/api/v1/events/{$this->eventId}", [], $this->headers())->assertUnprocessable()->assertJsonValidationErrors('event');
         $this->assertSame(1, app(TenantContext::class)->run($this->organization->id, fn () => Contribution::count()));
     }
 

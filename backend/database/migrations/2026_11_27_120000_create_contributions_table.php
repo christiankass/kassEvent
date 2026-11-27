@@ -31,7 +31,9 @@ return new class extends Migration
         Schema::create('contributions', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('organization_id')->constrained()->cascadeOnDelete();
-            $table->foreignUuid('wish_book_id')->constrained()->cascadeOnDelete();
+            // Jamais effacée avec son livre ou son événement (refusé par la base) : l'argent reste traçable.
+            // Seule la suppression de toute l'organisation l'emporte (NO ACTION, vérifié en fin d'instruction).
+            $table->foreignUuid('wish_book_id')->constrained()->noActionOnDelete();
             $table->string('reference', 12)->unique();
             $table->text('access_key'); // chiffrée
             $table->uuid('idempotency_key')->nullable();
@@ -53,7 +55,7 @@ return new class extends Migration
 
         Schema::table('payments', function (Blueprint $table) {
             $table->uuid('order_id')->nullable()->change();
-            $table->foreignUuid('contribution_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignUuid('contribution_id')->nullable()->constrained()->noActionOnDelete();
             $table->index('contribution_id');
         });
         DB::statement('ALTER TABLE payments ADD CONSTRAINT payments_one_owner_check CHECK (num_nonnulls(order_id, contribution_id) = 1)');
@@ -73,8 +75,10 @@ return new class extends Migration
         });
         DB::statement('DROP INDEX IF EXISTS payments_one_pending_per_contribution');
         DB::statement('ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_one_owner_check');
+        DB::table('payments')->whereNotNull('contribution_id')->delete();
         Schema::table('payments', function (Blueprint $table) {
             $table->dropConstrainedForeignId('contribution_id');
+            $table->uuid('order_id')->nullable(false)->change();
         });
         Schema::dropIfExists('contributions');
         Schema::table('wish_books', function (Blueprint $table) {

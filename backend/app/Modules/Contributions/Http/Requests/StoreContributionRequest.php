@@ -26,7 +26,7 @@ final class StoreContributionRequest extends FormRequest
             'amount' => ['required', 'integer', 'min:1'],
             'currency' => ['required', 'string', Rule::in(Organization::CURRENCIES)],
             'total' => ['required', 'integer'],
-            'name' => ['nullable', 'string', 'max:60', PlainText::noLinks()],
+            'name' => ['nullable', 'string', 'min:2', 'max:60', PlainText::noLinks('events.no_links')],
             'message' => ['nullable', 'string', 'max:280', PlainText::noLinks()],
             'idempotency_key' => ['nullable', 'uuid'],
             ...$this->paymentRules(required: true),

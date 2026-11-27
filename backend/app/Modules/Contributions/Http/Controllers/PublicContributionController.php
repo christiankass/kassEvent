@@ -29,13 +29,15 @@ final class PublicContributionController
     {
         return TenantKeys::within($id, function () use ($request, $id) {
             $book = WishBook::whereHas('event')->findOrFail($id);
-            if (! $book->contributions_open) {
+            // Envoi répété dont la réponse s'était perdue : on rend la contribution, même fermée depuis.
+            $contribution = $this->existing($book, $request->idempotencyKey());
+            if ($contribution === null && ! $book->contributions_open) {
                 throw ValidationException::withMessages(['amount' => __('contributions.closed')]);
             }
 
-            $contribution = $this->create($book, $request);
+            $contribution ??= $this->create($book, $request);
             // Envoi répété (double clic, réseau coupé) : on ne relance un paiement que si le premier n'est pas parti.
-            if ($contribution->wasRecentlyCreated || (! $contribution->isPaid() && ! $contribution->latestPayment()->exists())) {
+            if ($contribution->wasRecentlyCreated || ($book->contributions_open && ! $contribution->isPaid() && ! $contribution->latestPayment()->exists())) {
                 $this->payments->start($contribution, $request->payment());
             }
 
@@ -83,15 +85,15 @@ final class PublicContributionController
         }) ?? abort(404);
     }
 
-    /** Nouvelle contribution, ou celle du même envoi si la page l'a renvoyé (même clé d'idempotence). */
+    /** Contribution déjà créée par le même envoi (même clé d'idempotence). */
+    private function existing(WishBook $book, ?string $key): ?Contribution
+    {
+        return $key === null ? null : Contribution::where('wish_book_id', $book->id)->where('idempotency_key', $key)->first();
+    }
+
     private function create(WishBook $book, StoreContributionRequest $request): Contribution
     {
         $key = $request->idempotencyKey();
-        $existing = fn () => $key === null ? null : Contribution::where('wish_book_id', $book->id)->where('idempotency_key', $key)->first();
-
-        if ($found = $existing()) {
-            return $found;
-        }
 
         try {
             return DB::transaction(function () use ($book, $request, $key) {
@@ -109,7 +111,7 @@ final class PublicContributionController
             });
         } catch (UniqueConstraintViolationException $e) {
             // Même envoi arrivé deux fois en même temps : l'autre demande l'a créée.
-            return $existing() ?? throw $e;
+            return $this->existing($book, $key) ?? throw $e;
         }
     }
 
