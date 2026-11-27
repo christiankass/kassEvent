@@ -10,6 +10,24 @@
   background: var(--bg);
 }
 
+/* Hommage (obsèques, deuil) : page sobre ; les couleurs viennent de TRIBUTE_THEME (WishBookView). */
+.page[data-tone="tribute"] {
+  background: #f4f2ee;
+}
+
+.page[data-tone="tribute"] .wish {
+  border-left-color: #b9b3a8;
+}
+
+.page[data-tone="tribute"] .thanks {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.page[data-tone="tribute"] .okIcon {
+  color: var(--invite-accent);
+}
+
 .header {
   display: flex;
   align-items: center;

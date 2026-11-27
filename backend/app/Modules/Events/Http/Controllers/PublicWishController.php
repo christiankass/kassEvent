@@ -97,6 +97,7 @@ final class PublicWishController
             'design' => EventDesignResource::make($event->ticketDesign()),
             'open' => $book->open,
             'public' => $book->public,
+            'tone' => $book->tone,
             'count' => (clone $visible)->count(),
             'wishes' => $book->public
                 ? (clone $visible)->limit(WishBook::PUBLIC_LIMIT)->get()

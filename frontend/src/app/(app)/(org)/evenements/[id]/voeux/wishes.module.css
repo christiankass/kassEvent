@@ -35,6 +35,14 @@
   color: var(--wax-ink);
 }
 
+.tones {
+  width: 100%;
+}
+
+.settings .tones {
+  margin-bottom: 8px;
+}
+
 .panel {
   display: grid;
   gap: 12px;
