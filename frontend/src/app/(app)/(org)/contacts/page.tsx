@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MagnifyingGlass, ShieldCheck, Trash } from "@phosphor-icons/react";
 import { Alert, buttonClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -35,6 +35,8 @@ export default function ContactsPage() {
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Numéro de la liste affichée : une réponse d'un ancien filtre ou d'une ancienne recherche est ignorée.
+  const generation = useRef(0);
 
   const fetchPage = useCallback(
     (number: number) => {
@@ -45,19 +47,23 @@ export default function ContactsPage() {
     [filter, query, organizationId],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchPage(1)
-      .then((result) => {
-        if (cancelled) return;
+  const reload = useCallback(() => {
+    const current = ++generation.current;
+    return fetchPage(1).then(
+      (result) => {
+        if (current !== generation.current) return;
         setPage(result);
         setLoadError(null);
-      })
-      .catch((e) => !cancelled && setLoadError(e));
-    return () => {
-      cancelled = true;
-    };
+      },
+      (e) => {
+        if (current === generation.current) setLoadError(e);
+      },
+    );
   }, [fetchPage]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   // La recherche part quand on s'arrête de taper.
   useEffect(() => {
@@ -67,10 +73,11 @@ export default function ContactsPage() {
 
   async function more() {
     if (!page || loadingMore) return;
+    const current = generation.current;
     setLoadingMore(true);
     try {
       const next = await fetchPage(page.meta.current_page + 1);
-      setPage({ ...next, data: [...page.data, ...next.data] });
+      if (current === generation.current) setPage((shown) => shown && { ...next, data: [...shown.data, ...next.data] });
     } catch (e) {
       setError(e);
     }
@@ -82,7 +89,7 @@ export default function ContactsPage() {
     setError(null);
     try {
       await api(`/contacts/${contact.id}`, { method: "DELETE", organizationId });
-      setPage(await fetchPage(1));
+      await reload();
       setNotice(a.removed);
     } catch (e) {
       setError(e);
@@ -102,10 +109,11 @@ export default function ContactsPage() {
       </main>
     );
   }
-  if (loadError) {
+  const forbidden = loadError instanceof ApiError && loadError.status === 403;
+  if (loadError && (forbidden || !page)) {
     return (
       <main className={app.main}>
-        <Alert tone="error">{loadError instanceof ApiError && loadError.status === 403 ? a.forbidden : formErrorMessage(loadError, t)}</Alert>
+        <Alert tone="error">{forbidden ? a.forbidden : formErrorMessage(loadError, t)}</Alert>
       </main>
     );
   }
@@ -155,6 +163,8 @@ export default function ContactsPage() {
         </div>
       </div>
 
+      {/* Échec d'un nouveau filtre ou d'une recherche : la barre reste là pour réessayer. */}
+      {loadError ? <Alert tone="error">{formErrorMessage(loadError, t)}</Alert> : null}
       {notice && <Alert tone="success">{notice}</Alert>}
       {error ? <Alert tone="error">{actionErrorMessage(error, t)}</Alert> : null}
 

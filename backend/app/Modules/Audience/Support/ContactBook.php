@@ -6,7 +6,6 @@ use App\Modules\Audience\Models\Contact;
 use App\Modules\Tenancy\Support\TenantContext;
 use App\Modules\Tenancy\Support\TenantKeys;
 use App\Modules\Ticketing\Events\TicketsIssued;
-use App\Modules\Ticketing\Models\Order;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -38,19 +37,24 @@ final class ContactBook
         }
     }
 
+    /**
+     * Comme remember(), sans jamais faire échouer l'action principale (achat, réponse d'un invité) :
+     * une erreur du carnet est seulement signalée.
+     */
+    public function rememberQuietly(array $person, bool $consent, string $source, ?string $kind): void
+    {
+        rescue(fn () => $this->remember($person, $consent, $source, $kind));
+    }
+
     /** Une commande de la page publique dont les billets viennent d'être émis : son acheteur entre au carnet. */
     public function onTicketsIssued(TicketsIssued $event): void
     {
-        app(TenantContext::class)->run($event->organizationId, function () use ($event) {
-            $order = Order::find($event->orderId);
-            if ($order === null || $order->source !== Order::SALE) {
-                return;
-            }
-            $this->remember(
-                ['name' => $order->buyer_name, 'email' => $order->buyer_email, 'phone' => $order->buyer_phone, 'locale' => $order->locale],
-                $order->marketing_consent, Contact::CHECKOUT, 'order',
-            );
-        });
+        if ($event->buyer === null) {
+            return; // invitation, commande saisie au guichet…
+        }
+        app(TenantContext::class)->run($event->organizationId, fn () => $this->rememberQuietly(
+            $event->buyer, $event->buyer['marketing_consent'], Contact::CHECKOUT, 'order',
+        ));
     }
 
     public function unsubscribe(Contact $contact): void
@@ -64,7 +68,8 @@ final class ContactBook
     {
         return DB::transaction(function () use ($person, $email, $phone, $consent, $source, $kind) {
             $contact = ($email !== null ? Contact::where('email', $email)->lockForUpdate()->first() : null)
-                ?? ($phone !== null ? Contact::where('phone', $phone)->lockForUpdate()->first() : null)
+                // Un numéro partagé (famille, bureau) ne fusionne pas deux personnes aux e-mails différents.
+                ?? ($phone !== null ? Contact::where('phone', $phone)->when($email !== null, fn ($q) => $q->whereNull('email'))->lockForUpdate()->first() : null)
                 ?? new Contact(['unsubscribe_key' => Str::random(40)]);
 
             $contact->name = Str::limit(trim($person['name']), 120, '');

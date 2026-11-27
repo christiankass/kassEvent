@@ -102,11 +102,13 @@ final class GuestBook
      * Réponse de l'invité par son lien. Il peut changer d'avis jusqu'au début de l'événement :
      * confirmer de nouveau rend son QR code valable, décliner l'annule et libère sa table.
      */
-    public function respond(Guest $guest, bool $attending, int $companions): Guest
+    /** @param  ?bool  $firstAnswer  rempli : vrai si c'est la première réponse de l'invité (lue sous verrou) */
+    public function respond(Guest $guest, bool $attending, int $companions, ?bool &$firstAnswer = null): Guest
     {
-        return DB::transaction(function () use ($guest, $attending, $companions) {
+        return DB::transaction(function () use ($guest, $attending, $companions, &$firstAnswer) {
             $tables = $this->seating->lockTables($guest->event_id)->keyBy('id');
             $guest = Guest::with('event')->lockForUpdate()->findOrFail($guest->id);
+            $firstAnswer = $guest->responded_at === null;
             $event = $guest->event;
             if ($event->starts_at->isPast()) {
                 throw ValidationException::withMessages(['attending' => __('guests.closed')]);

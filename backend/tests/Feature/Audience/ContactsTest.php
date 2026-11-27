@@ -97,6 +97,28 @@ class ContactsTest extends TestCase
         $this->contacts(['search' => '0812'])->assertJsonCount(1, 'data');
     }
 
+    public function test_a_shared_number_does_not_merge_two_people(): void
+    {
+        $this->buy('Grace', 'grace@example.com', false, '0812345678');
+        $this->buy('Paul', 'paul@example.com', true, '0812345678');
+
+        $response = $this->contacts()->assertJsonPath('summary.total', 2)->assertJsonPath('summary.reachable', 1);
+        $grace = collect($response->json('data'))->firstWhere('email', 'grace@example.com');
+        $paul = collect($response->json('data'))->firstWhere('email', 'paul@example.com');
+        $this->assertSame('Grace', $grace['name']);
+        $this->assertFalse($grace['reachable']);
+        $this->assertTrue($paul['reachable']);
+        $this->assertNull($paul['phone']);
+    }
+
+    public function test_an_unsubscribe_key_sent_as_a_list_is_refused(): void
+    {
+        $this->buy('Grace', 'grace@example.com', true);
+        $id = $this->inTenant(fn () => Contact::first()->id);
+        $this->leave();
+        $this->getJson("/api/v1/public/contacts/{$id}/unsubscribe?key[]=x")->assertNotFound();
+    }
+
     public function test_a_contact_unsubscribes_by_their_personal_link_and_comes_back_only_by_agreeing_again(): void
     {
         $this->buy('Grace', 'grace@example.com', true);

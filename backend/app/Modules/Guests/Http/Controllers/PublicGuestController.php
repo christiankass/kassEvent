@@ -36,11 +36,9 @@ final class PublicGuestController
         ]);
 
         return TenantKeys::within($id, function () use ($id, $data) {
-            $found = $this->find($id, $data['key']);
-            $firstAnswer = $found->responded_at === null;
-            $guest = $this->book->respond($found, (bool) $data['attending'], (int) ($data['companions'] ?? 0));
+            $guest = $this->book->respond($this->find($id, $data['key']), (bool) $data['attending'], (int) ($data['companions'] ?? 0), $firstAnswer);
             // L'invité entre au carnet de l'organisation (sa première réponse est comptée une fois).
-            $this->contacts->remember(
+            $this->contacts->rememberQuietly(
                 ['name' => $guest->name, 'email' => $guest->email, 'phone' => $guest->phone, 'locale' => $guest->locale],
                 (bool) ($data['marketing_consent'] ?? false), Contact::RSVP, $firstAnswer ? 'invitation' : null,
             );

@@ -47,7 +47,7 @@ class Contact extends Model
         return $this->marketing_consent && $this->unsubscribed_at === null;
     }
 
-    public function hasUnsubscribeKey(?string $key): bool
+    public function hasUnsubscribeKey(mixed $key): bool
     {
         return is_string($key) && hash_equals($this->unsubscribe_key, $key);
     }

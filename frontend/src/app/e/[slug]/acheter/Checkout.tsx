@@ -160,7 +160,7 @@ export function Checkout({ event }: { event: PublicEvent }) {
                   />
                 )}
                 {/* Jamais cochée par défaut : l'accord se donne, il ne se présume pas. */}
-                <Checkbox name="marketing_consent" label={format(t.audience.consent, { organization: event.organization?.name ?? "kassEvent" })} />
+                {event.organization?.name && <Checkbox name="marketing_consent" label={format(t.audience.consent, { organization: event.organization.name })} />}
               </div>
             </section>
 
