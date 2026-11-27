@@ -2,11 +2,12 @@
 
 namespace App\Modules\Events\Http\Controllers;
 
+use App\Modules\Contributions\Support\ContributionOptions;
 use App\Modules\Events\Http\Resources\EventDesignResource;
 use App\Modules\Events\Models\Wish;
 use App\Modules\Events\Models\WishBook;
+use App\Modules\Events\Support\PlainText;
 use App\Modules\Tenancy\Support\TenantKeys;
-use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -25,11 +26,7 @@ final class PublicWishController
 
     public function store(Request $request, string $id): JsonResponse
     {
-        $noLinks = function (string $attribute, mixed $value, Closure $fail) {
-            if (is_string($value) && preg_match('~(https?://|www\.|\b[a-z0-9-]+\.(com|net|org|info|xyz|ru|top|link|click|ly)\b)~i', $value)) {
-                $fail(__('events.wishes_no_links'));
-            }
-        };
+        $noLinks = PlainText::noLinks();
         $data = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:60', $noLinks],
             'message' => ['required', 'string', 'min:2', 'max:1000', $noLinks],
@@ -43,8 +40,8 @@ final class PublicWishController
                 throw ValidationException::withMessages(['message' => __('events.wishes_closed')]);
             }
 
-            $name = self::clean($data['name'], singleLine: true);
-            $message = self::clean($data['message']);
+            $name = PlainText::clean($data['name'], singleLine: true);
+            $message = PlainText::clean($data['message']);
             // Texte fait seulement d'espaces ou de caractères invisibles.
             foreach (['name' => $name, 'message' => $message] as $field => $value) {
                 if (mb_strlen($value) < 2) {
@@ -69,16 +66,6 @@ final class PublicWishController
         return WishBook::whereHas('event')->findOrFail($id);
     }
 
-    /** Espaces en trop, caractères de contrôle et lignes vides répétées retirés. */
-    private static function clean(string $text, bool $singleLine = false): string
-    {
-        // Caractères de contrôle (sauf retour à la ligne) et inversions de sens d'écriture.
-        $text = preg_replace('/[\x{0000}-\x{0009}\x{000B}-\x{001F}\x{007F}-\x{009F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', str_replace("\r\n", "\n", $text)) ?? '';
-        $text = $singleLine ? preg_replace('/\s+/u', ' ', $text) : preg_replace("/\n{3,}/", "\n\n", $text);
-
-        return trim((string) $text);
-    }
-
     private function payload(WishBook $book): JsonResponse
     {
         $book->loadMissing(['event.organization', 'event.design']);
@@ -98,6 +85,7 @@ final class PublicWishController
             'open' => $book->open,
             'public' => $book->public,
             'tone' => $book->tone,
+            'contributions' => $book->contributions_open ? ContributionOptions::for($event->organization->currency, $book->beneficiary) : null,
             'count' => (clone $visible)->count(),
             'wishes' => $book->public
                 ? (clone $visible)->limit(WishBook::PUBLIC_LIMIT)->get()

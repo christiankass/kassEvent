@@ -2,6 +2,7 @@
 
 namespace App\Modules\Payouts\Support;
 
+use App\Modules\Contributions\Events\ContributionPaid;
 use App\Modules\Payments\Gateways\GatewayStatus;
 use App\Modules\Payments\Support\PaymentService;
 use App\Modules\Payouts\Gateways\PayoutGateways;
@@ -48,11 +49,26 @@ final class PayoutService
         LedgerEntry::create(['type' => LedgerEntry::COMMISSION, 'amount' => -$commission, ...$common]);
     }
 
+    /** Écoute les contributions payées (module Contributions) : tout le montant, sans commission. */
+    public function onContributionPaid(ContributionPaid $event): void
+    {
+        LedgerEntry::create([
+            'type' => LedgerEntry::CONTRIBUTION,
+            'organization_id' => $event->organizationId,
+            'currency' => $event->currency,
+            'amount' => $event->amount,
+            'contribution_id' => $event->contributionId,
+            'reference' => $event->reference,
+            'label' => Str::limit($event->eventTitle, 157),
+            'available_at' => now()->addHours(config('payouts.hold_hours')),
+        ]);
+    }
+
     /**
      * Soldes par devise, en unités mineures : disponible (reversable), en attente (ventes récentes),
-     * ventes, commission, déjà reversé et en cours de reversement.
+     * ventes, commission, contributions, déjà reversé et en cours de reversement.
      *
-     * @return Collection<string, array{currency: string, available: int, on_hold: int, sales: int, commission: int, paid_out: int, in_progress: int}>
+     * @return Collection<string, array{currency: string, available: int, on_hold: int, sales: int, commission: int, contributions: int, paid_out: int, in_progress: int}>
      */
     public function balances(string $defaultCurrency): Collection
     {
@@ -61,6 +77,7 @@ final class PayoutService
             ->selectRaw('coalesce(sum(amount) filter (where available_at <= ?), 0) as available', [now()])
             ->selectRaw("coalesce(sum(amount) filter (where type = 'sale'), 0) as sales")
             ->selectRaw("coalesce(-sum(amount) filter (where type = 'commission'), 0) as commission")
+            ->selectRaw("coalesce(sum(amount) filter (where type = 'contribution'), 0) as contributions")
             ->groupBy('currency')->get()->keyBy('currency');
         $payouts = Payout::query()->toBase()
             ->selectRaw('currency, coalesce(sum(amount) filter (where status = ?), 0) as paid_out', [Payout::SUCCEEDED])
@@ -75,9 +92,16 @@ final class PayoutService
                 'on_hold' => (int) ($ledger[$currency]->balance ?? 0) - (int) ($ledger[$currency]->available ?? 0),
                 'sales' => (int) ($ledger[$currency]->sales ?? 0),
                 'commission' => (int) ($ledger[$currency]->commission ?? 0),
+                'contributions' => (int) ($ledger[$currency]->contributions ?? 0),
                 'paid_out' => (int) ($payouts[$currency]->paid_out ?? 0),
                 'in_progress' => (int) ($payouts[$currency]->in_progress ?? 0),
             ]]);
+    }
+
+    /** L'organisation courante a-t-elle dit où recevoir son argent ? */
+    public static function hasAccount(): bool
+    {
+        return PayoutAccount::exists();
     }
 
     public static function minimum(string $currency): int

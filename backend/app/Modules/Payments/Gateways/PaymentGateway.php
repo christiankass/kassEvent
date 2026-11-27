@@ -2,8 +2,8 @@
 
 namespace App\Modules\Payments\Gateways;
 
+use App\Modules\Payments\Contracts\Payable;
 use App\Modules\Payments\Models\Payment;
-use App\Modules\Ticketing\Models\Order;
 
 interface PaymentGateway
 {
@@ -13,7 +13,7 @@ interface PaymentGateway
      *
      * @param  string  $returnUrl  page de la commande où revenir après une page de paiement externe
      */
-    public function start(Payment $payment, Order $order, string $returnUrl): ?GatewayStatus;
+    public function start(Payment $payment, Payable $payable, string $returnUrl): ?GatewayStatus;
 
     /** Statut actuel, demandé au prestataire (jamais déduit d'une notification non vérifiée). */
     public function check(Payment $payment): GatewayStatus;

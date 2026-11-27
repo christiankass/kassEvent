@@ -2,6 +2,7 @@
 
 namespace App\Modules\Payments\Support;
 
+use App\Modules\Payments\Contracts\Payable;
 use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Payments\Gateways\GatewayRegistry;
 use App\Modules\Payments\Gateways\GatewayStatus;
@@ -38,38 +39,38 @@ final class PaymentService
     public function __construct(private readonly GatewayRegistry $gateways) {}
 
     /**
-     * Lance un paiement pour la commande. Une panne du prestataire n'est pas une erreur pour
+     * Lance un paiement pour la commande ou la contribution. Une panne du prestataire n'est pas une erreur pour
      * l'acheteur : le paiement est enregistré comme échoué et il peut réessayer. Exception : un
      * mobile money dont la demande a pu arriver chez pawaPay (délai dépassé, erreur 5xx) reste en
      * attente, et c'est la vérification suivante qui tranche (sinon l'acheteur pourrait valider
      * sur son téléphone un paiement déjà déclaré échoué, et payer deux fois).
      *
-     * Rend null, sans rien lancer, si la commande a déjà un paiement en attente (deux essais
-     * simultanés) : la base n'en accepte qu'un par commande.
+     * Rend null, sans rien lancer, s'il y a déjà un paiement en attente (deux essais simultanés) :
+     * la base n'en accepte qu'un par commande et par contribution.
      *
      * @param  array{method: string, operator?: string|null, phone?: string|null}  $data
      */
-    public function start(Order $order, array $data): ?Payment
+    public function start(Payable $payable, array $data): ?Payment
     {
         $payment = new Payment([
             'method' => $data['method'],
             'provider' => GatewayRegistry::providerFor($data['method']),
-            'amount' => $order->total,
-            'currency' => $order->currency,
+            'amount' => $payable->amountToCharge($data['method']),
+            'currency' => $payable->paymentCurrency(),
             'operator' => $data['method'] === Payment::MOBILE_MONEY ? $data['operator'] : null,
             'phone' => $data['method'] === Payment::MOBILE_MONEY ? $data['phone'] : null,
         ]);
-        $payment->order()->associate($order);
+        $payment->forceFill($payable->paymentOwner());
         try {
             // Transaction imbriquée : l'échec de l'insertion n'annule pas une transaction englobante.
             DB::transaction(fn () => $payment->save());
         } catch (UniqueConstraintViolationException) {
             return null;
         }
-        TenantKeys::remember($payment->id, $order->organization_id);
+        TenantKeys::remember($payment->id, $payment->organization_id);
 
         try {
-            $immediate = $this->gateways->for($payment)->start($payment, $order, $order->publicUrl());
+            $immediate = $this->gateways->for($payment)->start($payment, $payable, $payable->publicUrl());
         } catch (Throwable $e) {
             report($e);
             $immediate = $payment->method === Payment::MOBILE_MONEY && self::mayHaveReachedProvider($e)
@@ -78,11 +79,11 @@ final class PaymentService
         }
         $payment->save();
 
-        if ($immediate === null) {
-            // Les places restent réservées tant que le paiement peut aboutir.
-            $this->extendHold($order, $payment->method === Payment::CARD ? self::CARD_HOLD_MINUTES : self::MOBILE_MONEY_HOLD_MINUTES);
-        } else {
+        if ($immediate !== null) {
             $this->settle($payment, $immediate);
+        } elseif ($payable instanceof Order) {
+            // Les places restent réservées tant que le paiement peut aboutir.
+            $this->extendHold($payable, $payment->method === Payment::CARD ? self::CARD_HOLD_MINUTES : self::MOBILE_MONEY_HOLD_MINUTES);
         }
 
         return $payment->refresh();

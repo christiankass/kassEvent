@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Modules\Communication\Support\DeliveryService;
+use App\Modules\Contributions\Actions\ConfirmContribution;
+use App\Modules\Contributions\Events\ContributionPaid;
 use App\Modules\Payments\Events\PaymentSucceeded;
 use App\Modules\Payouts\Console\CompletePayout;
 use App\Modules\Payouts\Console\ListBankTransfers;
@@ -100,6 +102,9 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(PaymentSucceeded::class, [ConfirmOrder::class, 'onPaymentSucceeded']);
         // Une commande payée (module Ticketing) est inscrite au compte de perception (module Payouts).
         Event::listen(OrderPaid::class, [PayoutService::class, 'onOrderPaid']);
+        // Une contribution payée (livre d'or) est inscrite au compte de perception, sans commission.
+        Event::listen(PaymentSucceeded::class, [ConfirmContribution::class, 'onPaymentSucceeded']);
+        Event::listen(ContributionPaid::class, [PayoutService::class, 'onContributionPaid']);
         // Billets émis (module Ticketing) : envoi WhatsApp ou Messenger demandé par l'acheteur (module Communication).
         Event::listen(TicketsIssued::class, [DeliveryService::class, 'onTicketsIssued']);
 

@@ -65,9 +65,12 @@ final class ConfirmOrder
         });
     }
 
-    /** Écoute les paiements réussis (module Payments). */
+    /** Écoute les paiements réussis (module Payments) ; ceux des contributions ne sont pas pour nous. */
     public function onPaymentSucceeded(PaymentSucceeded $event): void
     {
+        if ($event->payment->order_id === null) {
+            return;
+        }
         $this->handle($event->payment->order_id, $event->payment->id);
     }
 

@@ -2,9 +2,9 @@
 
 namespace App\Modules\Payments\Gateways;
 
+use App\Modules\Payments\Contracts\Payable;
 use App\Modules\Payments\Models\Payment;
 use App\Modules\Payments\Support\Amount;
-use App\Modules\Ticketing\Models\Order;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
@@ -19,7 +19,7 @@ final class PawaPayGateway implements PaymentGateway
 
     public function __construct(private readonly string $baseUrl, private readonly string $token) {}
 
-    public function start(Payment $payment, Order $order, string $returnUrl): ?GatewayStatus
+    public function start(Payment $payment, Payable $payable, string $returnUrl): ?GatewayStatus
     {
         $response = $this->http()->post('/v2/deposits', [
             'depositId' => $payment->id,
@@ -32,9 +32,9 @@ final class PawaPayGateway implements PaymentGateway
             ],
             'amount' => Amount::toDecimal($payment->amount),
             'currency' => $payment->currency,
-            'clientReferenceId' => $order->reference,
+            'clientReferenceId' => $payable->paymentReference(),
             // Texte affiché par l'opérateur sur le téléphone : 4 à 22 lettres, chiffres ou espaces.
-            'customerMessage' => 'kassEvent '.$order->reference,
+            'customerMessage' => 'kassEvent '.$payable->paymentReference(),
         ])->throw();
 
         $payment->provider_reference = $payment->id;
