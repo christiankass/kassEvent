@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Schema;
  *   (lien partagé sur WhatsApp, Facebook, affiche avec QR code…). Un simple compteur : aucune donnée
  *   sur la personne qui visite.
  * - orders.referral : source de la visite qui a mené à la commande, pour savoir quel canal fait vendre.
+ * - order_items.order_id : index pour additionner les billets des commandes payées.
  */
 return new class extends Migration
 {
@@ -32,10 +33,16 @@ return new class extends Migration
         Schema::table('orders', function (Blueprint $table) {
             $table->string('referral', 20)->nullable()->after('source');
         });
+        Schema::table('order_items', function (Blueprint $table) {
+            $table->index('order_id');
+        });
     }
 
     public function down(): void
     {
+        Schema::table('order_items', function (Blueprint $table) {
+            $table->dropIndex(['order_id']);
+        });
         Schema::table('orders', function (Blueprint $table) {
             $table->dropColumn('referral');
         });

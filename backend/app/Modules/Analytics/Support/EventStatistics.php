@@ -12,13 +12,13 @@ use App\Modules\Ticketing\Models\OrderItem;
 use App\Modules\Ticketing\Models\Ticket;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Collection;
 
 /**
  * Statistiques d'un événement de l'organisation courante : ventes jour par jour, par type de billet,
  * par moyen de paiement et par source, visites de la page, entrées heure par heure.
  * Les ventes ne comptent que les commandes payées de la page publique (pas les invitations nominatives) ;
- * les entrées comptent tous les billets, invitations comprises. Jours et heures à l'heure du lieu.
+ * les entrées comptent tous les billets valables, invitations comprises. Jours et heures à l'heure du lieu.
  */
 final class EventStatistics
 {
@@ -28,101 +28,93 @@ final class EventStatistics
     /** Entrées : les 72 dernières heures de scan (un scan d'essai la semaine d'avant ne cache pas la soirée). */
     private const MAX_HOURS = 72;
 
+    /** Billets d'une commande (sous-requête corrélée sur orders). */
+    private const ORDER_TICKETS = '(select sum(quantity) from order_items where order_items.order_id = orders.id)';
+
     public function __construct(private readonly Event $event) {}
 
     /** @return array<string, mixed> */
     public function toArray(): array
     {
         $tz = $this->event->timezone;
-        $paidOrders = $this->paidSales()->toBase()
-            ->selectRaw('count(*) as orders, coalesce(sum(total), 0) as revenue, count(*) filter (where total > 0) as paying')
-            ->first();
-        $ticketsSold = (int) $this->soldItems()->sum('quantity');
-        $visits = (int) EventVisit::where('event_id', $this->event->id)->sum('visits');
-        $commission = -(int) LedgerEntry::where('type', LedgerEntry::COMMISSION)
-            ->whereIn('order_id', $this->paidSales()->select('id'))->sum('amount');
-
+        $paid = $this->paidSales()->toBase()->selectRaw(
+            'count(*) as orders, coalesce(sum(total), 0) as revenue, count(*) filter (where total > 0) as paying, coalesce(sum('.self::ORDER_TICKETS.'), 0) as tickets'
+        )->first();
+        $commission = (int) self::commissions($this->paidSales()->select('id'))->sum();
+        $visits = EventVisit::where('event_id', $this->event->id)->toBase()
+            ->selectRaw("to_char(day, 'YYYY-MM-DD') as day, source, visits")->get();
         $issued = Ticket::where('event_id', $this->event->id)
             ->whereHas('order', fn (Builder $query) => $query->where('status', Order::PAID))->count();
-        $admitted = $this->checkIns()
-            ->selectRaw('count(*) as tickets, coalesce(sum(tickets.companions), 0) as companions')->first();
+        $entries = $this->entriesByHour($tz);
 
         $capacity = $this->event->capacity ?? (int) $this->event->ticketTypes->sum('quantity');
-        $revenue = (int) $paidOrders->revenue;
-        $orders = (int) $paidOrders->orders;
+        $revenue = (int) $paid->revenue;
+        $orders = (int) $paid->orders;
+        $ticketsSold = (int) $paid->tickets;
+        $visitCount = (int) $visits->sum('visits');
+        $admitted = (int) $entries->sum('admitted');
 
         return [
             'currency' => $this->event->currency,
-            'timezone' => $tz,
             'summary' => [
                 'revenue' => $revenue,
-                'commission' => $commission,
                 'net' => $revenue - $commission,
                 'orders' => $orders,
                 'tickets_sold' => $ticketsSold,
                 'capacity' => $capacity,
                 'fill_rate' => $capacity > 0 ? round($ticketsSold / $capacity, 4) : null,
-                'average_order' => (int) $paidOrders->paying > 0 ? intdiv($revenue, (int) $paidOrders->paying) : 0,
-                'visits' => $visits,
-                'conversion' => $visits > 0 ? round(min(1, $orders / $visits), 4) : null,
+                'average_order' => (int) $paid->paying > 0 ? intdiv($revenue, (int) $paid->paying) : 0,
+                'visits' => $visitCount,
+                'conversion' => $visitCount > 0 ? round(min(1, $orders / $visitCount), 4) : null,
                 'tickets_issued' => $issued,
-                'admitted' => (int) $admitted->tickets,
-                'people_admitted' => (int) $admitted->tickets + (int) $admitted->companions,
-                'attendance' => $issued > 0 ? round((int) $admitted->tickets / $issued, 4) : null,
+                'admitted' => $admitted,
+                'people_admitted' => $admitted + (int) $entries->sum('companions'),
+                'attendance' => $issued > 0 ? round($admitted / $issued, 4) : null,
             ],
-            'daily' => $this->daily($tz),
+            'daily' => $this->daily($tz, $visits),
             'ticket_types' => $this->ticketTypes(),
-            'payments' => $this->payments(),
-            'sources' => $this->sources(),
-            'check_ins' => $this->checkInsByHour($tz),
+            'payments' => $this->payments($orders - (int) $paid->paying),
+            'sources' => $this->sources($visits),
+            'check_ins' => self::hourly($entries),
         ];
     }
 
     /** @return Builder<Order> commandes payées de la page publique */
     public function paidSales(): Builder
     {
-        return Order::where('event_id', $this->event->id)->where('source', Order::SALE)->where('status', Order::PAID);
+        return Order::where('event_id', $this->event->id)->paidSales();
     }
 
     /**
-     * Entrées des billets encore valables (commande payée) : une invitation retirée après son scan
-     * ne compte plus, comme dans les billets émis.
+     * Commission kassEvent de chaque commande (montant positif), lue dans le compte de perception.
+     *
+     * @param  mixed  $orderIds  identifiants, ou sous-requête qui les sélectionne
+     * @return Collection<string, int> identifiant de commande => commission
      */
-    private function checkIns(): QueryBuilder
+    public static function commissions(mixed $orderIds): Collection
     {
-        return TicketCheckIn::where('ticket_check_ins.event_id', $this->event->id)->toBase()
-            ->join('tickets', 'tickets.id', '=', 'ticket_check_ins.ticket_id')
-            ->join('orders', 'orders.id', '=', 'tickets.order_id')
-            ->where('orders.status', Order::PAID);
+        return LedgerEntry::where('type', LedgerEntry::COMMISSION)->whereIn('order_id', $orderIds)
+            ->pluck('amount', 'order_id')->map(fn ($amount) => -(int) $amount);
     }
 
-    /** @return Builder<OrderItem> */
-    private function soldItems(): Builder
+    /**
+     * Jour par jour, jours sans vente ni visite compris (la courbe ne saute pas de jour).
+     *
+     * @param  Collection<int, object>  $visits
+     * @return list<array{date: string, orders: int, tickets: int, revenue: int, visits: int}>
+     */
+    private function daily(string $tz, Collection $visits): array
     {
-        return OrderItem::whereIn('order_id', $this->paidSales()->select('id'));
-    }
-
-    /** @return list<array{date: string, orders: int, tickets: int, revenue: int, visits: int}> */
-    private function daily(string $tz): array
-    {
-        $day = "to_char(paid_at AT TIME ZONE 'UTC' AT TIME ZONE ?, 'YYYY-MM-DD')";
         $sales = $this->paidSales()->toBase()
-            ->selectRaw("{$day} as day, count(*) as orders, sum(total) as revenue", [$tz])
+            ->selectRaw("to_char(paid_at AT TIME ZONE 'UTC' AT TIME ZONE ?, 'YYYY-MM-DD') as day, count(*) as orders, sum(total) as revenue, sum(".self::ORDER_TICKETS.') as tickets', [$tz])
             ->groupBy('day')->get()->keyBy('day');
-        $tickets = $this->soldItems()->toBase()
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->selectRaw("to_char(orders.paid_at AT TIME ZONE 'UTC' AT TIME ZONE ?, 'YYYY-MM-DD') as day, sum(quantity) as tickets", [$tz])
-            ->groupBy('day')->pluck('tickets', 'day');
-        $visits = EventVisit::where('event_id', $this->event->id)->toBase()
-            ->selectRaw("to_char(day, 'YYYY-MM-DD') as day, sum(visits) as visits")
-            ->groupBy('day')->pluck('visits', 'day');
+        $visitsByDay = $visits->groupBy('day')->map(fn (Collection $rows) => $rows->sum('visits'));
 
-        $days = $sales->keys()->merge($visits->keys())->unique()->sort()->values();
+        $days = $sales->keys()->merge($visitsByDay->keys())->unique()->sort()->values();
         if ($days->isEmpty()) {
             return [];
         }
 
-        // Jours sans vente ni visite compris : la courbe ne saute pas de jour.
         $last = CarbonImmutable::parse($days->last());
         $first = CarbonImmutable::parse($days->first())->max($last->subDays(self::MAX_DAYS - 1));
         $series = [];
@@ -131,9 +123,9 @@ final class EventStatistics
             $series[] = [
                 'date' => $key,
                 'orders' => (int) ($sales[$key]->orders ?? 0),
-                'tickets' => (int) ($tickets[$key] ?? 0),
+                'tickets' => (int) ($sales[$key]->tickets ?? 0),
                 'revenue' => (int) ($sales[$key]->revenue ?? 0),
-                'visits' => (int) ($visits[$key] ?? 0),
+                'visits' => (int) ($visitsByDay[$key] ?? 0),
             ];
         }
 
@@ -143,14 +135,13 @@ final class EventStatistics
     /** @return list<array<string, mixed>> */
     private function ticketTypes(): array
     {
-        $sold = $this->soldItems()->toBase()
+        $sold = OrderItem::whereIn('order_id', $this->paidSales()->select('id'))->toBase()
             ->selectRaw('ticket_type_id, sum(quantity) as tickets, sum(quantity * unit_price) as revenue')
             ->groupBy('ticket_type_id')->get()->keyBy('ticket_type_id');
 
         return $this->event->ticketTypes->map(fn ($type) => [
             'id' => $type->id,
             'name' => $type->name,
-            'price' => $type->price,
             'quantity' => $type->quantity,
             'sold' => (int) ($sold[$type->id]->tickets ?? 0),
             'revenue' => (int) ($sold[$type->id]->revenue ?? 0),
@@ -162,7 +153,7 @@ final class EventStatistics
      *
      * @return list<array{method: string, operator: ?string, orders: int, revenue: int}>
      */
-    private function payments(): array
+    private function payments(int $free): array
     {
         // Un seul paiement réussi par commande (le dernier) : une commande payée deux fois ne compte qu'une fois.
         $succeeded = Payment::where('status', Payment::SUCCEEDED)
@@ -180,7 +171,6 @@ final class EventStatistics
                 'revenue' => (int) $row->revenue,
             ]);
 
-        $free = $this->paidSales()->where('total', 0)->count();
         if ($free > 0) {
             $rows->push(['method' => 'free', 'operator' => null, 'orders' => $free, 'revenue' => 0]);
         }
@@ -189,51 +179,64 @@ final class EventStatistics
     }
 
     /**
-     * Sources : visites de la page, commandes, billets et montant venus de chaque lien partagé.
+     * Sources : visites de la page, commandes et montant venus de chaque lien partagé.
      *
-     * @return list<array{source: string, visits: int, orders: int, tickets: int, revenue: int}>
+     * @param  Collection<int, object>  $visits
+     * @return list<array{source: string, visits: int, orders: int, revenue: int}>
      */
-    private function sources(): array
+    private function sources(Collection $visits): array
     {
-        $visits = EventVisit::where('event_id', $this->event->id)->toBase()
-            ->selectRaw('source, sum(visits) as visits')->groupBy('source')->pluck('visits', 'source');
+        $visitsBySource = $visits->groupBy('source')->map(fn (Collection $rows) => $rows->sum('visits'));
         $orders = $this->paidSales()->toBase()
             // « channel » et non « source » : orders a déjà une colonne source (vente ou invitation).
             ->selectRaw("coalesce(referral, 'direct') as channel, count(*) as orders, sum(total) as revenue")
             ->groupBy('channel')->get()->keyBy('channel');
-        $tickets = $this->soldItems()->toBase()
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->selectRaw("coalesce(orders.referral, 'direct') as channel, sum(quantity) as tickets")
-            ->groupBy('channel')->pluck('tickets', 'channel');
 
-        return $visits->keys()->merge($orders->keys())->unique()
+        return $visitsBySource->keys()->merge($orders->keys())->unique()
             ->map(fn (string $source) => [
                 'source' => $source,
-                'visits' => (int) ($visits[$source] ?? 0),
+                'visits' => (int) ($visitsBySource[$source] ?? 0),
                 'orders' => (int) ($orders[$source]->orders ?? 0),
-                'tickets' => (int) ($tickets[$source] ?? 0),
                 'revenue' => (int) ($orders[$source]->revenue ?? 0),
             ])
             ->sortBy([['revenue', 'desc'], ['orders', 'desc'], ['visits', 'desc']])
             ->values()->all();
     }
 
-    /** @return list<array{hour: string, admitted: int}> entrées heure par heure (heure du lieu), heures creuses comprises */
-    private function checkInsByHour(string $tz): array
+    /**
+     * Entrées par heure (heure du lieu) des billets encore valables (commande payée) : une invitation
+     * retirée après son scan ne compte plus, comme dans les billets émis.
+     *
+     * @return Collection<string, object>
+     */
+    private function entriesByHour(string $tz): Collection
     {
-        $counts = $this->checkIns()
-            ->selectRaw("to_char(ticket_check_ins.scanned_at AT TIME ZONE 'UTC' AT TIME ZONE ?, 'YYYY-MM-DD\"T\"HH24:00') as hour, count(*) as admitted", [$tz])
-            ->groupBy('hour')->orderBy('hour')->pluck('admitted', 'hour');
-        if ($counts->isEmpty()) {
+        return TicketCheckIn::where('ticket_check_ins.event_id', $this->event->id)->toBase()
+            ->join('tickets', 'tickets.id', '=', 'ticket_check_ins.ticket_id')
+            ->join('orders', 'orders.id', '=', 'tickets.order_id')
+            ->where('orders.status', Order::PAID)
+            ->selectRaw("to_char(ticket_check_ins.scanned_at AT TIME ZONE 'UTC' AT TIME ZONE ?, 'YYYY-MM-DD\"T\"HH24:00') as hour, count(*) as admitted, sum(tickets.companions) as companions", [$tz])
+            ->groupBy('hour')->orderBy('hour')->get()->keyBy('hour');
+    }
+
+    /**
+     * Courbe des entrées : les 72 dernières heures de scan, heures creuses comprises.
+     *
+     * @param  Collection<string, object>  $entries
+     * @return list<array{hour: string, admitted: int}>
+     */
+    private static function hourly(Collection $entries): array
+    {
+        if ($entries->isEmpty()) {
             return [];
         }
 
-        $last = CarbonImmutable::parse($counts->keys()->last());
-        $first = CarbonImmutable::parse($counts->keys()->first())->max($last->subHours(self::MAX_HOURS - 1));
+        $last = CarbonImmutable::parse($entries->keys()->last());
+        $first = CarbonImmutable::parse($entries->keys()->first())->max($last->subHours(self::MAX_HOURS - 1));
         $series = [];
         for ($hour = $first; $hour->lte($last); $hour = $hour->addHour()) {
             $key = $hour->format('Y-m-d\TH:00');
-            $series[] = ['hour' => $key, 'admitted' => (int) ($counts[$key] ?? 0)];
+            $series[] = ['hour' => $key, 'admitted' => (int) ($entries[$key]->admitted ?? 0)];
         }
 
         return $series;

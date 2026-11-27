@@ -31,6 +31,25 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Jour « AAAA-MM-JJ » lu comme une date UTC (les jours sont déjà à l'heure du lieu). */
+const utcDay = (date: string) => new Date(`${date.slice(0, 10)}T00:00:00Z`);
+
+/** Ligne avec un nom, un montant, une jauge (0 à 1) et un détail. */
+function MeterRow({ name, amount, ratio, meta }: { name: string; amount: string; ratio: number; meta: string }) {
+  return (
+    <li>
+      <div className={styles.rowHead}>
+        <span className={styles.rowName}>{name}</span>
+        <span className={events.figures}>{amount}</span>
+      </div>
+      <span className={styles.meter} aria-hidden>
+        <span style={{ width: `${Math.min(1, Math.max(0, ratio)) * 100}%` }} />
+      </span>
+      <span className={styles.rowMeta}>{meta}</span>
+    </li>
+  );
+}
+
 /**
  * Statistiques d'un événement : chiffres clés, courbe jour par jour, canaux qui font vendre (liens
  * suivis), moyens de paiement, types de billets, entrées heure par heure, export comptable.
@@ -70,11 +89,11 @@ export default function StatisticsPage() {
       <section className={`${app.panel} ${events.twoFactor}`} aria-labelledby="stats-title">
         <ShieldCheck size={32} aria-hidden />
         <h1 id="stats-title" className={app.sectionTitle}>
-          {s.twoFactorTitle}
+          {t.sales.twoFactorTitle}
         </h1>
         <p className={events.sectionLede}>{format(s.twoFactorBody, { organization: organization.name })}</p>
         <Link href="/compte/securite" className={buttonClass()}>
-          {s.twoFactorCta}
+          {t.sales.twoFactorCta}
         </Link>
       </section>
       </main>
@@ -199,7 +218,7 @@ export default function StatisticsPage() {
               label={`${s.daily.title} · ${s.daily[metric]}`}
               formatValue={metricFormat}
               points={stats.daily.map((row) => {
-                const date = new Date(`${row.date}T00:00:00Z`);
+                const date = utcDay(row.date);
                 return { key: row.date, axis: day.format(date), label: longDay.format(date), value: row[metric] };
               })}
             />
@@ -219,7 +238,7 @@ export default function StatisticsPage() {
                   <tbody>
                     {[...stats.daily].reverse().map((row) => (
                       <tr key={row.date}>
-                        <th scope="row">{longDay.format(new Date(`${row.date}T00:00:00Z`))}</th>
+                        <th scope="row">{longDay.format(utcDay(row.date))}</th>
                         <td>{number(row.visits)}</td>
                         <td>{number(row.orders)}</td>
                         <td>{number(row.tickets)}</td>
@@ -245,18 +264,13 @@ export default function StatisticsPage() {
           ) : (
             <ul className={styles.rows}>
               {stats.sources.map((row) => (
-                <li key={row.source}>
-                  <div className={styles.rowHead}>
-                    <span className={styles.rowName}>{s.sources.names[row.source]}</span>
-                    <span className={events.figures}>{money(row.revenue)}</span>
-                  </div>
-                  <span className={styles.meter} aria-hidden>
-                    <span style={{ width: `${(row.visits / maxVisits) * 100}%` }} />
-                  </span>
-                  <span className={styles.rowMeta}>
-                    {number(row.visits)} {s.sources.visits.toLowerCase()} · {number(row.orders)} {s.sources.orders.toLowerCase()}
-                  </span>
-                </li>
+                <MeterRow
+                  key={row.source}
+                  name={s.sources.names[row.source]}
+                  amount={money(row.revenue)}
+                  ratio={row.visits / maxVisits}
+                  meta={`${number(row.visits)} ${s.sources.visits.toLowerCase()} · ${number(row.orders)} ${s.sources.orders.toLowerCase()}`}
+                />
               ))}
             </ul>
           )}
@@ -308,16 +322,13 @@ export default function StatisticsPage() {
           ) : (
             <ul className={styles.rows}>
               {stats.payments.map((row) => (
-                <li key={`${row.method}-${row.operator}`}>
-                  <div className={styles.rowHead}>
-                    <span className={styles.rowName}>{row.operator ? s.payments.operator[row.operator] : s.payments.method[row.method]}</span>
-                    <span className={events.figures}>{money(row.revenue)}</span>
-                  </div>
-                  <span className={styles.meter} aria-hidden>
-                    <span style={{ width: `${(row.orders / maxPaymentOrders) * 100}%` }} />
-                  </span>
-                  <span className={styles.rowMeta}>{format(s.payments.orders, { count: number(row.orders) })}</span>
-                </li>
+                <MeterRow
+                  key={`${row.method}-${row.operator}`}
+                  name={row.operator ? t.operators[row.operator] : t.sales.method[row.method]}
+                  amount={money(row.revenue)}
+                  ratio={row.orders / maxPaymentOrders}
+                  meta={format(s.payments.orders, { count: number(row.orders) })}
+                />
               ))}
             </ul>
           )}
@@ -325,20 +336,17 @@ export default function StatisticsPage() {
 
         <section className={app.panel} aria-labelledby="types-title">
           <h2 id="types-title" className={events.subheading}>
-            {s.types.title}
+            {s.typesTitle}
           </h2>
           <ul className={styles.rows}>
             {stats.ticket_types.map((type) => (
-              <li key={type.id}>
-                <div className={styles.rowHead}>
-                  <span className={styles.rowName}>{type.name}</span>
-                  <span className={events.figures}>{money(type.revenue)}</span>
-                </div>
-                <span className={styles.meter} aria-hidden>
-                  <span style={{ width: `${type.quantity > 0 ? Math.min(100, (type.sold / type.quantity) * 100) : 0}%` }} />
-                </span>
-                <span className={styles.rowMeta}>{format(s.types.soldOf, { sold: number(type.sold), quantity: number(type.quantity) })}</span>
-              </li>
+              <MeterRow
+                key={type.id}
+                name={type.name}
+                amount={money(type.revenue)}
+                ratio={type.quantity > 0 ? type.sold / type.quantity : 0}
+                meta={format(t.sales.soldOf, { sold: number(type.sold), quantity: number(type.quantity) })}
+              />
             ))}
           </ul>
         </section>
@@ -357,7 +365,7 @@ export default function StatisticsPage() {
             points={stats.check_ins.map((row) => ({
               key: row.hour,
               axis: row.hour.slice(11, 16),
-              label: `${longDay.format(new Date(`${row.hour.slice(0, 10)}T00:00:00Z`))} ${row.hour.slice(11, 16)}`,
+              label: `${longDay.format(utcDay(row.hour))} ${row.hour.slice(11, 16)}`,
               value: row.admitted,
             }))}
           />

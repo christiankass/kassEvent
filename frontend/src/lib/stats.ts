@@ -4,13 +4,11 @@ import type { Source } from "./referral";
 /** Statistiques d'un événement (GET /events/{id}/stats). Montants en unités mineures. */
 export type EventStats = {
   currency: Currency;
-  timezone: string;
   published: boolean;
   url: string;
   qr_svg: string;
   summary: {
     revenue: number;
-    commission: number;
     net: number;
     orders: number;
     tickets_sold: number;
@@ -25,9 +23,9 @@ export type EventStats = {
     attendance: number | null;
   };
   daily: { date: string; orders: number; tickets: number; revenue: number; visits: number }[];
-  ticket_types: { id: string; name: string; price: number; quantity: number; sold: number; revenue: number }[];
+  ticket_types: { id: string; name: string; quantity: number; sold: number; revenue: number }[];
   payments: { method: "mobile_money" | "card" | "free"; operator: "vodacom" | "orange" | "airtel" | null; orders: number; revenue: number }[];
-  sources: { source: Source; visits: number; orders: number; tickets: number; revenue: number }[];
+  sources: { source: Source; visits: number; orders: number; revenue: number }[];
   check_ins: { hour: string; admitted: number }[];
 };
 

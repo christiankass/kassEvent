@@ -18,11 +18,10 @@ return [
         'source' => 'Source',
     ],
     'method' => ['mobile_money' => 'Mobile money', 'card' => 'Carte', 'free' => 'Gratuit'],
-    'operator' => ['vodacom' => 'M-Pesa (Vodacom)', 'orange' => 'Orange Money', 'airtel' => 'Airtel Money'],
     'source' => [
         'whatsapp' => 'WhatsApp', 'facebook' => 'Facebook', 'instagram' => 'Instagram', 'tiktok' => 'TikTok',
         'linkedin' => 'LinkedIn', 'messenger' => 'Messenger', 'email' => 'E-mail', 'sms' => 'SMS',
-        'qr' => 'QR code (affiche)', 'link' => 'Lien copié', 'search' => 'Moteur de recherche',
-        'other' => 'Autre site', 'direct' => 'Accès direct',
+        'qr' => 'QR code (affiche)', 'link' => 'Lien copié', 'search' => 'Recherche Google',
+        'other' => 'Autres sites', 'direct' => 'Accès direct',
     ],
 ];

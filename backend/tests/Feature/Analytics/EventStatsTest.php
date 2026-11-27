@@ -116,9 +116,9 @@ class EventStatsTest extends TestCase
             ->json('data');
 
         $sources = collect($stats['sources'])->keyBy('source');
-        $this->assertSame(['visits' => 3, 'orders' => 1, 'tickets' => 2, 'revenue' => 4000], collect($sources['whatsapp'])->except('source')->all());
-        $this->assertSame(['visits' => 1, 'orders' => 1, 'tickets' => 1, 'revenue' => 2000], collect($sources['facebook'])->except('source')->all());
-        $this->assertSame(['visits' => 1, 'orders' => 1, 'tickets' => 3, 'revenue' => 0], collect($sources['direct'])->except('source')->all());
+        $this->assertSame(['visits' => 3, 'orders' => 1, 'revenue' => 4000], collect($sources['whatsapp'])->except('source')->all());
+        $this->assertSame(['visits' => 1, 'orders' => 1, 'revenue' => 2000], collect($sources['facebook'])->except('source')->all());
+        $this->assertSame(['visits' => 1, 'orders' => 1, 'revenue' => 0], collect($sources['direct'])->except('source')->all());
         $this->assertSame(1, $sources['other']['visits']);
         $this->assertArrayNotHasKey('tiktok', $sources->all());
         $this->assertSame('whatsapp', $stats['sources'][0]['source']);
@@ -205,7 +205,7 @@ class EventStatsTest extends TestCase
         $response = $this->get("/api/v1/events/{$this->event['id']}/stats/export", [...$this->headers(), 'Accept-Language' => 'fr'])->assertOk();
         $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
         $this->assertStringContainsString('attachment', $response->headers->get('Content-Disposition'));
-        $lines = array_values(array_filter(explode("\n", $response->streamedContent())));
+        $lines = array_values(array_filter(explode("\n", $response->getContent())));
 
         $this->assertCount(2, $lines);
         $this->assertStringStartsWith("\xEF\xBB\xBF".'"Date du paiement";Référence;', $lines[0]);

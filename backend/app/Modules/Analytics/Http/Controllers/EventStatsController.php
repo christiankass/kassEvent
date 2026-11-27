@@ -5,12 +5,11 @@ namespace App\Modules\Analytics\Http\Controllers;
 use App\Modules\Analytics\Support\EventStatistics;
 use App\Modules\Analytics\Support\Referral;
 use App\Modules\Events\Models\Event;
-use App\Modules\Payouts\Models\LedgerEntry;
-use App\Modules\Tenancy\Support\TenantContext;
+use App\Modules\Events\Support\Money;
 use App\Modules\Ticketing\Support\QrCode;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Statistiques d'un événement et export comptable (reports.view, double authentification pour les
@@ -29,7 +28,6 @@ final class EventStatsController
             'url' => $url,
             // Affiche imprimée, flyer : les entrées par ce QR code sont comptées à part.
             'qr_svg' => QrCode::svg($url.'?src=qr'),
-            'sources_available' => Referral::SOURCES,
         ]]);
     }
 
@@ -38,32 +36,28 @@ final class EventStatsController
      * net. Séparateurs à la française (« ; » et virgule décimale) quand la langue est le français,
      * pour l'ouvrir tel quel dans Excel.
      */
-    public function export(string $id): StreamedResponse
+    public function export(string $id): Response
     {
         $event = Event::findOrFail($id);
         $french = app()->getLocale() === 'fr';
         $separator = $french ? ';' : ',';
-        $decimals = $event->currency === 'CDF' ? 0 : 2;
-        $amount = fn (int $minor) => number_format($minor / (10 ** $decimals), $decimals, $french ? ',' : '.', '');
+        $decimals = Money::allowsCents($event->currency) ? 2 : 0;
+        $amount = fn (int $minor) => number_format($minor / 100, $decimals, $french ? ',' : '.', '');
 
-        $orders = (new EventStatistics($event))->paidSales()
-            ->with(['items', 'succeededPayment'])->orderBy('paid_at')->orderBy('id');
-        $filename = 'kassevent-'.Str::limit($event->slug, 60, '').'-ventes.csv';
+        // Écrit pendant la requête (contexte de l'organisation ouvert) : quelques milliers de lignes au plus.
+        $out = fopen('php://temp', 'w+');
+        fwrite($out, "\xEF\xBB\xBF"); // BOM : Excel lit l'UTF-8 (accents)
+        fputcsv($out, array_map(fn ($key) => __("analytics.export.{$key}"), [
+            'paid_at', 'reference', 'buyer', 'email', 'tickets', 'details', 'total', 'commission', 'net',
+            'currency', 'method', 'operator', 'provider_reference', 'source',
+        ]), $separator, escape: '');
 
-        // Le fichier s'écrit après la fin du middleware « tenant » : on rouvre le contexte de l'organisation.
-        return response()->streamDownload(fn () => app(TenantContext::class)->run($event->organization_id, function () use ($orders, $separator, $amount, $event) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF"); // BOM : Excel lit l'UTF-8 (accents)
-            fputcsv($out, array_map(fn ($key) => __("analytics.export.{$key}"), [
-                'paid_at', 'reference', 'buyer', 'email', 'tickets', 'details', 'total', 'commission', 'net',
-                'currency', 'method', 'operator', 'provider_reference', 'source',
-            ]), $separator, escape: '');
-
-            $orders->chunk(500, function ($chunk) use ($out, $separator, $amount, $event) {
-                $commissions = LedgerEntry::where('type', LedgerEntry::COMMISSION)
-                    ->whereIn('order_id', $chunk->modelKeys())->pluck('amount', 'order_id');
+        (new EventStatistics($event))->paidSales()->with(['items', 'succeededPayment'])
+            ->orderBy('paid_at')->orderBy('id')
+            ->chunk(500, function ($chunk) use ($out, $separator, $amount, $event) {
+                $commissions = EventStatistics::commissions($chunk->modelKeys());
                 foreach ($chunk as $order) {
-                    $commission = -(int) ($commissions[$order->id] ?? 0);
+                    $commission = $commissions[$order->id] ?? 0;
                     $payment = $order->succeededPayment;
                     fputcsv($out, array_map(self::cell(...), [
                         $order->paid_at?->setTimezone($event->timezone)->format('Y-m-d H:i'),
@@ -76,15 +70,24 @@ final class EventStatsController
                         $amount($commission),
                         $amount($order->total - $commission),
                         $order->currency,
-                        $order->total === 0 ? __('analytics.method.free') : __('analytics.method.'.($payment->method ?? 'free')),
-                        $payment?->operator ? __("analytics.operator.{$payment->operator}") : '',
+                        __('analytics.method.'.($order->total === 0 ? 'free' : ($payment->method ?? 'free'))),
+                        $payment?->operator ? __("payouts.operators.{$payment->operator}") : '',
                         $payment?->provider_reference ?? '',
                         __('analytics.source.'.($order->referral ?? Referral::DIRECT)),
                     ]), $separator, escape: '');
                 }
             });
-            fclose($out);
-        }), $filename, ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store']);
+        rewind($out);
+        $csv = stream_get_contents($out);
+        fclose($out);
+
+        $filename = 'kassevent-'.Str::limit($event->slug, 60, '').'-ventes.csv';
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     /**

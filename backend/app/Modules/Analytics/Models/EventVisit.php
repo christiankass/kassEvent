@@ -4,7 +4,6 @@ namespace App\Modules\Analytics\Models;
 
 use App\Modules\Events\Models\Event;
 use App\Modules\Tenancy\Concerns\BelongsToOrganization;
-use App\Modules\Tenancy\Support\TenantContext;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -24,16 +23,19 @@ class EventVisit extends Model
         return ['day' => 'date:Y-m-d', 'visits' => 'integer'];
     }
 
-    /** Une visite de plus, en une requête (deux visites simultanées ne s'écrasent pas). */
+    /**
+     * Une visite de plus, en une requête (deux visites simultanées ne s'écrasent pas). À appeler dans
+     * le contexte de l'organisation de l'événement.
+     */
     public static function record(Event $event, string $source): void
     {
-        app(TenantContext::class)->run($event->organization_id, fn () => static::query()->upsert([[
+        static::query()->upsert([[
             'id' => (string) Str::uuid7(),
             'organization_id' => $event->organization_id,
             'event_id' => $event->id,
             'day' => now($event->timezone)->toDateString(),
             'source' => $source,
             'visits' => 1,
-        ]], ['event_id', 'day', 'source'], ['visits' => DB::raw('event_visits.visits + 1')]));
+        ]], ['event_id', 'day', 'source'], ['visits' => DB::raw('event_visits.visits + 1')]);
     }
 }

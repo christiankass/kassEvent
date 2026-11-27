@@ -186,6 +186,16 @@ class Order extends Model implements Payable
     }
 
     /**
+     * Ventes encaissées : commandes payées de la page publique (pas les invitations nominatives).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopePaidSales(Builder $query): void
+    {
+        $query->where('source', self::SALE)->where('status', self::PAID);
+    }
+
+    /**
      * Commandes qui occupent des places : payées, ou en attente et pas encore expirées.
      *
      * @param  Builder<self>  $query

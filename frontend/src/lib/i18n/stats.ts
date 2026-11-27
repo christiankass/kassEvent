@@ -31,16 +31,12 @@ export const statsFr = {
       table: "Voir le tableau",
       date: "Date",
       orders: "Commandes",
-      tooltip: "{date} : {value}",
     },
     sources: {
       title: "D'où viennent vos acheteurs",
-      lede: "Chaque lien partagé depuis kassEvent porte le nom de son canal. Partagez le bon lien sur chaque réseau pour savoir lequel fait vendre.",
       empty: "Aucune visite comptée pour l'instant.",
-      source: "Canal",
       visits: "Visites",
       orders: "Commandes",
-      revenue: "Montant",
       best: "{source} vous rapporte le plus : {amount}.",
       names: {
         whatsapp: "WhatsApp",
@@ -71,22 +67,14 @@ export const statsFr = {
     payments: {
       title: "Moyens de paiement",
       empty: "Aucun paiement pour l'instant.",
-      method: { mobile_money: "Mobile money", card: "Carte bancaire", free: "Gratuit" },
-      operator: { vodacom: "M-Pesa", orange: "Orange Money", airtel: "Airtel Money" },
       orders: "{count} commande(s)",
     },
-    types: {
-      title: "Par type de billet",
-      soldOf: "{sold} / {quantity}",
-    },
+    typesTitle: "Par type de billet",
     checkIns: {
       title: "Entrées heure par heure",
       empty: "Les entrées s'afficheront ici dès les premiers scans.",
-      tooltip: "{hour} : {count} entrée(s)",
     },
-    twoFactorTitle: "Activez la double authentification",
     twoFactorBody: "Les statistiques montrent l'argent encaissé par {organization}. Pour votre rôle, la double authentification est obligatoire.",
-    twoFactorCta: "Activer la double authentification",
     forbidden: "Votre rôle ne donne pas accès aux statistiques.",
   },
 };
@@ -123,16 +111,12 @@ export const statsEn: typeof statsFr = {
       table: "Show the table",
       date: "Date",
       orders: "Orders",
-      tooltip: "{date}: {value}",
     },
     sources: {
       title: "Where your buyers come from",
-      lede: "Every link shared from kassEvent carries the name of its channel. Share the right link on each network to see which one sells.",
       empty: "No visits counted yet.",
-      source: "Channel",
       visits: "Visits",
       orders: "Orders",
-      revenue: "Amount",
       best: "{source} brings you the most: {amount}.",
       names: {
         whatsapp: "WhatsApp",
@@ -163,22 +147,14 @@ export const statsEn: typeof statsFr = {
     payments: {
       title: "Payment methods",
       empty: "No payments yet.",
-      method: { mobile_money: "Mobile money", card: "Bank card", free: "Free" },
-      operator: { vodacom: "M-Pesa", orange: "Orange Money", airtel: "Airtel Money" },
       orders: "{count} order(s)",
     },
-    types: {
-      title: "By ticket type",
-      soldOf: "{sold} / {quantity}",
-    },
+    typesTitle: "By ticket type",
     checkIns: {
       title: "Entries hour by hour",
       empty: "Entries will show here as soon as scanning starts.",
-      tooltip: "{hour}: {count} entry(ies)",
     },
-    twoFactorTitle: "Turn on two-step verification",
     twoFactorBody: "Statistics show the money collected by {organization}. For your role, two-step verification is required.",
-    twoFactorCta: "Turn on two-step verification",
     forbidden: "Your role does not give access to statistics.",
   },
 };

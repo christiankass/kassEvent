@@ -5,6 +5,7 @@ namespace App\Modules\Analytics\Http\Controllers;
 use App\Modules\Analytics\Models\EventVisit;
 use App\Modules\Analytics\Support\Referral;
 use App\Modules\Events\Models\Event;
+use App\Modules\Tenancy\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -17,7 +18,7 @@ final class PublicVisitController
     public function __invoke(Request $request, string $slug): Response
     {
         $event = Event::publiclyVisible()->where('slug', $slug)->firstOrFail();
-        EventVisit::record($event, Referral::normalize($request->input('source')));
+        app(TenantContext::class)->run($event->organization_id, fn () => EventVisit::record($event, Referral::normalize($request->input('source'))));
 
         return response()->noContent();
     }
