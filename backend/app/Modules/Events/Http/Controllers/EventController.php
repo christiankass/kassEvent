@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Http\Controllers;
 
+use App\Modules\Contributions\Models\Contribution;
 use App\Modules\Events\Http\Requests\EventRequest;
 use App\Modules\Events\Http\Resources\EventResource;
 use App\Modules\Events\Models\Event;
@@ -94,6 +95,10 @@ final class EventController
         }
         if (Inventory::eventHasOrders($event->id)) {
             throw ValidationException::withMessages(['event' => __('ticketing.event_has_orders')]);
+        }
+        // L'argent reçu sur le livre d'or (contributions) doit rester traçable.
+        if (Contribution::whereHas('book', fn ($book) => $book->where('event_id', $event->id))->exists()) {
+            throw ValidationException::withMessages(['event' => __('contributions.event_has_contributions')]);
         }
 
         DB::transaction(function () use ($event) {

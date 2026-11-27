@@ -28,7 +28,7 @@ class WishBook extends Model
     public const TONES = ['celebration', 'tribute', 'guestbook'];
 
     /** @var array<string, mixed> */
-    protected $attributes = ['open' => true, 'public' => true, 'tone' => 'celebration'];
+    protected $attributes = ['open' => true, 'public' => true, 'tone' => 'celebration', 'contributions_open' => false];
 
     public function newUniqueId(): string
     {
@@ -37,7 +37,7 @@ class WishBook extends Model
 
     protected function casts(): array
     {
-        return ['open' => 'boolean', 'public' => 'boolean'];
+        return ['open' => 'boolean', 'public' => 'boolean', 'contributions_open' => 'boolean'];
     }
 
     /** @return BelongsTo<Event, $this> */

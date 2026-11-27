@@ -6,6 +6,8 @@ use App\Modules\Access\Http\Controllers\MemberController;
 use App\Modules\Access\Http\Middleware\RequireTwoFactorForMoney;
 use App\Modules\CheckIn\Http\Controllers\CheckInController;
 use App\Modules\Communication\Http\Controllers\MetaWebhookController;
+use App\Modules\Contributions\Http\Controllers\ContributionController;
+use App\Modules\Contributions\Http\Controllers\PublicContributionController;
 use App\Modules\Events\Http\Controllers\EventController;
 use App\Modules\Events\Http\Controllers\EventDesignController;
 use App\Modules\Events\Http\Controllers\PublicEventController;
@@ -75,6 +77,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->middleware('throttle:public')->whereUuid('id')->name('public.wish-books.show');
     Route::post('/public/wish-books/{id}/wishes', [PublicWishController::class, 'store'])
         ->middleware('throttle:wishes')->whereUuid('id')->name('public.wish-books.wishes.store');
+    // Contribution (soutien, cadeau) depuis la page du livre, puis suivi du paiement par le lien personnel.
+    Route::post('/public/wish-books/{id}/contributions', [PublicContributionController::class, 'store'])
+        ->middleware('throttle:checkout')->whereUuid('id')->name('public.contributions.store');
+    Route::get('/public/contributions/{id}', [PublicContributionController::class, 'show'])
+        ->middleware('throttle:order')->whereUuid('id')->name('public.contributions.show');
+    Route::post('/public/contributions/{id}/payments', [PublicContributionController::class, 'pay'])
+        ->middleware('throttle:checkout')->whereUuid('id')->name('public.contributions.pay');
 
     // Notifications des prestataires de paiement (adresses à déclarer chez pawaPay et Stripe).
     Route::prefix('webhooks')->name('webhooks.')->middleware('throttle:webhooks')->group(function () {
@@ -200,10 +209,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // Compte de perception et reversements, sous la même protection.
             Route::middleware(['can:payouts.view', RequireTwoFactorForMoney::class])->group(function () {
                 Route::get('/payouts', [PayoutController::class, 'index'])->name('payouts.index');
+                // Contributions reçues sur le livre d'or d'un événement.
+                Route::get('/events/{id}/contributions', [ContributionController::class, 'index'])->whereUuid('id')->name('events.contributions.index');
 
                 Route::middleware('can:payouts.manage')->group(function () {
                     Route::post('/payouts', [PayoutController::class, 'store'])->middleware('throttle:payouts')->name('payouts.store');
                     Route::put('/payouts/account', [PayoutAccountController::class, 'update'])->middleware('throttle:payouts')->name('payouts.account.update');
+                    Route::put('/events/{id}/contributions/settings', [ContributionController::class, 'settings'])
+                        ->middleware('throttle:payouts')->whereUuid('id')->name('events.contributions.settings');
                 });
             });
 

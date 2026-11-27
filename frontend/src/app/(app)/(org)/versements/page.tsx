@@ -24,7 +24,7 @@ const POLL_MS = 5000;
 
 /**
  * Compte de perception de l'organisation : soldes par devise, compte de reversement,
- * reversements et opérations (ventes, commissions).
+ * reversements et opérations (ventes, commissions, contributions des livres d'or).
  */
 export default function PayoutsPage() {
   const { t, locale } = useI18n();
@@ -242,9 +242,15 @@ function BalanceCard({
           <dt>{format(t.payouts.commission, { rate })}</dt>
           <dd>− {money(balance.commission, currency)}</dd>
         </div>
+        {balance.contributions > 0 && (
+          <div>
+            <dt>{t.payouts.contributions}</dt>
+            <dd>{money(balance.contributions, currency)}</dd>
+          </div>
+        )}
         <div className={styles.splitTotal}>
           <dt>{t.payouts.net}</dt>
-          <dd>{money(balance.sales - balance.commission, currency)}</dd>
+          <dd>{money(balance.sales - balance.commission + balance.contributions, currency)}</dd>
         </div>
       </dl>
     </section>
@@ -287,7 +293,7 @@ function PayoutRow({ payout, money }: { payout: Payout; money: Money }) {
 function EntryRow({ entry, money }: { entry: LedgerEntry; money: Money }) {
   const { t, locale } = useI18n();
   const date = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
-  const held = entry.type === "sale" && new Date(entry.available_at) > new Date();
+  const held = (entry.type === "sale" || entry.type === "contribution") && new Date(entry.available_at) > new Date();
   const details = [
     entry.label,
     entry.reference,

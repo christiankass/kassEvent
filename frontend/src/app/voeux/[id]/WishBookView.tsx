@@ -13,6 +13,7 @@ import { ticketFontVariables } from "@/lib/ticket-fonts";
 import { formatWishDate, type PublicWishBook, type WishTone } from "@/lib/wishes";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { ContributeForm } from "./ContributeForm";
 import styles from "./wishes.module.css";
 
 /**
@@ -78,6 +79,7 @@ export function WishBookView() {
         ) : (
           <>
             <Hero book={book} />
+            {book.contributions && <ContributeForm bookId={id} tone={book.tone} options={book.contributions} />}
             {book.open ? <WishForm tone={book.tone} bookId={id} onSent={load} /> : <section className={styles.card}><p>{t.wishes.page.closed}</p></section>}
             <Wall book={book} />
           </>

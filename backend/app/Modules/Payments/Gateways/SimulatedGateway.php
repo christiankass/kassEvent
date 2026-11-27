@@ -2,8 +2,8 @@
 
 namespace App\Modules\Payments\Gateways;
 
+use App\Modules\Payments\Contracts\Payable;
 use App\Modules\Payments\Models\Payment;
-use App\Modules\Ticketing\Models\Order;
 use Illuminate\Support\Facades\URL;
 
 /**
@@ -17,7 +17,7 @@ final class SimulatedGateway implements PaymentGateway
 {
     public const DECLINED_SUFFIX = '0000';
 
-    public function start(Payment $payment, Order $order, string $returnUrl): ?GatewayStatus
+    public function start(Payment $payment, Payable $payable, string $returnUrl): ?GatewayStatus
     {
         $payment->provider_reference = 'SIM-'.$payment->id;
 

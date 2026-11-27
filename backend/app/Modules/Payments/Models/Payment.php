@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Une tentative de paiement d'une commande (une commande peut en avoir plusieurs si l'acheteur
+ * Une tentative de paiement d'une commande ou d'une contribution (plusieurs si la personne
  * réessaie). Son identifiant sert de référence chez pawaPay (depositId) et Stripe (client_reference_id).
  */
 class Payment extends Model

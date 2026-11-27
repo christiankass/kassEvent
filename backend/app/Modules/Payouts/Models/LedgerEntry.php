@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Une ligne du compte de perception d'une organisation : vente (+), commission kassEvent (−),
+ * contribution sur un livre d'or (+, sans commission),
  * reversement (−) ou reversement échoué rendu au solde (+). Jamais modifiée ni supprimée.
  */
 class LedgerEntry extends Model
@@ -17,6 +18,8 @@ class LedgerEntry extends Model
     public const SALE = 'sale';
 
     public const COMMISSION = 'commission';
+
+    public const CONTRIBUTION = 'contribution';
 
     public const PAYOUT = 'payout';
 

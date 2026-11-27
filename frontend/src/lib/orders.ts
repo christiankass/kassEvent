@@ -1,5 +1,6 @@
 import type { Currency } from "./api";
 import type { TicketDesign } from "./designs";
+import type { Dictionary } from "./i18n/dictionaries";
 
 export const OPERATORS = ["vodacom", "orange", "airtel"] as const;
 export type Operator = (typeof OPERATORS)[number];
@@ -96,4 +97,10 @@ export type SalesSummary = {
 /** Lien personnel de la commande (la clé n'est jamais stockée ailleurs que dans ce lien). */
 export function orderPath(id: string, key: string): string {
   return `/commande/${id}?cle=${encodeURIComponent(key)}`;
+}
+
+/** Raison d'un paiement refusé, dans la langue de la personne (« solde insuffisant »…). */
+export function paymentFailureMessage(code: string | null, t: Dictionary): string {
+  const failures = t.order.failures as Record<string, string>;
+  return (code && failures[code]) || failures.other;
 }

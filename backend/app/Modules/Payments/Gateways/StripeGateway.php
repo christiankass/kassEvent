@@ -2,8 +2,8 @@
 
 namespace App\Modules\Payments\Gateways;
 
+use App\Modules\Payments\Contracts\Payable;
 use App\Modules\Payments\Models\Payment;
-use App\Modules\Ticketing\Models\Order;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
@@ -18,22 +18,22 @@ final class StripeGateway implements PaymentGateway
 
     public function __construct(private readonly string $secretKey) {}
 
-    public function start(Payment $payment, Order $order, string $returnUrl): ?GatewayStatus
+    public function start(Payment $payment, Payable $payable, string $returnUrl): ?GatewayStatus
     {
         $lines = [];
-        foreach ($order->items as $i => $item) {
-            $lines["line_items[{$i}][quantity]"] = $item->quantity;
+        foreach ($payable->paymentLines($payment->method) as $i => $line) {
+            $lines["line_items[{$i}][quantity]"] = $line['quantity'];
             $lines["line_items[{$i}][price_data][currency]"] = strtolower($payment->currency);
-            $lines["line_items[{$i}][price_data][unit_amount]"] = $item->unit_price;
-            $lines["line_items[{$i}][price_data][product_data][name]"] = "{$order->event->title} · {$item->name}";
+            $lines["line_items[{$i}][price_data][unit_amount]"] = $line['unit_amount'];
+            $lines["line_items[{$i}][price_data][product_data][name]"] = $line['name'];
         }
 
         $session = $this->http()->asForm()->post('/v1/checkout/sessions', [
             'mode' => 'payment',
             'client_reference_id' => $payment->id,
             'metadata[payment_id]' => $payment->id,
-            'customer_email' => $order->buyer_email,
-            'locale' => $order->locale === 'en' ? 'en' : 'fr',
+            'customer_email' => $payable->payerEmail(),
+            'locale' => $payable->paymentLocale() === 'en' ? 'en' : 'fr',
             'expires_at' => now()->addMinutes(self::SESSION_MINUTES)->addMinute()->getTimestamp(),
             'success_url' => $returnUrl,
             'cancel_url' => $returnUrl,

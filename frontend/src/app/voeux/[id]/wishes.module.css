@@ -239,3 +239,117 @@
 .wishMeta strong {
   color: var(--fg);
 }
+
+/* Contribution (soutien, cadeau) : carte bordée de la couleur d'accent de l'événement. */
+.contribute {
+  border-color: color-mix(in srgb, var(--invite-accent) 45%, var(--line));
+}
+
+.contributeTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.contributeTitle svg {
+  flex: none;
+  color: var(--invite-primary);
+}
+
+.choiceGroup {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  font-weight: 700;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
+.chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip[data-checked="true"] {
+  color: var(--invite-on-primary);
+  background: var(--invite-primary);
+  border-color: var(--invite-primary);
+}
+
+.chip:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.summary {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg);
+  border-radius: var(--r-md);
+}
+
+.summary dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.summary dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary dt {
+  color: var(--muted);
+}
+
+.summary dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.summary .summaryTotal {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.summaryTotal dt,
+.summaryTotal dd {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--fg);
+}

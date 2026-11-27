@@ -73,7 +73,10 @@ final class WishController
     /** @return array<string, mixed> */
     public static function bookPayload(WishBook $book): array
     {
-        return ['id' => $book->id, 'open' => $book->open, 'public' => $book->public, 'tone' => $book->tone, 'url' => $book->publicUrl()];
+        return [
+            'id' => $book->id, 'open' => $book->open, 'public' => $book->public, 'tone' => $book->tone, 'url' => $book->publicUrl(),
+            'contributions_open' => $book->contributions_open, 'beneficiary' => $book->beneficiary,
+        ];
     }
 
     /** @return array<string, mixed> */

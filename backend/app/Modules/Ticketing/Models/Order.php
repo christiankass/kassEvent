@@ -4,6 +4,7 @@ namespace App\Modules\Ticketing\Models;
 
 use App\Modules\Communication\Models\Delivery;
 use App\Modules\Events\Models\Event;
+use App\Modules\Payments\Contracts\Payable;
 use App\Modules\Payments\Models\Payment;
 use App\Modules\Tenancy\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,7 +20,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
  * réservées jusqu'à expires_at ; ensuite elles redeviennent disponibles (aucune tâche à lancer :
  * le calcul des places restantes ignore les commandes expirées).
  */
-class Order extends Model
+class Order extends Model implements Payable
 {
     use BelongsToOrganization, HasUuids;
 
@@ -132,6 +133,45 @@ class Order extends Model
     public function publicUrl(): string
     {
         return config('app.frontend_url').'/commande/'.$this->id.'?cle='.urlencode($this->access_key);
+    }
+
+    public function paymentOwner(): array
+    {
+        return ['order_id' => $this->id];
+    }
+
+    public function amountToCharge(string $method): int
+    {
+        return $this->total;
+    }
+
+    public function paymentCurrency(): string
+    {
+        return $this->currency;
+    }
+
+    public function paymentReference(): string
+    {
+        return $this->reference;
+    }
+
+    public function paymentLines(string $method): array
+    {
+        $title = $this->event->title;
+
+        return $this->items->map(fn (OrderItem $item) => [
+            'name' => "{$title} · {$item->name}", 'quantity' => $item->quantity, 'unit_amount' => $item->unit_price,
+        ])->values()->all();
+    }
+
+    public function payerEmail(): ?string
+    {
+        return $this->buyer_email;
+    }
+
+    public function paymentLocale(): string
+    {
+        return $this->locale;
     }
 
     /**
