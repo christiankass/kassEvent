@@ -1,6 +1,7 @@
 import { contributionsEn, contributionsFr } from "./contributions";
 import { guestsEn, guestsFr } from "./guests";
 import { homeEn, homeFr } from "./landing";
+import { statsEn, statsFr } from "./stats";
 import { wishesEn, wishesFr } from "./wishes";
 
 const fr = {
@@ -873,6 +874,7 @@ const fr = {
     close: "Fermer",
   },
   sales: {
+    seeStats: "Voir les statistiques",
     title: "Ventes",
     revenue: "Encaissé",
     sold: "Billets vendus",
@@ -1023,6 +1025,7 @@ const fr = {
   ...guestsFr,
   ...wishesFr,
   ...contributionsFr,
+  ...statsFr,
 };
 
 export type Dictionary = typeof fr;
@@ -1896,6 +1899,7 @@ const en: Dictionary = {
     close: "Close",
   },
   sales: {
+    seeStats: "See statistics",
     title: "Sales",
     revenue: "Collected",
     sold: "Tickets sold",
@@ -2046,6 +2050,7 @@ const en: Dictionary = {
   ...guestsEn,
   ...wishesEn,
   ...contributionsEn,
+  ...statsEn,
 };
 
 export const LOCALES = ["fr", "en"] as const;

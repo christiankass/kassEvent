@@ -2,6 +2,7 @@
 
 namespace App\Modules\Ticketing\Http\Requests;
 
+use App\Modules\Analytics\Support\Referral;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -23,6 +24,8 @@ final class StoreOrderRequest extends FormRequest
             'whatsapp' => ['nullable', 'string', 'max:25'],
             // Tirée au hasard par la page d'achat : un envoi répété rend la même commande.
             'idempotency_key' => ['nullable', 'uuid'],
+            // Source de la visite (lien partagé sur WhatsApp, Facebook…) : sert aux statistiques.
+            'referral' => ['nullable', 'string', 'max:40'],
             // Le paiement est obligatoire sauf pour une commande gratuite (vérifié une fois le total connu).
             ...$this->paymentRules(required: false),
         ];
@@ -59,6 +62,11 @@ final class StoreOrderRequest extends FormRequest
         $key = $this->validated('idempotency_key');
 
         return $key === null ? null : strtolower($key);
+    }
+
+    public function referral(): string
+    {
+        return Referral::normalize($this->validated('referral'));
     }
 
     /** @return array{name: string, email: string} */

@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { ArrowLeft, Armchair, BookOpenText, Info, Lock, MagicWand, PaintBrush } from "@phosphor-icons/react";
+import { ArrowLeft, Armchair, BookOpenText, ChartBar, Info, Lock, MagicWand, PaintBrush } from "@phosphor-icons/react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import styles from "./events.module.css";
 
 /**
  * Onglets de l'espace de travail d'un événement : informations et billets, studio, billet simple,
- * invités, livre d'or (vœux ou condoléances). Sans `eventId` (création), seuls les informations sont ouvertes : le reste s'ouvre
+ * invités, livre d'or (vœux ou condoléances), statistiques. Sans `eventId` (création), seuls les informations sont ouvertes : le reste s'ouvre
  * dès que le brouillon est créé.
  */
 export function WorkspaceNav({ eventId, wide = false }: { eventId?: string; wide?: boolean }) {
@@ -23,6 +23,7 @@ export function WorkspaceNav({ eventId, wide = false }: { eventId?: string; wide
     { path: "/personnaliser", label: w.look, icon: <PaintBrush size={20} aria-hidden /> },
     { path: "/invites", label: w.guests, icon: <Armchair size={20} aria-hidden /> },
     { path: "/voeux", label: w.wishes, icon: <BookOpenText size={20} aria-hidden /> },
+    { path: "/statistiques", label: t.stats.tab, icon: <ChartBar size={20} aria-hidden /> },
   ];
 
   return (

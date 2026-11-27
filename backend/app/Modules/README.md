@@ -45,3 +45,9 @@ Aucun jeton n'est stocké dans le navigateur. L'en-tête `Accept-Language` (fr o
 - Table `deliveries` : un envoi par commande et par canal. Lancé à l'émission des billets (événement `TicketsIssued` de Ticketing).
 - Messenger passe par un lien m.me à usage unique (une page ne peut écrire qu'à qui lui a écrit) ; notifications Meta signées sur `/webhooks/meta`.
 - Détails et passage en réel : `app/Modules/Communication/README.md`.
+
+## Statistiques (module Analytics)
+
+- Table `event_visits` : visites de la page publique, un compteur par jour (heure du lieu) et par source. Aucune donnée sur le visiteur.
+- Source : le lien partagé porte `?src=whatsapp` (facebook, tiktok, qr…). La page la retient 30 jours dans le navigateur et la joint à la commande (`orders.referral`). Liste fermée dans `Analytics\Support\Referral` : une valeur inconnue devient `other`.
+- `GET /events/{id}/stats` et `GET /events/{id}/stats/export` (CSV comptable) : permission `reports.view`, double authentification pour les rôles argent. Le CSV neutralise les cellules qui commencent par `=`, `+`, `-` ou `@` (formules de tableur).

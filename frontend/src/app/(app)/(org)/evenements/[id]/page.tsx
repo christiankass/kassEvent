@@ -256,7 +256,7 @@ export default function EventPage() {
                     {url.replace(/^https?:\/\//, "")}
                   </a>
                 </p>
-                <ShareButtons url={url} title={event.title} />
+                <ShareButtons url={url} title={event.title} tracked />
               </>
             )}
             <p className={styles.hintSmall}>{t.events.salesSoon}</p>

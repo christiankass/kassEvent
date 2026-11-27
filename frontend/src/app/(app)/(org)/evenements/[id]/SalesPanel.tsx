@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ShieldCheck } from "@phosphor-icons/react";
+import { ChartBar, ShieldCheck } from "@phosphor-icons/react";
 import { Alert, buttonClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formErrorMessage } from "@/lib/errors";
@@ -70,6 +70,11 @@ export function SalesPanel({ eventId }: { eventId: string }) {
               <dd>{sales.summary.orders}</dd>
             </div>
           </dl>
+          <p>
+            <Link href={`/evenements/${eventId}/statistiques`} className={buttonClass("secondary")}>
+              <ChartBar size={20} aria-hidden /> {t.sales.seeStats}
+            </Link>
+          </p>
 
           <h3 className={styles.subheading}>{t.sales.byType}</h3>
           <ul className={styles.progressList}>

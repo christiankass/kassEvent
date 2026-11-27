@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarBlank, MapPin } from "@phosphor-icons/react/dist/ssr";
 import { ShareButtons } from "@/components/ShareButtons";
+import { VisitTracker } from "@/components/VisitTracker";
 import { Wordmark } from "@/components/ui";
 import { formatEventDate, publicEventUrl, ticketPrice } from "@/lib/events";
 import { dictionaries, format } from "@/lib/i18n/dictionaries";
@@ -51,6 +52,7 @@ export default async function PublicEventPage({ params }: Props) {
 
   return (
     <div className={styles.page}>
+      <VisitTracker slug={event.slug} />
       <header className={styles.header}>
         <Wordmark />
       </header>
@@ -134,7 +136,7 @@ export default async function PublicEventPage({ params }: Props) {
           )}
 
           <section aria-label={t.share.title}>
-            <ShareButtons url={publicEventUrl(event.slug)} title={event.title} />
+            <ShareButtons url={publicEventUrl(event.slug)} title={event.title} tracked />
           </section>
         </div>
       </main>
