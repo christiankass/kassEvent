@@ -12,6 +12,7 @@ import { useFormSubmit } from "@/lib/form";
 import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { orderPath, type Order } from "@/lib/orders";
+import { storedReferral } from "@/lib/referral";
 import { randomUuid } from "@/lib/uuid";
 import styles from "./checkout.module.css";
 
@@ -40,6 +41,7 @@ export function Checkout({ event }: { event: PublicEvent }) {
         email: form.get("email"),
         whatsapp: event.delivery?.whatsapp ? form.get("whatsapp") || null : null,
         payment: total > 0 ? paymentBody(payment) : null,
+        referral: storedReferral(event.slug),
       };
       const serialized = JSON.stringify(body);
       if (attempt.current?.body !== serialized) attempt.current = { body: serialized, key: randomUuid() };

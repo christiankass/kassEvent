@@ -4,6 +4,8 @@ use App\Modules\Access\Http\Controllers\InvitationController;
 use App\Modules\Access\Http\Controllers\InvitationLinkController;
 use App\Modules\Access\Http\Controllers\MemberController;
 use App\Modules\Access\Http\Middleware\RequireTwoFactorForMoney;
+use App\Modules\Analytics\Http\Controllers\EventStatsController;
+use App\Modules\Analytics\Http\Controllers\PublicVisitController;
 use App\Modules\CheckIn\Http\Controllers\CheckInController;
 use App\Modules\Communication\Http\Controllers\MetaWebhookController;
 use App\Modules\Contributions\Http\Controllers\ContributionController;
@@ -52,6 +54,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Page de vente publique d'un événement publié.
     Route::get('/public/events/{slug}', [PublicEventController::class, 'show'])
         ->middleware('throttle:public')->where('slug', '[a-z0-9-]{1,100}')->name('public.events.show');
+
+    // Visite de la page publique (une par session), avec la source du lien partagé.
+    Route::post('/public/events/{slug}/visits', PublicVisitController::class)
+        ->middleware('throttle:visits')->where('slug', '[a-z0-9-]{1,100}')->name('public.events.visits');
 
     // Achat sans compte, puis suivi de la commande par le lien personnel de l'acheteur.
     Route::post('/public/events/{slug}/orders', [PublicOrderController::class, 'store'])
@@ -204,6 +210,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // Ventes : double authentification obligatoire pour les rôles qui touchent à l'argent.
             Route::middleware(['can:orders.view', RequireTwoFactorForMoney::class])->group(function () {
                 Route::get('/events/{id}/orders', [SalesController::class, 'index'])->whereUuid('id')->name('events.orders.index');
+            });
+
+            // Statistiques et export comptable : montants encaissés, donc double authentification pour les rôles argent.
+            Route::middleware(['can:reports.view', RequireTwoFactorForMoney::class])->group(function () {
+                Route::get('/events/{id}/stats', [EventStatsController::class, 'show'])->whereUuid('id')->name('events.stats.show');
+                Route::get('/events/{id}/stats/export', [EventStatsController::class, 'export'])->whereUuid('id')->name('events.stats.export');
             });
 
             // Compte de perception et reversements, sous la même protection.
