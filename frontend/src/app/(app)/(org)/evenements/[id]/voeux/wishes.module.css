@@ -141,3 +141,25 @@
 .confirm p {
   margin: 0;
 }
+
+/* Contributions d'argent. */
+.panel .sectionTitle svg {
+  vertical-align: -3px;
+  color: var(--wax-ink);
+}
+
+.inline {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.inline > :first-child {
+  width: 100%;
+  max-width: 420px;
+}
+
+.strong {
+  margin: 0;
+  font-weight: 700;
+}

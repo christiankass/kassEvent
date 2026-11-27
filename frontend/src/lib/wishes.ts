@@ -1,10 +1,20 @@
+import type { ContributionOptions } from "./contributions";
 import type { TicketDesign } from "./designs";
 
 /** Ton de la page, choisi selon l'événement : fête (vœux), hommage (condoléances, obsèques), livre d'or. */
 export const WISH_TONES = ["celebration", "tribute", "guestbook"] as const;
 export type WishTone = (typeof WISH_TONES)[number];
 
-export type WishBook = { id: string; open: boolean; public: boolean; tone: WishTone; url: string };
+export type WishBook = {
+  id: string;
+  open: boolean;
+  public: boolean;
+  tone: WishTone;
+  url: string;
+  /** Contributions d'argent ouvertes, et à qui va l'argent (« la famille Mbuyi »). */
+  contributions_open: boolean;
+  beneficiary: string | null;
+};
 
 /** Débuts de mots du titre qui font proposer un ton à l'ouverture (titre sans accents, en minuscules). */
 const TONE_WORDS: [WishTone, RegExp][] = [
@@ -39,6 +49,7 @@ export type PublicWishBook = {
   open: boolean;
   public: boolean;
   tone: WishTone;
+  contributions: ContributionOptions | null;
   count: number;
   wishes: { name: string; message: string; created_at: string }[];
 };

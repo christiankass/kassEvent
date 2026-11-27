@@ -11,6 +11,8 @@ export type Balance = {
   on_hold: number;
   sales: number;
   commission: number;
+  /** Contributions reçues sur les livres d'or : reversées en entier. */
+  contributions: number;
   paid_out: number;
   in_progress: number;
 };
@@ -46,7 +48,7 @@ export type Payout = {
 
 export type LedgerEntry = {
   id: string;
-  type: "sale" | "commission" | "payout" | "payout_reversal";
+  type: "sale" | "commission" | "contribution" | "payout" | "payout_reversal";
   currency: Currency;
   amount: number;
   reference: string | null;

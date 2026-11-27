@@ -14,6 +14,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
 import { PageSkeleton } from "../../../../PageSkeleton";
 import app from "../../../../app.module.css";
+import { Contributions } from "./Contributions";
 import styles from "./wishes.module.css";
 
 /**
@@ -141,6 +142,8 @@ export default function WishesPage() {
               </div>
             )}
           </section>
+
+          {permissions.includes("payouts.view") && <Contributions eventId={id} book={book} onChanged={reload} />}
 
           <section aria-labelledby="wishes-list">
             <h2 id="wishes-list" className={styles.sectionTitle}>

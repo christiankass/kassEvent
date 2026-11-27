@@ -1,3 +1,4 @@
+import { contributionsEn, contributionsFr } from "./contributions";
 import { guestsEn, guestsFr } from "./guests";
 import { homeEn, homeFr } from "./landing";
 import { wishesEn, wishesFr } from "./wishes";
@@ -959,6 +960,7 @@ const fr = {
     inProgress: "En cours de reversement",
     paidOut: "Déjà reversé",
     sales: "Ventes",
+    contributions: "Contributions (sans commission)",
     commission: "Commission kassEvent ({rate})",
     commissionFixed: "{percent} + {fixed} par billet",
     net: "Votre part",
@@ -1001,6 +1003,7 @@ const fr = {
     entry: {
       sale: "Vente",
       commission: "Commission",
+      contribution: "Contribution (livre d'or, sans commission)",
       payout: "Reversement",
       payout_reversal: "Reversement échoué, rendu au solde",
     },
@@ -1019,6 +1022,7 @@ const fr = {
   },
   ...guestsFr,
   ...wishesFr,
+  ...contributionsFr,
 };
 
 export type Dictionary = typeof fr;
@@ -1979,6 +1983,7 @@ const en: Dictionary = {
     inProgress: "Being paid out",
     paidOut: "Paid out",
     sales: "Sales",
+    contributions: "Contributions (no commission)",
     commission: "kassEvent commission ({rate})",
     commissionFixed: "{percent} + {fixed} per ticket",
     net: "Your share",
@@ -2021,6 +2026,7 @@ const en: Dictionary = {
     entry: {
       sale: "Sale",
       commission: "Commission",
+      contribution: "Contribution (guestbook, no commission)",
       payout: "Payout",
       payout_reversal: "Failed payout, returned to balance",
     },
@@ -2039,6 +2045,7 @@ const en: Dictionary = {
   },
   ...guestsEn,
   ...wishesEn,
+  ...contributionsEn,
 };
 
 export const LOCALES = ["fr", "en"] as const;
