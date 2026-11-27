@@ -23,7 +23,6 @@ export const audienceFr = {
     removed: "Contact supprimé.",
     more: "Afficher plus",
     twoFactor: "Les contacts sont des données personnelles : activez la double authentification pour les voir.",
-    twoFactorCta: "Activer la double authentification",
     forbidden: "Votre rôle ne donne pas accès aux contacts.",
     unsubscribe: {
       title: "Ne plus recevoir de nouvelles",
@@ -59,7 +58,6 @@ export const audienceEn: typeof audienceFr = {
     removed: "Contact deleted.",
     more: "Show more",
     twoFactor: "Contacts are personal data: turn on two-step verification to see them.",
-    twoFactorCta: "Turn on two-step verification",
     forbidden: "Your role does not give access to contacts.",
     unsubscribe: {
       title: "Stop getting news",

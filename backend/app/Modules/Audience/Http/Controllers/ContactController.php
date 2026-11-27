@@ -43,7 +43,7 @@ final class ContactController
             ->paginate(self::PER_PAGE);
 
         $summary = Contact::toBase()->selectRaw(
-            'count(*) as total, count(*) filter (where marketing_consent and unsubscribed_at is null) as reachable, count(*) filter (where unsubscribed_at is not null) as unsubscribed, count(email) as with_email, count(phone) as with_phone'
+            'count(*) as total, count(*) filter (where marketing_consent and unsubscribed_at is null) as reachable, count(*) filter (where unsubscribed_at is not null) as unsubscribed, count(phone) as with_phone'
         )->first();
 
         return response()->json([
@@ -60,7 +60,7 @@ final class ContactController
                 'invitations_count' => $contact->invitations_count,
                 'last_activity_at' => $contact->last_activity_at?->toIso8601String(),
             ]),
-            'meta' => ['current_page' => $contacts->currentPage(), 'last_page' => $contacts->lastPage(), 'total' => $contacts->total()],
+            'meta' => ['current_page' => $contacts->currentPage(), 'last_page' => $contacts->lastPage()],
             'summary' => array_map('intval', (array) $summary),
         ]);
     }

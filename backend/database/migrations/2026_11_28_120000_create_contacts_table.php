@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Schema;
  * - marketing_consent : la personne a coché « Recevoir les nouvelles de l'organisateur » (jamais par
  *   défaut). Seuls ces contacts pourront recevoir des campagnes. unsubscribed_at : désinscrite par son
  *   lien personnel (unsubscribe_key, chiffrée) ; l'accord ne revient que si elle le coche de nouveau.
- * - orders.buyer_phone / orders.marketing_consent : numéro WhatsApp et accord donnés à l'achat.
  */
 return new class extends Migration
 {
@@ -41,18 +40,10 @@ return new class extends Migration
         DB::statement('CREATE UNIQUE INDEX contacts_organization_email_unique ON contacts (organization_id, email) WHERE email IS NOT NULL');
         DB::statement('CREATE UNIQUE INDEX contacts_organization_phone_unique ON contacts (organization_id, phone) WHERE phone IS NOT NULL');
         RowLevelSecurity::enable('contacts');
-
-        Schema::table('orders', function (Blueprint $table) {
-            $table->string('buyer_phone', 20)->nullable()->after('buyer_email');
-            $table->boolean('marketing_consent')->default(false)->after('buyer_phone');
-        });
     }
 
     public function down(): void
     {
-        Schema::table('orders', function (Blueprint $table) {
-            $table->dropColumn(['buyer_phone', 'marketing_consent']);
-        });
         Schema::dropIfExists('contacts');
     }
 };

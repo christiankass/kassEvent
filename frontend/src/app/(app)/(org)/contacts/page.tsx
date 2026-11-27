@@ -99,11 +99,14 @@ export default function ContactsPage() {
   if (loadError instanceof ApiError && loadError.code === "two_factor_required") {
     return (
       <main className={app.main}>
-        <section className={`${app.panel} ${styles.gate}`}>
+        <section className={`${app.panel} ${styles.gate}`} aria-labelledby="gate-title">
           <ShieldCheck size={32} aria-hidden />
-          <p>{a.twoFactor}</p>
+          <h2 id="gate-title" className={app.sectionTitle}>
+            {t.sales.twoFactorTitle}
+          </h2>
+          <p className={app.muted}>{a.twoFactor}</p>
           <Link href="/compte/securite" className={buttonClass()}>
-            {a.twoFactorCta}
+            {t.sales.twoFactorCta}
           </Link>
         </section>
       </main>
@@ -131,22 +134,19 @@ export default function ContactsPage() {
       </header>
 
       <dl className={styles.tiles}>
-        <div>
-          <dt>{a.total}</dt>
-          <dd>{number(summary.total)}</dd>
-        </div>
-        <div>
-          <dt>{a.reachable}</dt>
-          <dd>{number(summary.reachable)}</dd>
-        </div>
-        <div>
-          <dt>{a.withPhone}</dt>
-          <dd>{number(summary.with_phone)}</dd>
-        </div>
-        <div>
-          <dt>{a.unsubscribed}</dt>
-          <dd>{number(summary.unsubscribed)}</dd>
-        </div>
+        {(
+          [
+            [a.total, summary.total],
+            [a.reachable, summary.reachable],
+            [a.withPhone, summary.with_phone],
+            [a.unsubscribed, summary.unsubscribed],
+          ] as const
+        ).map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{number(value)}</dd>
+          </div>
+        ))}
       </dl>
 
       <div className={styles.toolbar}>

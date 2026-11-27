@@ -40,7 +40,29 @@ export function UnsubscribeView() {
     setPending(false);
   }
 
-  const notFound = error instanceof ApiError && error.status === 404;
+  function body() {
+    if (error instanceof ApiError && error.status === 404) return <p>{u.notFound}</p>;
+    if (!state) return error ? <Alert tone="error">{actionErrorMessage(error, t)}</Alert> : <p>{t.common.loading}</p>;
+    if (state.unsubscribed) {
+      return (
+        <>
+          <CheckCircle size={40} weight="fill" className={styles.done} aria-hidden />
+          <p role="status">{format(u.done, { organization: state.organization })}</p>
+        </>
+      );
+    }
+    return (
+      <>
+        <BellSlash size={40} className={styles.icon} aria-hidden />
+        <h1 className={styles.title}>{u.title}</h1>
+        <p>{format(u.body, { organization: state.organization })}</p>
+        {error ? <Alert tone="error">{actionErrorMessage(error, t)}</Alert> : null}
+        <Button type="button" onClick={confirm} disabled={pending}>
+          {u.confirm}
+        </Button>
+      </>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -48,28 +70,7 @@ export function UnsubscribeView() {
         <Wordmark />
         <LocaleSwitch />
       </header>
-      <main className={styles.card}>
-        {notFound ? (
-          <p>{u.notFound}</p>
-        ) : !state ? (
-          error ? <Alert tone="error">{actionErrorMessage(error, t)}</Alert> : <p>{t.common.loading}</p>
-        ) : state.unsubscribed ? (
-          <>
-            <CheckCircle size={40} weight="fill" className={styles.done} aria-hidden />
-            <p role="status">{format(u.done, { organization: state.organization })}</p>
-          </>
-        ) : (
-          <>
-            <BellSlash size={40} className={styles.icon} aria-hidden />
-            <h1 className={styles.title}>{u.title}</h1>
-            <p>{format(u.body, { organization: state.organization })}</p>
-            {error ? <Alert tone="error">{actionErrorMessage(error, t)}</Alert> : null}
-            <Button type="button" onClick={confirm} disabled={pending}>
-              {u.confirm}
-            </Button>
-          </>
-        )}
-      </main>
+      <main className={styles.card}>{body()}</main>
     </div>
   );
 }

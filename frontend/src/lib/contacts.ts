@@ -17,8 +17,8 @@ export type Contact = {
 
 export type ContactsPage = {
   data: Contact[];
-  meta: { current_page: number; last_page: number; total: number };
-  summary: { total: number; reachable: number; unsubscribed: number; with_email: number; with_phone: number };
+  meta: { current_page: number; last_page: number };
+  summary: { total: number; reachable: number; unsubscribed: number; with_phone: number };
 };
 
 /** Numéro international enregistré (243812345678) affiché « +243 812 345 678 ». */
