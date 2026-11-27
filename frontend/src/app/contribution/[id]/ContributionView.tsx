@@ -10,8 +10,9 @@ import { api, ApiError } from "@/lib/api";
 import type { Contribution } from "@/lib/contributions";
 import { formErrorMessage } from "@/lib/errors";
 import { formatPrice } from "@/lib/events";
+import { paymentFailureMessage as failureMessage } from "@/lib/orders";
 import { useFormSubmit } from "@/lib/form";
-import { format, type Dictionary } from "@/lib/i18n/dictionaries";
+import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import styles from "../../commande/[id]/order.module.css";
 
@@ -208,9 +209,4 @@ function Retry({
       {body}
     </details>
   );
-}
-
-function failureMessage(code: string | null, t: Dictionary): string {
-  const failures = t.order.failures as Record<string, string>;
-  return (code && failures[code]) || failures.other;
 }

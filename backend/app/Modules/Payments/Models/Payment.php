@@ -2,7 +2,6 @@
 
 namespace App\Modules\Payments\Models;
 
-use App\Modules\Contributions\Models\Contribution;
 use App\Modules\Tenancy\Concerns\BelongsToOrganization;
 use App\Modules\Ticketing\Models\Order;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -41,12 +40,6 @@ class Payment extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
-    }
-
-    /** @return BelongsTo<Contribution, $this> */
-    public function contribution(): BelongsTo
-    {
-        return $this->belongsTo(Contribution::class);
     }
 
     public function isPending(): bool

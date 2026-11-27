@@ -18,24 +18,28 @@ use Illuminate\Validation\ValidationException;
  */
 final class ContributionController
 {
+    /** Contributions listées, les plus récentes d'abord (les totaux comptent tout). */
+    private const LIST_LIMIT = 500;
+
     public function index(string $eventId): JsonResponse
     {
         $book = WishBook::where('event_id', Event::findOrFail($eventId)->id)->first();
-        $paid = $book ? Contribution::where('wish_book_id', $book->id)->where('status', Contribution::PAID)->orderByDesc('paid_at')->get() : collect();
+        $paid = Contribution::where('wish_book_id', $book?->id)->where('status', Contribution::PAID);
 
         return response()->json([
-            'data' => $paid->map(fn (Contribution $contribution) => [
-                'id' => $contribution->id,
-                'reference' => $contribution->reference,
-                'contributor_name' => $contribution->contributor_name,
-                'message' => $contribution->message,
-                'amount' => $contribution->amount,
-                'currency' => $contribution->currency,
-                'paid_at' => $contribution->paid_at->toIso8601String(),
-            ])->values(),
-            'totals' => $paid->groupBy('currency')->map(fn ($group, $currency) => [
-                'currency' => $currency, 'amount' => $group->sum('amount'), 'count' => $group->count(),
-            ])->values(),
+            'data' => (clone $paid)->orderByDesc('paid_at')->limit(self::LIST_LIMIT)
+                ->get(['id', 'reference', 'contributor_name', 'message', 'amount', 'currency', 'paid_at'])
+                ->map(fn (Contribution $contribution) => [
+                    'id' => $contribution->id,
+                    'reference' => $contribution->reference,
+                    'contributor_name' => $contribution->contributor_name,
+                    'message' => $contribution->message,
+                    'amount' => $contribution->amount,
+                    'currency' => $contribution->currency,
+                    'paid_at' => $contribution->paid_at->toIso8601String(),
+                ])->values(),
+            'totals' => $paid->toBase()->selectRaw('currency, sum(amount)::bigint as amount, count(*) as count')->groupBy('currency')->get()
+                ->map(fn ($total) => ['currency' => $total->currency, 'amount' => (int) $total->amount, 'count' => (int) $total->count]),
             'has_payout_account' => PayoutService::hasAccount(),
         ]);
     }
@@ -45,7 +49,7 @@ final class ContributionController
     {
         $data = $request->validate([
             'open' => ['sometimes', 'boolean'],
-            'beneficiary' => ['sometimes', 'nullable', 'string', 'max:80', PlainText::noLinks('events.no_links')],
+            'beneficiary' => ['sometimes', 'nullable', 'string', 'max:80', PlainText::noLinks()],
         ]);
         $book = WishBook::where('event_id', Event::findOrFail($eventId)->id)->firstOrFail();
 

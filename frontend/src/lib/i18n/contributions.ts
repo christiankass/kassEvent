@@ -48,7 +48,6 @@ export const contributionsFr = {
     noCommission: "{beneficiary} reçoit exactement {amount} : kassEvent ne prend aucune commission. Seuls les frais du moyen de paiement s'ajoutent.",
     pay: "Payer {total}",
     paying: "Paiement…",
-    close: "Fermer",
     // Page de suivi (lien personnel).
     page: {
       reference: "Contribution {reference}",
@@ -134,7 +133,6 @@ export const contributionsEn: typeof contributionsFr = {
     noCommission: "{beneficiary} receives exactly {amount}: kassEvent takes no commission. Only the payment method's fees are added.",
     pay: "Pay {total}",
     paying: "Paying…",
-    close: "Close",
     page: {
       reference: "Contribution {reference}",
       loading: "Loading…",

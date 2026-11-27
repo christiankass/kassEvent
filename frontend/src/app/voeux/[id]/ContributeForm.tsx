@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Gift, HandHeart, HandCoins, LockSimple } from "@phosphor-icons/react";
 import { PaymentFields, paymentBody, type PaymentChoice } from "@/components/PaymentFields";
 import { Alert, Field, TextArea } from "@/components/ui";
@@ -41,19 +41,17 @@ export function ContributeForm({ bookId, tone: toneName, options }: { bookId: st
   const limits = options.limits[currency];
   const money = (minor: number) => formatPrice(minor, currency, locale);
   const amount = preset !== null ? preset * 100 : parseAmount(custom, currency);
-  const valid = amount !== null && amount >= limits.min && amount <= limits.max;
-  const fee = useMemo(
-    () => (valid && amount !== null ? contributionFee(amount, currency, options.fees[payment.method]) : 0),
-    [valid, amount, currency, options.fees, payment.method],
-  );
+  // Montant accepté, ou null : le total (frais compris) n'existe qu'avec un montant accepté.
+  const accepted = amount !== null && amount >= limits.min && amount <= limits.max ? amount : null;
+  const fee = accepted !== null ? contributionFee(accepted, currency, options.fees[payment.method]) : 0;
 
   const form = useFormSubmit(
     async (data) => {
-      if (!valid || amount === null) return;
+      if (accepted === null) return;
       const body = {
-        amount,
+        amount: accepted,
         currency,
-        total: amount + fee,
+        total: accepted + fee,
         name: data.get("name") || null,
         message: data.get("message") || null,
         payment: paymentBody(payment),
@@ -75,15 +73,22 @@ export function ContributeForm({ bookId, tone: toneName, options }: { bookId: st
   );
   const { submit, pending, fieldError } = form;
   const amountError =
-    fieldError("amount") ?? (preset === null && custom !== "" && !valid ? format(c.amountInvalid, { min: money(limits.min), max: money(limits.max) }) : undefined);
+    fieldError("amount") ?? (preset === null && custom !== "" && accepted === null ? format(c.amountInvalid, { min: money(limits.min), max: money(limits.max) }) : undefined);
+
+  const generalError = form.message ?? fieldError("total") ?? fieldError("payment");
+  const header = (
+    <>
+      <h2 id="contribute-title" className={styles.contributeTitle}>
+        <Icon size={26} aria-hidden /> {tone.title}
+      </h2>
+      <p>{format(tone.intro, { beneficiary })}</p>
+    </>
+  );
 
   if (!expanded) {
     return (
       <section className={`${styles.card} ${styles.contribute}`} aria-labelledby="contribute-title">
-        <h2 id="contribute-title" className={styles.contributeTitle}>
-          <Icon size={26} aria-hidden /> {tone.title}
-        </h2>
-        <p>{format(tone.intro, { beneficiary })}</p>
+        {header}
         <button type="button" className={styles.primary} onClick={() => setExpanded(true)}>
           {tone.button}
         </button>
@@ -93,10 +98,7 @@ export function ContributeForm({ bookId, tone: toneName, options }: { bookId: st
 
   return (
     <form className={`${styles.card} ${styles.contribute}`} onSubmit={submit} aria-labelledby="contribute-title" noValidate>
-      <h2 id="contribute-title" className={styles.contributeTitle}>
-        <Icon size={26} aria-hidden /> {tone.title}
-      </h2>
-      <p>{format(tone.intro, { beneficiary })}</p>
+      {header}
 
       {options.currencies.length > 1 && (
         <fieldset className={styles.choiceGroup}>
@@ -152,12 +154,12 @@ export function ContributeForm({ bookId, tone: toneName, options }: { bookId: st
         <PaymentFields value={payment} onChange={setPayment} error={fieldError} />
       </fieldset>
 
-      {valid && amount !== null && (
+      {accepted !== null && (
         <div className={styles.summary} aria-live="polite">
           <dl>
             <div>
               <dt>{c.summaryAmount}</dt>
-              <dd>{money(amount)}</dd>
+              <dd>{money(accepted)}</dd>
             </div>
             <div>
               <dt>{c.summaryFee[payment.method]}</dt>
@@ -165,18 +167,16 @@ export function ContributeForm({ bookId, tone: toneName, options }: { bookId: st
             </div>
             <div className={styles.summaryTotal}>
               <dt>{c.summaryTotal}</dt>
-              <dd>{money(amount + fee)}</dd>
+              <dd>{money(accepted + fee)}</dd>
             </div>
           </dl>
-          <p className={styles.muted}>{format(c.noCommission, { beneficiary: capitalize(beneficiary), amount: money(amount) })}</p>
+          <p className={styles.muted}>{format(c.noCommission, { beneficiary: capitalize(beneficiary), amount: money(accepted) })}</p>
         </div>
       )}
 
-      {(form.message ?? fieldError("total") ?? fieldError("payment")) && (
-        <Alert tone="error">{form.message ?? fieldError("total") ?? fieldError("payment")}</Alert>
-      )}
-      <button type="submit" className={styles.primary} disabled={pending || !valid}>
-        <LockSimple size={18} aria-hidden /> {pending ? c.paying : format(c.pay, { total: valid && amount !== null ? money(amount + fee) : "" })}
+      {generalError && <Alert tone="error">{generalError}</Alert>}
+      <button type="submit" className={styles.primary} disabled={pending || accepted === null}>
+        <LockSimple size={18} aria-hidden /> {pending ? c.paying : format(c.pay, { total: accepted !== null ? money(accepted + fee) : "" })}
       </button>
     </form>
   );

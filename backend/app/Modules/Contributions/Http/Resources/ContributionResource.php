@@ -29,14 +29,11 @@ final class ContributionResource extends JsonResource
             'status' => $this->status,
             'amount' => $this->amount,
             'currency' => $this->currency,
-            'contributor_name' => $this->contributor_name,
-            'paid_at' => $this->paid_at?->toIso8601String(),
             'book' => [
                 'id' => $book->id,
                 'tone' => $book->tone,
                 'beneficiary' => $book->beneficiary,
                 'event_title' => $book->event->title,
-                'organization' => $book->event->organization->name,
             ],
             'fees' => [
                 Payment::MOBILE_MONEY => ContributionFees::for($this->amount, $this->currency, Payment::MOBILE_MONEY),

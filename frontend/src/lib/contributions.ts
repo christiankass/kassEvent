@@ -49,9 +49,7 @@ export type Contribution = {
   status: "pending" | "paid";
   amount: number;
   currency: Currency;
-  contributor_name: string | null;
-  paid_at: string | null;
-  book: { id: string; tone: WishTone; beneficiary: string | null; event_title: string; organization: string };
+  book: { id: string; tone: WishTone; beneficiary: string | null; event_title: string };
   /** Frais de chaque moyen, pour un nouvel essai. */
   fees: Record<PaymentMethod, number>;
   payment: {

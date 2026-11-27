@@ -8,11 +8,11 @@ use Closure;
 final class PlainText
 {
     /** Règle de validation : pas d'adresse web (spam). */
-    public static function noLinks(string $message = 'events.wishes_no_links'): Closure
+    public static function noLinks(): Closure
     {
-        return function (string $attribute, mixed $value, Closure $fail) use ($message) {
+        return function (string $attribute, mixed $value, Closure $fail) {
             if (is_string($value) && preg_match('~(https?://|www\.|\b[a-z0-9-]+\.(com|net|org|info|xyz|ru|top|link|click|ly)\b)~i', $value)) {
-                $fail(__($message));
+                $fail(__('events.no_links'));
             }
         };
     }

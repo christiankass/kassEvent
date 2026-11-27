@@ -50,11 +50,11 @@ final class PublicContributionController
     {
         return TenantKeys::within($id, function () use ($request, $id) {
             $contribution = $this->find($id, $request->query('key'));
-            if ($contribution->latestPayment?->isPending()) {
-                $this->payments->refresh($contribution->latestPayment);
+            if ($contribution->latestPayment?->isPending() && ! $this->payments->refresh($contribution->latestPayment)->isPending()) {
+                $contribution->refresh(); // paiement terminé : statut de la contribution changé
             }
 
-            return $this->resource($contribution->refresh());
+            return $this->resource($contribution);
         }) ?? abort(404);
     }
 
@@ -77,11 +77,10 @@ final class PublicContributionController
                 throw ValidationException::withMessages(['payment' => $error]);
             }
 
-            if ($this->payments->start($contribution, $payment) === null) {
-                throw ValidationException::withMessages(['payment' => __('ticketing.payment_already_started')]);
-            }
+            $started = $this->payments->start($contribution, $payment)
+                ?? throw ValidationException::withMessages(['payment' => __('ticketing.payment_already_started')]);
 
-            return $this->resource($contribution->unsetRelation('latestPayment'));
+            return $this->resource($contribution->setRelation('latestPayment', $started));
         }) ?? abort(404);
     }
 
@@ -117,7 +116,7 @@ final class PublicContributionController
 
     private function find(string $id, mixed $key): Contribution
     {
-        $contribution = Contribution::find($id);
+        $contribution = Contribution::with(['latestPayment', 'book.event'])->find($id);
         abort_unless($contribution?->hasAccessKey($key), 404);
 
         return $contribution;
@@ -125,6 +124,6 @@ final class PublicContributionController
 
     private function resource(Contribution $contribution): ContributionResource
     {
-        return new ContributionResource($contribution->loadMissing(['book.event.organization', 'latestPayment']));
+        return new ContributionResource($contribution->loadMissing(['book.event', 'latestPayment']));
     }
 }

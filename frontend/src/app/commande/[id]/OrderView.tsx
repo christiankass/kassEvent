@@ -11,10 +11,10 @@ import { Alert, Wordmark } from "@/components/ui";
 import { api, ApiError, API_URL } from "@/lib/api";
 import { actionErrorMessage, formErrorMessage } from "@/lib/errors";
 import { formatEventDate, formatPrice } from "@/lib/events";
-import { format, type Dictionary } from "@/lib/i18n/dictionaries";
+import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { TicketDesign } from "@/lib/designs";
-import { DELIVERY_IN_PROGRESS, type Order } from "@/lib/orders";
+import { DELIVERY_IN_PROGRESS, paymentFailureMessage as failureMessage, type Order } from "@/lib/orders";
 import { Deliveries } from "./Deliveries";
 import styles from "./order.module.css";
 
@@ -278,11 +278,6 @@ async function printTickets() {
       })),
   );
   window.print();
-}
-
-function failureMessage(code: string | null, t: Dictionary): string {
-  const failures = t.order.failures as Record<string, string>;
-  return (code && failures[code]) || failures.other;
 }
 
 /** Billets payés, aux couleurs choisies par l'organisateur dans l'atelier. */
