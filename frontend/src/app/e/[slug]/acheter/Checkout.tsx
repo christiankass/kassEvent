@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { ArrowLeft, LockSimple, Minus, Plus } from "@phosphor-icons/react";
 import { PaymentFields, paymentBody, type PaymentChoice } from "@/components/PaymentFields";
-import { Alert, Field, Wordmark } from "@/components/ui";
+import { Alert, Checkbox, Field, Wordmark } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatEventDate, formatPrice, ticketPrice, type PublicEvent } from "@/lib/events";
 import { useFormSubmit } from "@/lib/form";
@@ -42,6 +42,7 @@ export function Checkout({ event }: { event: PublicEvent }) {
         whatsapp: event.delivery?.whatsapp ? form.get("whatsapp") || null : null,
         payment: total > 0 ? paymentBody(payment) : null,
         referral: storedReferral(event.slug),
+        marketing_consent: form.get("marketing_consent") === "on",
       };
       const serialized = JSON.stringify(body);
       if (attempt.current?.body !== serialized) attempt.current = { body: serialized, key: randomUuid() };
@@ -158,6 +159,8 @@ export function Checkout({ event }: { event: PublicEvent }) {
                     error={fieldError("whatsapp")}
                   />
                 )}
+                {/* Jamais cochée par défaut : l'accord se donne, il ne se présume pas. */}
+                <Checkbox name="marketing_consent" label={format(t.audience.consent, { organization: event.organization?.name ?? "kassEvent" })} />
               </div>
             </section>
 

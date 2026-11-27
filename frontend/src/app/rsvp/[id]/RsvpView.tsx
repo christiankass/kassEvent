@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { CalendarBlank, CheckCircle, HandWaving, MapPin, Minus, Plus, Ticket } from "@phosphor-icons/react";
-import { Alert, LocaleSwitch, Wordmark } from "@/components/ui";
+import { Alert, Checkbox, LocaleSwitch, Wordmark } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { FONT_STACKS, textOn } from "@/lib/designs";
 import { actionErrorMessage, formErrorMessage } from "@/lib/errors";
@@ -118,6 +118,8 @@ function Answer({ rsvp, guestId, guestKey, onUpdate }: { rsvp: Rsvp; guestId: st
   const [changing, setChanging] = useState(guest.status === "pending");
   const [attending, setAttending] = useState<boolean | null>(guest.status === "pending" ? null : guest.status === "confirmed");
   const [companions, setCompanions] = useState(guest.companions_confirmed ?? 0);
+  // « Recevoir les nouvelles de l'organisateur » : jamais coché par défaut.
+  const [consent, setConsent] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -128,7 +130,7 @@ function Answer({ rsvp, guestId, guestKey, onUpdate }: { rsvp: Rsvp; guestId: st
     try {
       const { data } = await api<{ data: Rsvp }>(`/public/guests/${guestId}/rsvp`, {
         method: "POST",
-        body: { key: guestKey, attending, companions: attending ? companions : 0 },
+        body: { key: guestKey, attending, companions: attending ? companions : 0, marketing_consent: consent },
       });
       onUpdate(data);
       setChanging(false);
@@ -219,6 +221,13 @@ function Answer({ rsvp, guestId, guestKey, onUpdate }: { rsvp: Rsvp; guestId: st
         </div>
       )}
 
+      {attending !== null && (
+        <Checkbox
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          label={format(t.audience.consent, { organization: rsvp.event.organization.name })}
+        />
+      )}
       {error ? <Alert tone="error">{actionErrorMessage(error, t)}</Alert> : null}
       {attending !== null && (
         <button type="button" className={styles.primary} disabled={pending} onClick={() => void send()}>

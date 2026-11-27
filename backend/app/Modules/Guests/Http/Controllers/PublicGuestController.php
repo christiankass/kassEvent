@@ -2,6 +2,8 @@
 
 namespace App\Modules\Guests\Http\Controllers;
 
+use App\Modules\Audience\Models\Contact;
+use App\Modules\Audience\Support\ContactBook;
 use App\Modules\Events\Http\Resources\EventDesignResource;
 use App\Modules\Guests\Models\Guest;
 use App\Modules\Guests\Support\GuestBook;
@@ -16,7 +18,7 @@ use Illuminate\Http\Request;
  */
 final class PublicGuestController
 {
-    public function __construct(private readonly GuestBook $book) {}
+    public function __construct(private readonly GuestBook $book, private readonly ContactBook $contacts) {}
 
     public function show(Request $request, string $id): JsonResponse
     {
@@ -29,10 +31,19 @@ final class PublicGuestController
             'key' => ['required', 'string', 'max:64'],
             'attending' => ['required', 'boolean'],
             'companions' => ['sometimes', 'integer', 'min:0', 'max:50'],
+            // « Recevoir les nouvelles de l'organisateur » : jamais coché par défaut (module Audience).
+            'marketing_consent' => ['sometimes', 'boolean'],
         ]);
 
         return TenantKeys::within($id, function () use ($id, $data) {
-            $guest = $this->book->respond($this->find($id, $data['key']), (bool) $data['attending'], (int) ($data['companions'] ?? 0));
+            $found = $this->find($id, $data['key']);
+            $firstAnswer = $found->responded_at === null;
+            $guest = $this->book->respond($found, (bool) $data['attending'], (int) ($data['companions'] ?? 0));
+            // L'invité entre au carnet de l'organisation (sa première réponse est comptée une fois).
+            $this->contacts->remember(
+                ['name' => $guest->name, 'email' => $guest->email, 'phone' => $guest->phone, 'locale' => $guest->locale],
+                (bool) ($data['marketing_consent'] ?? false), Contact::RSVP, $firstAnswer ? 'invitation' : null,
+            );
 
             return $this->payload($guest->refresh());
         }) ?? abort(404);

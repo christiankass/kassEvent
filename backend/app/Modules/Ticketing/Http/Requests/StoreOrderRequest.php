@@ -26,6 +26,8 @@ final class StoreOrderRequest extends FormRequest
             'idempotency_key' => ['nullable', 'uuid'],
             // Source de la visite (lien partagé sur WhatsApp, Facebook…) : sert aux statistiques.
             'referral' => ['nullable', 'string', 'max:40'],
+            // « Recevoir les nouvelles de l'organisateur » : jamais coché par défaut (module Audience).
+            'marketing_consent' => ['sometimes', 'boolean'],
             // Le paiement est obligatoire sauf pour une commande gratuite (vérifié une fois le total connu).
             ...$this->paymentRules(required: false),
         ];
@@ -69,12 +71,14 @@ final class StoreOrderRequest extends FormRequest
         return Referral::normalize($this->validated('referral'));
     }
 
-    /** @return array{name: string, email: string} */
+    /** @return array{name: string, email: string, phone: ?string, marketing_consent: bool} */
     public function buyer(): array
     {
         return [
             'name' => trim($this->validated('name')),
             'email' => mb_strtolower(trim($this->validated('email'))),
+            'phone' => $this->whatsapp(),
+            'marketing_consent' => $this->boolean('marketing_consent'),
         ];
     }
 }
