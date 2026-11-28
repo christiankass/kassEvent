@@ -43,7 +43,7 @@ final class WhatsAppAnnouncer
      */
     public function send(string $phone, string $locale, array $content, string $callback, string $buttonSuffix, string $stopPayload): string
     {
-        $body = array_map(fn (string $text) => ['type' => 'text', 'text' => self::param($text)], [$content['name'], $content['organization'], $content['text']]);
+        $body = array_map(fn (string $text) => ['type' => 'text', 'text' => MetaGraph::param($text, self::MAX_TEXT)], [$content['name'], $content['organization'], $content['text']]);
 
         if (self::simulated()) {
             if (str_ends_with($phone, (string) config('messaging.simulated_failure_suffix'))) {
@@ -76,8 +76,4 @@ final class WhatsAppAnnouncer
     }
 
     /** Meta refuse les retours à la ligne, tabulations et plus de 4 espaces de suite dans une variable. */
-    private static function param(string $text): string
-    {
-        return mb_substr(trim(preg_replace('/\s+/u', ' ', $text)), 0, self::MAX_TEXT);
-    }
 }

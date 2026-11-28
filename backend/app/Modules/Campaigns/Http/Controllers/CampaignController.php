@@ -63,7 +63,7 @@ final class CampaignController
 
     public function update(Request $request, string $id): JsonResponse
     {
-        $data = $this->validated($request, Campaign::findOrFail($id));
+        $data = $this->validated($request, Campaign::findOrFail($id, ['id', 'channel']));
         $campaign = $this->locked($id, self::EDITABLE, 'campaigns.locked', fn (Campaign $campaign) => $campaign->fill($data)->save());
 
         return response()->json(['data' => $this->detail($campaign)]);

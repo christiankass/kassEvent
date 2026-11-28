@@ -58,7 +58,7 @@ final class CampaignMail extends Mailable
         $event = $campaign->event;
         // {nom} : le nom du contact ; dans un essai, celui de la personne connectée ; dans l'aperçu, un exemple.
         $name = $this->contact?->name ?? $this->sampleName ?? __('campaigns.mail.sample_name');
-        $body = str_replace(['{nom}', '{name}'], $name, $campaign->body);
+        $body = $campaign->personalizedBody($name);
 
         return new Content(view: 'mail.campaign', with: [
             'subject' => $campaign->subject,

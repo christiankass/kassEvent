@@ -39,7 +39,7 @@ final class WhatsAppChannel implements DeliveryChannel
                         'language' => ['code' => $order->locale],
                         'components' => [
                             ['type' => 'header', 'parameters' => [['type' => 'image', 'image' => ['id' => $mediaId]]]],
-                            ['type' => 'body', 'parameters' => array_map(fn (string $text) => ['type' => 'text', 'text' => self::param($text)], [
+                            ['type' => 'body', 'parameters' => array_map(fn (string $text) => ['type' => 'text', 'text' => MetaGraph::param($text, 200)], [
                                 $ticket->holder_name, $ticket->label(), $order->event->title, $messages->when, $messages->code($ticket),
                             ])],
                             ['type' => 'button', 'sub_type' => 'url', 'index' => '0', 'parameters' => [['type' => 'text', 'text' => $suffix]]],
@@ -57,8 +57,4 @@ final class WhatsAppChannel implements DeliveryChannel
     }
 
     /** Meta refuse les retours à la ligne, tabulations et plus de 4 espaces de suite dans une variable. */
-    private static function param(string $text): string
-    {
-        return mb_substr(trim(preg_replace('/\s+/u', ' ', $text)), 0, 200);
-    }
 }

@@ -61,6 +61,12 @@ final class ContactBook
     /** Canal d'une campagne => colonne de coordonnée nécessaire. */
     private const CHANNEL_FIELDS = ['email' => 'email', 'whatsapp' => 'phone'];
 
+    /** Colonne de coordonnée qu'un canal de campagne utilise (email ou phone). */
+    public static function field(string $channel): string
+    {
+        return self::CHANNEL_FIELDS[$channel];
+    }
+
     /**
      * Contacts qu'une campagne peut écrire sur ce canal (e-mail ou WhatsApp) : joignables, avec la
      * coordonnée du canal, parmi tous, les acheteurs ou les invités.

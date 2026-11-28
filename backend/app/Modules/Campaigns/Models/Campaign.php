@@ -75,4 +75,10 @@ class Campaign extends Model
     {
         $this->forceFill(['status' => self::DRAFT, 'scheduled_at' => null])->save();
     }
+
+    /** Le message avec {nom} (ou {name}) remplacé par le nom du destinataire, pour tous les canaux. */
+    public function personalizedBody(string $name): string
+    {
+        return str_replace(['{nom}', '{name}'], $name, $this->body);
+    }
 }

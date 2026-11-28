@@ -9,10 +9,10 @@ use App\Modules\Campaigns\Mail\CampaignMail;
 use App\Modules\Campaigns\Models\Campaign;
 use App\Modules\Campaigns\Models\CampaignMessage;
 use App\Modules\Communication\Channels\DeliveryFailed;
+use App\Modules\Communication\Channels\MetaGraph;
 use App\Modules\Communication\Events\WhatsAppButtonPressed;
 use App\Modules\Communication\Events\WhatsAppStatusReceived;
 use App\Modules\Communication\Support\WhatsAppAnnouncer;
-use App\Modules\Payments\Support\PaymentService;
 use App\Modules\Tenancy\Support\TenantKeys;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -95,7 +95,7 @@ final class CampaignSender
                 continue; // pris par un autre lot
             }
             $contact = $message->contact;
-            if ($contact === null || ($whatsapp ? $contact->phone : $contact->email) === null || ! $contact->isReachable()) {
+            if ($contact === null || $contact->{ContactBook::field($campaign->channel)} === null || ! $contact->isReachable()) {
                 $this->move($message, CampaignMessage::SENDING, CampaignMessage::SKIPPED);
 
                 continue;
@@ -107,7 +107,7 @@ final class CampaignSender
             } catch (DeliveryFailed) {
                 $this->move($message, CampaignMessage::SENDING, CampaignMessage::FAILED); // numéro sans WhatsApp…
             } catch (Throwable $e) {
-                if ($whatsapp && ! PaymentService::mayHaveReachedProvider($e)) {
+                if ($whatsapp && ! MetaGraph::mayHaveDelivered($e)) {
                     // Refus net de Meta (limite de débit…) : rien n'est parti, le message attend le prochain essai du lot.
                     $this->move($message, CampaignMessage::SENDING, CampaignMessage::QUEUED);
 
@@ -125,7 +125,11 @@ final class CampaignSender
     /** Accusé WhatsApp d'une annonce : « lu » vaut ouverture ; un refus après coup compte en échec. */
     public function onWhatsAppStatus(WhatsAppStatusReceived $event): void
     {
-        $this->withMessage($event->callback, function (CampaignMessage $message) use ($event) {
+        // « sent » et « delivered » ne changent rien : pas de requête pour eux.
+        if (! in_array($event->status, ['read', 'failed'], true) || ! str_starts_with($event->callback, self::CALLBACK)) {
+            return;
+        }
+        $this->withMessage(substr($event->callback, strlen(self::CALLBACK)), function (CampaignMessage $message) use ($event) {
             match ($event->status) {
                 'read' => $this->opened($message),
                 'failed' => $this->move($message, CampaignMessage::SENT, CampaignMessage::FAILED),
@@ -152,7 +156,7 @@ final class CampaignSender
         $this->whatsapp->send(
             $contact->phone,
             $contact->locale,
-            ['name' => $contact->name, 'organization' => $campaign->organization->name, 'text' => str_replace(['{nom}', '{name}'], $contact->name, $campaign->body)],
+            ['name' => $contact->name, 'organization' => $campaign->organization->name, 'text' => $campaign->personalizedBody($contact->name)],
             self::CALLBACK.$ref,
             // Bouton « Voir l'événement » : {API}/public/campaigns/{{1}} → suivi du clic, puis page de l'événement.
             $campaign->id.'/messages/'.$message->id.'/click',
@@ -168,15 +172,12 @@ final class CampaignSender
      */
     private function withMessage(string $ref, callable $callback): void
     {
-        if (str_starts_with($ref, self::CALLBACK)) {
-            $ref = substr($ref, strlen(self::CALLBACK));
-        }
         [$campaignId, $messageId] = array_pad(explode(':', $ref, 2), 2, '');
         if (! Str::isUuid($campaignId) || ! Str::isUuid($messageId)) {
             return;
         }
         TenantKeys::within($campaignId, function () use ($campaignId, $messageId, $callback) {
-            $message = CampaignMessage::with('contact')->where('campaign_id', $campaignId)->find($messageId);
+            $message = CampaignMessage::where('campaign_id', $campaignId)->find($messageId);
             if ($message !== null) {
                 $callback($message);
             }
