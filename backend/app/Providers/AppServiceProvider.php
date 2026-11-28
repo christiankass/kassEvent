@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Modules\Audience\Support\ContactBook;
 use App\Modules\Communication\Support\DeliveryService;
 use App\Modules\Contributions\Actions\ConfirmContribution;
 use App\Modules\Contributions\Events\ContributionPaid;
@@ -110,6 +111,8 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(ContributionPaid::class, [PayoutService::class, 'onContributionPaid']);
         // Billets émis (module Ticketing) : envoi WhatsApp ou Messenger demandé par l'acheteur (module Communication).
         Event::listen(TicketsIssued::class, [DeliveryService::class, 'onTicketsIssued']);
+        // L'acheteur entre au carnet de contacts de l'organisation (module Audience).
+        Event::listen(TicketsIssued::class, [ContactBook::class, 'onTicketsIssued']);
 
         if ($this->app->runningInConsole()) {
             $this->commands([RunPayouts::class, ListBankTransfers::class, CompletePayout::class]);

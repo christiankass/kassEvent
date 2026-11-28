@@ -61,7 +61,10 @@ final class ConfirmOrder
             }
 
             SendTickets::dispatch($order->organization_id, $order->id)->afterCommit();
-            event(new TicketsIssued($order->organization_id, $order->id));
+            event(new TicketsIssued($order->organization_id, $order->id, $order->source === Order::SALE ? [
+                'name' => $order->buyer_name, 'email' => $order->buyer_email, 'phone' => $order->buyer_phone,
+                'locale' => $order->locale, 'marketing_consent' => (bool) $order->marketing_consent,
+            ] : null));
         });
     }
 

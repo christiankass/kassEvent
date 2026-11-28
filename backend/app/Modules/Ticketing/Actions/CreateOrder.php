@@ -25,7 +25,7 @@ final class CreateOrder
 
     /**
      * @param  array<string, int>  $quantities  identifiant du type de billet => quantité (> 0)
-     * @param  array{name: string, email: string}  $buyer
+     * @param  array{name: string, email: string, phone?: ?string, marketing_consent?: bool}  $buyer
      * @param  bool  $hasPayment  un moyen de paiement est choisi (obligatoire si la commande n'est pas gratuite)
      * @param  string|null  $idempotencyKey  identifiant tiré au hasard par la page d'achat pour cet envoi
      * @param  string|null  $referral  source de la visite (statistiques, module Analytics)
@@ -57,7 +57,7 @@ final class CreateOrder
 
     /**
      * @param  array<string, int>  $quantities
-     * @param  array{name: string, email: string}  $buyer
+     * @param  array{name: string, email: string, phone?: ?string, marketing_consent?: bool}  $buyer
      */
     private function create(Event $event, array $quantities, array $buyer, string $locale, bool $hasPayment, ?string $idempotencyKey, ?string $referral): Order
     {
@@ -107,6 +107,8 @@ final class CreateOrder
                 'total' => $total,
                 'buyer_name' => $buyer['name'],
                 'buyer_email' => $buyer['email'],
+                'buyer_phone' => $buyer['phone'] ?? null,
+                'marketing_consent' => $buyer['marketing_consent'] ?? false,
                 'locale' => $locale,
                 'referral' => $referral,
                 'access_key' => Str::random(40),
@@ -134,7 +136,7 @@ final class CreateOrder
      * qu'elle peut encore être payée ; sinon la page d'achat recommence avec une nouvelle clé.
      *
      * @param  array<string, int>  $quantities
-     * @param  array{name: string, email: string}  $buyer
+     * @param  array{name: string, email: string, phone?: ?string, marketing_consent?: bool}  $buyer
      */
     private function replay(Order $order, array $quantities, array $buyer): Order
     {

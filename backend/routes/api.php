@@ -6,6 +6,8 @@ use App\Modules\Access\Http\Controllers\MemberController;
 use App\Modules\Access\Http\Middleware\RequireTwoFactorForMoney;
 use App\Modules\Analytics\Http\Controllers\EventStatsController;
 use App\Modules\Analytics\Http\Controllers\PublicVisitController;
+use App\Modules\Audience\Http\Controllers\ContactController;
+use App\Modules\Audience\Http\Controllers\PublicUnsubscribeController;
 use App\Modules\CheckIn\Http\Controllers\CheckInController;
 use App\Modules\Communication\Http\Controllers\MetaWebhookController;
 use App\Modules\Contributions\Http\Controllers\ContributionController;
@@ -75,6 +77,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Réponse d'un invité (événement privé) par son lien personnel, sans compte.
     Route::get('/public/guests/{id}', [PublicGuestController::class, 'show'])
         ->middleware('throttle:rsvp')->whereUuid('id')->name('public.guests.show');
+    // Désinscription d'un contact par son lien personnel (campagnes de l'organisation).
+    Route::get('/public/contacts/{id}/unsubscribe', [PublicUnsubscribeController::class, 'show'])
+        ->middleware('throttle:rsvp')->whereUuid('id')->name('public.contacts.unsubscribe.show');
+    Route::post('/public/contacts/{id}/unsubscribe', [PublicUnsubscribeController::class, 'store'])
+        ->middleware('throttle:rsvp')->whereUuid('id')->name('public.contacts.unsubscribe');
     Route::post('/public/guests/{id}/rsvp', [PublicGuestController::class, 'respond'])
         ->middleware('throttle:rsvp-answer')->whereUuid('id')->name('public.guests.rsvp');
 
@@ -210,6 +217,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // Ventes : double authentification obligatoire pour les rôles qui touchent à l'argent.
             Route::middleware(['can:orders.view', RequireTwoFactorForMoney::class])->group(function () {
                 Route::get('/events/{id}/orders', [SalesController::class, 'index'])->whereUuid('id')->name('events.orders.index');
+                // Carnet de contacts : acheteurs et invités, comme la liste des ventes.
+                Route::get('/contacts', [ContactController::class, 'index'])->name('contacts.index');
+                Route::delete('/contacts/{id}', [ContactController::class, 'destroy'])->middleware('can:events.manage')->whereUuid('id')->name('contacts.destroy');
             });
 
             // Statistiques et export comptable : montants encaissés, donc double authentification pour les rôles argent.

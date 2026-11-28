@@ -62,6 +62,7 @@ class Order extends Model implements Payable
             'access_key' => 'encrypted',
             'expires_at' => 'datetime',
             'paid_at' => 'datetime',
+            'marketing_consent' => 'boolean',
         ];
     }
 
