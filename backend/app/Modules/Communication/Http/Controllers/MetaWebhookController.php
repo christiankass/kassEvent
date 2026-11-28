@@ -2,11 +2,14 @@
 
 namespace App\Modules\Communication\Http\Controllers;
 
+use App\Modules\Communication\Events\WhatsAppButtonPressed;
+use App\Modules\Communication\Events\WhatsAppStatusReceived;
 use App\Modules\Communication\Models\Delivery;
 use App\Modules\Communication\Support\DeliveryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Str;
 
 /**
  * Notifications de l'application Meta (WhatsApp et Messenger), à déclarer à l'adresse
@@ -48,17 +51,32 @@ final class MetaWebhookController
             && hash_equals(hash_hmac('sha256', $payload, $secret), substr($header, 7));
     }
 
-    /** Accusés des messages envoyés : notre identifiant d'envoi revient dans biz_opaque_callback_data. */
+    /**
+     * Accusés des messages envoyés (notre identifiant d'envoi revient dans biz_opaque_callback_data) et
+     * boutons de réponse rapide touchés (« Ne plus recevoir » d'une annonce).
+     */
     private function whatsapp(array $changes): void
     {
         foreach ($changes as $change) {
             foreach ((array) data_get($change, 'value.statuses', []) as $status) {
-                $deliveryId = data_get($status, 'biz_opaque_callback_data');
+                $callback = data_get($status, 'biz_opaque_callback_data');
                 $messageId = data_get($status, 'id');
                 $state = data_get($status, 'status');
-                if (is_string($deliveryId) && is_string($messageId) && in_array($state, [Delivery::SENT, Delivery::DELIVERED, Delivery::READ, Delivery::FAILED], true)) {
+                if (! is_string($callback) || ! is_string($messageId) || ! in_array($state, [Delivery::SENT, Delivery::DELIVERED, Delivery::READ, Delivery::FAILED], true)) {
+                    continue;
+                }
+                if (Str::isUuid($callback)) {
                     $code = data_get($status, 'errors.0.code');
-                    DeliveryService::recordStatus($deliveryId, $messageId, $state, is_scalar($code) ? 'meta_'.$code : null);
+                    DeliveryService::recordStatus($callback, $messageId, $state, is_scalar($code) ? 'meta_'.$code : null);
+                } else {
+                    event(new WhatsAppStatusReceived($callback, $state));
+                }
+            }
+            foreach ((array) data_get($change, 'value.messages', []) as $message) {
+                $payload = data_get($message, 'button.payload');
+                $from = data_get($message, 'from');
+                if (data_get($message, 'type') === 'button' && is_string($payload) && is_string($from)) {
+                    event(new WhatsAppButtonPressed($payload, $from));
                 }
             }
         }
