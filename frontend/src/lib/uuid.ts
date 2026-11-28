@@ -1,3 +1,8 @@
+/** Identifiant UUID bien formé (paramètre d'adresse, valeur stockée). */
+export function isUuid(value: string | null | undefined): value is string {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
 /** UUID v4 ; crypto.randomUUID n'existe que sur HTTPS ou localhost, getRandomValues partout. */
 export function randomUuid(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();

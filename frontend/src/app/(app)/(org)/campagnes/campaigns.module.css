@@ -1,0 +1,112 @@
+/* Campagnes e-mail (liste, rédaction, résultats) ; cartes, liste et pastilles : contacts.module.css */
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.create {
+  gap: 8px;
+}
+
+.demo {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--billet-soft);
+  border: 1px solid color-mix(in srgb, var(--billet) 40%, var(--line));
+  border-radius: var(--r-md);
+}
+
+.demo svg {
+  flex: none;
+  color: var(--billet-ink);
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.link:hover span:first-child {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.back {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-weight: 600;
+  color: var(--fleuve);
+  text-decoration: none;
+}
+
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.actions > * {
+  flex: 1 1 auto;
+}
+
+@media (min-width: 640px) {
+  .actions > * {
+    flex: 0 0 auto;
+  }
+}
+
+.schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.schedule > :first-child {
+  flex: 1 1 220px;
+}
+
+.preview {
+  width: 100%;
+  height: 640px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #fbf8f3;
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Détail sous le chiffre d'une carte (plus fort que « .tiles dd » de contacts.module.css). */
+dd.sales.sales {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pill {
+  align-self: flex-start;
+}

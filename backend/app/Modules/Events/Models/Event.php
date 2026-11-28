@@ -71,6 +71,12 @@ class Event extends Model
         return $this->design?->setRelation('event', $this) ?? EventDesign::defaultFor($this);
     }
 
+    /** Page publique de l'événement (achat des billets). */
+    public function publicUrl(): string
+    {
+        return config('app.frontend_url').'/e/'.$this->slug;
+    }
+
     public function isPublished(): bool
     {
         return $this->status === self::PUBLISHED;

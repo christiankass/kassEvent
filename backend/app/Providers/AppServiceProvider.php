@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Modules\Audience\Support\ContactBook;
+use App\Modules\Campaigns\Console\DispatchCampaigns;
 use App\Modules\Communication\Support\DeliveryService;
 use App\Modules\Contributions\Actions\ConfirmContribution;
 use App\Modules\Contributions\Events\ContributionPaid;
@@ -98,6 +99,8 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(60)->by($request->ip().'|'.$request->route('id')),
             Limit::perDay(1000)->by('wish-book|'.$request->route('id')),
         ]);
+        // Une campagne écrit à tout le carnet : quelques départs par heure suffisent.
+        RateLimiter::for('campaign-sends', fn (Request $request) => Limit::perHour(10)->by($request->user()?->id ?: $request->ip()));
         // Invitations par e-mail : un envoi groupé à la fois, quelques fois par heure.
         RateLimiter::for('guest-emails', fn (Request $request) => Limit::perHour(20)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('webhooks', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
@@ -115,7 +118,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(TicketsIssued::class, [ContactBook::class, 'onTicketsIssued']);
 
         if ($this->app->runningInConsole()) {
-            $this->commands([RunPayouts::class, ListBankTransfers::class, CompletePayout::class]);
+            $this->commands([RunPayouts::class, ListBankTransfers::class, CompletePayout::class, DispatchCampaigns::class]);
         }
 
         // Les workers gardent leur connexion PostgreSQL ouverte : chaque job repart d'un contexte vide,

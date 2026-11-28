@@ -20,7 +20,7 @@ final class EventStatsController
     public function show(string $id): JsonResponse
     {
         $event = Event::with('ticketTypes')->findOrFail($id);
-        $url = config('app.frontend_url').'/e/'.$event->slug;
+        $url = $event->publicUrl();
 
         return response()->json(['data' => [
             ...(new EventStatistics($event))->toArray(),

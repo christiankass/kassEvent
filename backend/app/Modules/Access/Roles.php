@@ -33,6 +33,8 @@ final class Roles
         'payouts.manage',
         'checkin.scan',
         'reports.view',
+        // Écrire et envoyer des campagnes aux contacts qui ont donné leur accord.
+        'campaigns.manage',
     ];
 
     /** @return array<string, list<string>> */
@@ -41,7 +43,7 @@ final class Roles
         return [
             self::OWNER => self::PERMISSIONS,
             'admin' => array_values(array_diff(self::PERMISSIONS, ['billing.manage', 'payouts.manage'])),
-            'event_manager' => ['events.view', 'events.manage', 'orders.view', 'checkin.scan', 'reports.view'],
+            'event_manager' => ['events.view', 'events.manage', 'orders.view', 'checkin.scan', 'reports.view', 'campaigns.manage'],
             'finance' => ['events.view', 'orders.view', 'orders.refund', 'payouts.view', 'payouts.manage', 'billing.manage', 'reports.view'],
             'check_in_agent' => ['events.view', 'checkin.scan'],
             'viewer' => ['events.view', 'orders.view', 'reports.view'],

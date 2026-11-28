@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Reversements automatiques aux organisations : on reverse vite (argent de tiers détenu par kassEvent).
 Schedule::command('payouts:run')->hourly()->withoutOverlapping()->onOneServer();
+
+// Campagnes e-mail programmées : lancées à la minute près.
+Schedule::command('campaigns:dispatch')->everyMinute()->withoutOverlapping()->onOneServer();

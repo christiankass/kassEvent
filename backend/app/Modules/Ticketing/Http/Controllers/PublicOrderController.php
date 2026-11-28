@@ -41,7 +41,7 @@ final class PublicOrderController
         return $this->context->run($event->organization_id, function () use ($request, $createOrder, $event) {
             $payment = $request->payment();
 
-            $order = $createOrder->handle($event, $request->quantities(), $request->buyer(), app()->getLocale(), $payment !== null, $request->idempotencyKey(), $request->referral());
+            $order = $createOrder->handle($event, $request->quantities(), $request->buyer(), app()->getLocale(), $payment !== null, $request->idempotencyKey(), $request->referral(), $request->campaignId());
 
             // Billets aussi sur WhatsApp : envoyés dès leur émission (tout de suite pour une commande gratuite).
             $whatsapp = $request->whatsapp();

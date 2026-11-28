@@ -21,6 +21,7 @@ final class PublicUnsubscribeController
 
     public function store(Request $request, ContactBook $book, string $id): JsonResponse
     {
+        // Clé dans le corps (page de désinscription) ou dans l'adresse (« se désinscrire » de la messagerie, RFC 8058).
         $key = $request->validate(['key' => ['required', 'string', 'max:64']])['key'];
 
         return TenantKeys::within($id, function () use ($book, $id, $key) {

@@ -68,6 +68,24 @@ final class TenantContext
         return $result;
     }
 
+    /**
+     * Exécute $callback dans chaque organisation active (tâches planifiées) ; une organisation en
+     * erreur est signalée et n'empêche pas les suivantes.
+     *
+     * @param  callable(string): mixed  $callback  reçoit l'identifiant de l'organisation
+     */
+    public function eachOrganization(callable $callback): void
+    {
+        DB::table('organizations')->whereNull('deleted_at')->orderBy('id')->pluck('id')
+            ->each(function (string $organizationId) use ($callback) {
+                try {
+                    $this->run($organizationId, fn () => $callback($organizationId));
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            });
+    }
+
     /** Efface organisation et utilisateur, en une seule requête. */
     public function clear(): void
     {

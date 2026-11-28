@@ -26,6 +26,8 @@ final class StoreOrderRequest extends FormRequest
             'idempotency_key' => ['nullable', 'uuid'],
             // Source de la visite (lien partagé sur WhatsApp, Facebook…) : sert aux statistiques.
             'referral' => ['nullable', 'string', 'max:40'],
+            // Campagne e-mail dont le bouton a mené ici (?cmp=…) : ventes rapportées par la campagne.
+            'campaign_id' => ['nullable', 'uuid'],
             // « Recevoir les nouvelles de l'organisateur » : jamais coché par défaut (module Audience).
             'marketing_consent' => ['sometimes', 'boolean'],
             // Le paiement est obligatoire sauf pour une commande gratuite (vérifié une fois le total connu).
@@ -69,6 +71,14 @@ final class StoreOrderRequest extends FormRequest
     public function referral(): string
     {
         return Referral::normalize($this->validated('referral'));
+    }
+
+    /** Campagne d'origine, gardée seulement pour une visite venue d'un e-mail. */
+    public function campaignId(): ?string
+    {
+        $id = $this->validated('campaign_id');
+
+        return $id !== null && $this->referral() === 'email' ? strtolower($id) : null;
     }
 
     /** @return array{name: string, email: string, phone: ?string, marketing_consent: bool} */

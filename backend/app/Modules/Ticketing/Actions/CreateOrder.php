@@ -29,15 +29,16 @@ final class CreateOrder
      * @param  bool  $hasPayment  un moyen de paiement est choisi (obligatoire si la commande n'est pas gratuite)
      * @param  string|null  $idempotencyKey  identifiant tiré au hasard par la page d'achat pour cet envoi
      * @param  string|null  $referral  source de la visite (statistiques, module Analytics)
+     * @param  string|null  $campaignId  campagne e-mail d'origine (module Campaigns)
      */
-    public function handle(Event $event, array $quantities, array $buyer, string $locale, bool $hasPayment, ?string $idempotencyKey = null, ?string $referral = null): Order
+    public function handle(Event $event, array $quantities, array $buyer, string $locale, bool $hasPayment, ?string $idempotencyKey = null, ?string $referral = null, ?string $campaignId = null): Order
     {
         if ($event->starts_at->isPast()) {
             throw ValidationException::withMessages(['items' => __('ticketing.event_started')]);
         }
 
         try {
-            $order = $this->create($event, $quantities, $buyer, $locale, $hasPayment, $idempotencyKey, $referral);
+            $order = $this->create($event, $quantities, $buyer, $locale, $hasPayment, $idempotencyKey, $referral, $campaignId);
         } catch (UniqueConstraintViolationException $e) {
             // Même envoi arrivé en même temps pour d'autres billets : l'autre demande a créé la commande.
             $order = $idempotencyKey !== null ? $this->existing($event, $idempotencyKey) : null;
@@ -59,9 +60,9 @@ final class CreateOrder
      * @param  array<string, int>  $quantities
      * @param  array{name: string, email: string, phone?: ?string, marketing_consent?: bool}  $buyer
      */
-    private function create(Event $event, array $quantities, array $buyer, string $locale, bool $hasPayment, ?string $idempotencyKey, ?string $referral): Order
+    private function create(Event $event, array $quantities, array $buyer, string $locale, bool $hasPayment, ?string $idempotencyKey, ?string $referral, ?string $campaignId): Order
     {
-        return DB::transaction(function () use ($event, $quantities, $buyer, $locale, $hasPayment, $idempotencyKey, $referral) {
+        return DB::transaction(function () use ($event, $quantities, $buyer, $locale, $hasPayment, $idempotencyKey, $referral, $campaignId) {
             [$ticketTypes, $remaining] = Inventory::lockRemaining(array_keys($quantities));
 
             // Après le verrou : un envoi identique simultané a attendu la fin du premier et le retrouve ici.
@@ -111,6 +112,7 @@ final class CreateOrder
                 'marketing_consent' => $buyer['marketing_consent'] ?? false,
                 'locale' => $locale,
                 'referral' => $referral,
+                'campaign_id' => $campaignId,
                 'access_key' => Str::random(40),
                 'expires_at' => now()->addMinutes(config('payments.hold_minutes')),
             ]);

@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MagnifyingGlass, ShieldCheck, Trash } from "@phosphor-icons/react";
+import { MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { Alert, buttonClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatPhone, type Contact, type ContactFilter, type ContactsPage } from "@/lib/contacts";
@@ -11,6 +10,7 @@ import { format } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useOrganization } from "@/lib/organization-context";
 import { PageSkeleton } from "../../PageSkeleton";
+import { AccessGate } from "../AccessGate";
 import app from "../../app.module.css";
 import styles from "./contacts.module.css";
 
@@ -96,30 +96,9 @@ export default function ContactsPage() {
     }
   }
 
-  if (loadError instanceof ApiError && loadError.code === "two_factor_required") {
-    return (
-      <main className={app.main}>
-        <section className={`${app.panel} ${styles.gate}`} aria-labelledby="gate-title">
-          <ShieldCheck size={32} aria-hidden />
-          <h2 id="gate-title" className={app.sectionTitle}>
-            {t.sales.twoFactorTitle}
-          </h2>
-          <p className={app.muted}>{a.twoFactor}</p>
-          <Link href="/compte/securite" className={buttonClass()}>
-            {t.sales.twoFactorCta}
-          </Link>
-        </section>
-      </main>
-    );
-  }
-  const forbidden = loadError instanceof ApiError && loadError.status === 403;
-  if (loadError && (forbidden || !page)) {
-    return (
-      <main className={app.main}>
-        <Alert tone="error">{forbidden ? a.forbidden : formErrorMessage(loadError, t)}</Alert>
-      </main>
-    );
-  }
+  // Refus (double authentification, rôle) ou premier chargement en échec : page bloquée.
+  const blocked = loadError instanceof ApiError && (loadError.code === "two_factor_required" || loadError.status === 403);
+  if (loadError && (blocked || !page)) return <AccessGate error={loadError} twoFactor={a.twoFactor} forbidden={a.forbidden} />;
   if (!page) return <PageSkeleton />;
 
   const { summary } = page;
