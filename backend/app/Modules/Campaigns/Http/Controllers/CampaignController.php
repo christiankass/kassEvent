@@ -63,7 +63,7 @@ final class CampaignController
 
     public function update(Request $request, string $id): JsonResponse
     {
-        $data = $this->validated($request);
+        $data = $this->validated($request, Campaign::findOrFail($id));
         $campaign = $this->locked($id, self::EDITABLE, 'campaigns.locked', fn (Campaign $campaign) => $campaign->fill($data)->save());
 
         return response()->json(['data' => $this->detail($campaign)]);
@@ -152,9 +152,10 @@ final class CampaignController
     }
 
     /** @return array<string, mixed> */
-    private function validated(Request $request): array
+    private function validated(Request $request, ?Campaign $campaign = null): array
     {
-        $whatsapp = $request->input('channel') === Campaign::WHATSAPP;
+        // Sans « channel » dans la requête, une modification garde le canal enregistré.
+        $whatsapp = ($request->input('channel') ?? $campaign?->channel) === Campaign::WHATSAPP;
         $data = $request->validate([
             'channel' => ['sometimes', Rule::in(Campaign::CHANNELS)],
             'subject' => ['required', 'string', 'max:150'],

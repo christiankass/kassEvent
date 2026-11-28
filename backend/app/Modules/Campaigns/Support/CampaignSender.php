@@ -12,6 +12,7 @@ use App\Modules\Communication\Channels\DeliveryFailed;
 use App\Modules\Communication\Events\WhatsAppButtonPressed;
 use App\Modules\Communication\Events\WhatsAppStatusReceived;
 use App\Modules\Communication\Support\WhatsAppAnnouncer;
+use App\Modules\Payments\Support\PaymentService;
 use App\Modules\Tenancy\Support\TenantKeys;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -24,7 +25,8 @@ use Throwable;
  */
 final class CampaignSender
 {
-    public const BATCH = 50;
+    /** 20 messages par lot : à 2 s l'envoi, un lot tient largement dans le délai du job. */
+    public const BATCH = 20;
 
     /** Préfixes des références WhatsApp : accusés (biz_opaque_callback_data) et bouton « Ne plus recevoir ». */
     private const CALLBACK = 'cmp:';
@@ -105,12 +107,13 @@ final class CampaignSender
             } catch (DeliveryFailed) {
                 $this->move($message, CampaignMessage::SENDING, CampaignMessage::FAILED); // numéro sans WhatsApp…
             } catch (Throwable $e) {
-                if ($whatsapp) {
-                    // Panne ou limite de débit de Meta : le message attend le prochain essai du lot.
+                if ($whatsapp && ! PaymentService::mayHaveReachedProvider($e)) {
+                    // Refus net de Meta (limite de débit…) : rien n'est parti, le message attend le prochain essai du lot.
                     $this->move($message, CampaignMessage::SENDING, CampaignMessage::QUEUED);
 
                     throw $e;
                 }
+                // Coupure ou erreur serveur : Meta a peut-être livré (et facturé) le message, il n'est jamais renvoyé.
                 report($e);
                 $this->move($message, CampaignMessage::SENDING, CampaignMessage::FAILED);
             }
