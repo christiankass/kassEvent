@@ -81,6 +81,7 @@ export default function OrganizationLayout({ children }: { children: React.React
     { href: "/tableau-de-bord", label: t.app.dashboard },
     ...(can("events.view") ? [{ href: "/evenements", label: t.app.events }] : []),
     ...(can("orders.view") ? [{ href: "/contacts", label: t.audience.nav }] : []),
+    ...(can("campaigns.manage") ? [{ href: "/campagnes", label: t.campaigns.nav }] : []),
     ...(can("payouts.view") ? [{ href: "/versements", label: t.app.payouts }] : []),
     ...(canManageTeam ? [{ href: "/equipe", label: t.app.team }] : []),
   ];

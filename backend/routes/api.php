@@ -8,6 +8,8 @@ use App\Modules\Analytics\Http\Controllers\EventStatsController;
 use App\Modules\Analytics\Http\Controllers\PublicVisitController;
 use App\Modules\Audience\Http\Controllers\ContactController;
 use App\Modules\Audience\Http\Controllers\PublicUnsubscribeController;
+use App\Modules\Campaigns\Http\Controllers\CampaignController;
+use App\Modules\Campaigns\Http\Controllers\PublicCampaignTrackingController;
 use App\Modules\CheckIn\Http\Controllers\CheckInController;
 use App\Modules\Communication\Http\Controllers\MetaWebhookController;
 use App\Modules\Contributions\Http\Controllers\ContributionController;
@@ -82,6 +84,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->middleware('throttle:rsvp')->whereUuid('id')->name('public.contacts.unsubscribe.show');
     Route::post('/public/contacts/{id}/unsubscribe', [PublicUnsubscribeController::class, 'store'])
         ->middleware('throttle:rsvp')->whereUuid('id')->name('public.contacts.unsubscribe');
+    // Suivi des campagnes e-mail : ouverture (image) et clic sur le bouton.
+    Route::get('/public/campaigns/{campaign}/messages/{message}/open', [PublicCampaignTrackingController::class, 'open'])
+        ->middleware('throttle:public')->whereUuid(['campaign', 'message'])->name('public.campaigns.open');
+    Route::get('/public/campaigns/{campaign}/messages/{message}/click', [PublicCampaignTrackingController::class, 'click'])
+        ->middleware('throttle:public')->whereUuid(['campaign', 'message'])->name('public.campaigns.click');
     Route::post('/public/guests/{id}/rsvp', [PublicGuestController::class, 'respond'])
         ->middleware('throttle:rsvp-answer')->whereUuid('id')->name('public.guests.rsvp');
 
@@ -220,6 +227,19 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 // Carnet de contacts : acheteurs et invités, comme la liste des ventes.
                 Route::get('/contacts', [ContactController::class, 'index'])->name('contacts.index');
                 Route::delete('/contacts/{id}', [ContactController::class, 'destroy'])->middleware('can:events.manage')->whereUuid('id')->name('contacts.destroy');
+            });
+
+            // Campagnes e-mail aux contacts qui ont donné leur accord : même protection que le carnet.
+            Route::middleware(['can:campaigns.manage', RequireTwoFactorForMoney::class])->group(function () {
+                Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
+                Route::post('/campaigns', [CampaignController::class, 'store'])->name('campaigns.store');
+                Route::get('/campaigns/{id}', [CampaignController::class, 'show'])->whereUuid('id')->name('campaigns.show');
+                Route::patch('/campaigns/{id}', [CampaignController::class, 'update'])->whereUuid('id')->name('campaigns.update');
+                Route::delete('/campaigns/{id}', [CampaignController::class, 'destroy'])->whereUuid('id')->name('campaigns.destroy');
+                Route::get('/campaigns/{id}/preview', [CampaignController::class, 'preview'])->whereUuid('id')->name('campaigns.preview');
+                Route::post('/campaigns/{id}/send', [CampaignController::class, 'send'])->middleware('throttle:campaign-sends')->whereUuid('id')->name('campaigns.send');
+                Route::post('/campaigns/{id}/cancel', [CampaignController::class, 'cancel'])->whereUuid('id')->name('campaigns.cancel');
+                Route::post('/campaigns/{id}/test', [CampaignController::class, 'test'])->middleware('throttle:design-test')->whereUuid('id')->name('campaigns.test');
             });
 
             // Statistiques et export comptable : montants encaissés, donc double authentification pour les rôles argent.

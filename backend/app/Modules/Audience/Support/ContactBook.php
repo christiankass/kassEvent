@@ -6,6 +6,7 @@ use App\Modules\Audience\Models\Contact;
 use App\Modules\Tenancy\Support\TenantContext;
 use App\Modules\Tenancy\Support\TenantKeys;
 use App\Modules\Ticketing\Events\TicketsIssued;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -55,6 +56,29 @@ final class ContactBook
         app(TenantContext::class)->run($event->organizationId, fn () => $this->rememberQuietly(
             $event->buyer, $event->buyer['marketing_consent'], Contact::CHECKOUT, 'order',
         ));
+    }
+
+    /**
+     * Contacts qu'une campagne e-mail peut écrire : joignables, avec une adresse, parmi tous, les
+     * acheteurs ou les invités.
+     *
+     * @return Builder<Contact>
+     */
+    public function emailAudience(string $audience): Builder
+    {
+        return Contact::query()->reachable()->whereNotNull('email')
+            ->when($audience === 'buyers', fn (Builder $query) => $query->where('orders_count', '>', 0))
+            ->when($audience === 'guests', fn (Builder $query) => $query->where('invitations_count', '>', 0));
+    }
+
+    /** @return array{all: int, buyers: int, guests: int} nombre de contacts joignables par e-mail, par public */
+    public function emailAudienceCounts(): array
+    {
+        $counts = $this->emailAudience('all')->toBase()
+            ->selectRaw('count(*) as "all", count(*) filter (where orders_count > 0) as buyers, count(*) filter (where invitations_count > 0) as guests')
+            ->first();
+
+        return array_map('intval', (array) $counts);
     }
 
     public function unsubscribe(Contact $contact): void

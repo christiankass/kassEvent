@@ -1,4 +1,5 @@
 import { audienceEn, audienceFr } from "./audience";
+import { campaignsEn, campaignsFr } from "./campaigns";
 import { contributionsEn, contributionsFr } from "./contributions";
 import { guestsEn, guestsFr } from "./guests";
 import { homeEn, homeFr } from "./landing";
@@ -1028,6 +1029,7 @@ const fr = {
   ...contributionsFr,
   ...statsFr,
   ...audienceFr,
+  ...campaignsFr,
 };
 
 export type Dictionary = typeof fr;
@@ -2054,6 +2056,7 @@ const en: Dictionary = {
   ...contributionsEn,
   ...statsEn,
   ...audienceEn,
+  ...campaignsEn,
 };
 
 export const LOCALES = ["fr", "en"] as const;

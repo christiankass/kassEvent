@@ -63,15 +63,29 @@ function normalize(value: string | null): Source | null {
   return (SOURCES as readonly string[]).includes(source) ? (source as Source) : "other";
 }
 
-/** Source retenue pour cet événement (dernier canal connu, 30 jours), sinon « direct ». */
-export function storedReferral(slug: string): Source {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type Saved = { source?: string; at?: number; campaign?: string };
+
+function saved(slug: string): Saved | null {
   try {
-    const saved = JSON.parse(window.localStorage.getItem(storageKey(slug)) ?? "null") as { source?: string; at?: number } | null;
-    if (saved?.source && typeof saved.at === "number" && Date.now() - saved.at < KEEP_MS) return normalize(saved.source) ?? "direct";
+    const value = JSON.parse(window.localStorage.getItem(storageKey(slug)) ?? "null") as Saved | null;
+    if (value?.source && typeof value.at === "number" && Date.now() - value.at < KEEP_MS) return value;
   } catch {
     // Stockage bloqué (navigation privée) : la commande partira sans source.
   }
-  return "direct";
+  return null;
+}
+
+/** Source retenue pour cet événement (dernier canal connu, 30 jours), sinon « direct ». */
+export function storedReferral(slug: string): Source {
+  return normalize(saved(slug)?.source ?? null) ?? "direct";
+}
+
+/** Campagne e-mail dont le bouton a mené à cette page (?src=email&cmp=…), tant que l'e-mail reste la source retenue. */
+export function storedCampaign(slug: string): string | null {
+  const value = saved(slug);
+  return value?.source === "email" && value.campaign && UUID.test(value.campaign) ? value.campaign : null;
 }
 
 /**
@@ -79,9 +93,11 @@ export function storedReferral(slug: string): Source {
  * source ne remplace pas un canal déjà retenu (le visiteur revient souvent par l'historique).
  */
 export function recordVisit(slug: string): void {
-  const source = normalize(new URLSearchParams(window.location.search).get("src")) ?? fromReferrer(document.referrer);
+  const params = new URLSearchParams(window.location.search);
+  const source = normalize(params.get("src")) ?? fromReferrer(document.referrer);
+  const campaign = source === "email" && UUID.test(params.get("cmp") ?? "") ? params.get("cmp") : null;
   try {
-    if (source) window.localStorage.setItem(storageKey(slug), JSON.stringify({ source, at: Date.now() }));
+    if (source) window.localStorage.setItem(storageKey(slug), JSON.stringify({ source, at: Date.now(), ...(campaign ? { campaign } : {}) }));
     const flag = `kassevent:visit:${slug}`;
     if (window.sessionStorage.getItem(flag)) return;
     window.sessionStorage.setItem(flag, "1");

@@ -1,0 +1,11 @@
+.gate {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  color: var(--fleuve);
+}
+
+.gate p,
+.gate h2 {
+  margin: 0;
+}

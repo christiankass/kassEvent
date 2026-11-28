@@ -52,6 +52,12 @@ class Contact extends Model
         return is_string($key) && hash_equals($this->unsubscribe_key, $key);
     }
 
+    /** Désinscription en un clic depuis la messagerie (en-tête List-Unsubscribe d'une campagne). */
+    public function apiUnsubscribeUrl(): string
+    {
+        return route('api.v1.public.contacts.unsubscribe', ['id' => $this->id]).'?key='.urlencode($this->unsubscribe_key);
+    }
+
     /** Lien de désinscription, à mettre dans chaque campagne. */
     public function unsubscribeUrl(): string
     {
