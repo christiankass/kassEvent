@@ -38,11 +38,6 @@ class Campaign extends Model
             'scheduled_at' => 'datetime',
             'started_at' => 'datetime',
             'sent_at' => 'datetime',
-            'recipients_count' => 'integer',
-            'sent_count' => 'integer',
-            'failed_count' => 'integer',
-            'opened_count' => 'integer',
-            'clicked_count' => 'integer',
         ];
     }
 
@@ -62,5 +57,16 @@ class Campaign extends Model
     public function isEditable(): bool
     {
         return in_array($this->status, [self::DRAFT, self::SCHEDULED], true);
+    }
+
+    /** Événement mis en avant qui n'est plus publié (le bouton de l'e-mail mènerait à une page fermée). */
+    public function eventUnavailable(): bool
+    {
+        return $this->event_id !== null && ! $this->event?->isPublished();
+    }
+
+    public function backToDraft(): void
+    {
+        $this->forceFill(['status' => self::DRAFT, 'scheduled_at' => null])->save();
     }
 }

@@ -1,7 +1,9 @@
+import { percent } from "./stats";
+
 /** Campagnes e-mail de l'organisation (GET /campaigns, /campaigns/{id}). */
 export type CampaignStatus = "draft" | "scheduled" | "sending" | "sent";
-export type CampaignAudience = "all" | "buyers" | "guests";
-export const AUDIENCES: CampaignAudience[] = ["all", "buyers", "guests"];
+export const AUDIENCES = ["all", "buyers", "guests"] as const;
+export type CampaignAudience = (typeof AUDIENCES)[number];
 
 export type CampaignSummary = {
   id: string;
@@ -42,7 +44,7 @@ export type CampaignDraft = {
 
 export const isEditable = (status: CampaignStatus) => status === "draft" || status === "scheduled";
 
-/** Part arrondie (« 42 % »), ou un tiret sans dénominateur. */
+/** Part en pourcentage (comme les statistiques), ou un tiret sans dénominateur. */
 export function rate(part: number, total: number, locale: string): string {
-  return total > 0 ? new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(part / total) : "–";
+  return total > 0 ? percent(part / total, locale) : "–";
 }

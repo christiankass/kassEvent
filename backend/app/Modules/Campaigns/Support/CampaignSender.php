@@ -30,23 +30,21 @@ final class CampaignSender
         $started = DB::transaction(function () use ($campaign) {
             $campaign = Campaign::with('event')->lockForUpdate()->find($campaign->id);
             if ($campaign === null || ! $campaign->isEditable()) {
-                return false;
+                return null;
             }
-            if ($campaign->event_id !== null && ! $campaign->event?->isPublished()) {
-                $campaign->forceFill(['status' => Campaign::DRAFT, 'scheduled_at' => null])->save();
+            if ($campaign->eventUnavailable()) {
+                $campaign->backToDraft();
 
-                return false;
+                return null;
             }
 
-            CampaignMessage::insertUsing(
+            $count = CampaignMessage::insertUsing(
                 ['id', 'organization_id', 'campaign_id', 'contact_id', 'status'],
                 $this->contacts->emailAudience($campaign->audience)->toBase()
                     ->selectRaw("gen_random_uuid(), organization_id, ?::uuid, id, 'queued'", [$campaign->id]),
             );
-            $count = $campaign->messages()->count();
             $campaign->forceFill([
                 'status' => $count > 0 ? Campaign::SENDING : Campaign::SENT,
-                'recipients_count' => $count,
                 'started_at' => now(),
                 'sent_at' => $count > 0 ? null : now(),
             ])->save();
@@ -54,16 +52,13 @@ final class CampaignSender
             return $campaign;
         });
 
-        if ($started === false) {
-            return false;
-        }
-        if ($started->status === Campaign::SENDING) {
+        if ($started?->status === Campaign::SENDING) {
             $started->messages()->orderBy('id')->pluck('id')->chunk(self::BATCH)->each(
                 fn ($ids) => SendCampaignMessages::dispatch($started->organization_id, $started->id, $ids->values()->all())->afterCommit(),
             );
         }
 
-        return true;
+        return $started !== null;
     }
 
     /**
@@ -81,21 +76,21 @@ final class CampaignSender
         $messages = $campaign->messages()->with('contact')->whereIn('id', $ids)->where('status', CampaignMessage::QUEUED)->get();
 
         foreach ($messages as $message) {
-            if (! $this->finish($campaign, $message, CampaignMessage::QUEUED, CampaignMessage::SENDING)) {
+            if (! $this->move($message, CampaignMessage::QUEUED, CampaignMessage::SENDING)) {
                 continue; // pris par un autre lot
             }
             $contact = $message->contact;
             if ($contact === null || $contact->email === null || ! $contact->isReachable()) {
-                $this->finish($campaign, $message, CampaignMessage::SENDING, CampaignMessage::SKIPPED);
+                $this->move($message, CampaignMessage::SENDING, CampaignMessage::SKIPPED);
 
                 continue;
             }
             try {
                 Mail::to($contact->email, $contact->name)->locale($contact->locale)->send(new CampaignMail($campaign, $contact, $message));
-                $this->finish($campaign, $message, CampaignMessage::SENDING, CampaignMessage::SENT);
+                $this->move($message, CampaignMessage::SENDING, CampaignMessage::SENT);
             } catch (Throwable $e) {
                 report($e);
-                $this->finish($campaign, $message, CampaignMessage::SENDING, CampaignMessage::FAILED);
+                $this->move($message, CampaignMessage::SENDING, CampaignMessage::FAILED);
             }
         }
 
@@ -103,49 +98,50 @@ final class CampaignSender
     }
 
     /**
-     * Lot abandonné (essais épuisés) : ses messages encore en file ou réservés sont comptés en échec,
-     * pour que la campagne se termine quand même.
+     * Lot abandonné (essais épuisés) : ses messages encore en file ou réservés passent en échec, pour
+     * que la campagne se termine quand même.
      *
      * @param  list<string>  $ids
      * @param  list<string>  $statuses
      */
     public function abandon(Campaign $campaign, array $ids, array $statuses = [CampaignMessage::QUEUED, CampaignMessage::SENDING]): void
     {
-        $failed = $campaign->messages()->whereIn('id', $ids)->whereIn('status', $statuses)->update(['status' => CampaignMessage::FAILED]);
-        if ($failed > 0) {
-            Campaign::whereKey($campaign->id)->increment('failed_count', $failed);
-        }
+        $campaign->messages()->whereIn('id', $ids)->whereIn('status', $statuses)->update(['status' => CampaignMessage::FAILED]);
         $this->completeIfDone($campaign);
     }
 
-    /** Ouverture (image invisible) : comptée une fois par destinataire. */
+    /** Ouverture (image invisible) : notée une fois par destinataire. */
     public function opened(CampaignMessage $message): void
     {
-        if (CampaignMessage::whereKey($message->id)->whereNull('opened_at')->update(['opened_at' => now()]) === 1) {
-            Campaign::whereKey($message->campaign_id)->increment('opened_count');
-        }
+        CampaignMessage::whereKey($message->id)->whereNull('opened_at')->update(['opened_at' => now()]);
     }
 
-    /** Clic sur le bouton : compté une fois par destinataire (et vaut ouverture, si l'image a été bloquée). */
+    /** Clic sur le bouton : noté une fois (et vaut ouverture, si l'image a été bloquée). */
     public function clicked(CampaignMessage $message): void
     {
-        $this->opened($message);
-        if (CampaignMessage::whereKey($message->id)->whereNull('clicked_at')->update(['clicked_at' => now()]) === 1) {
-            Campaign::whereKey($message->campaign_id)->increment('clicked_count');
-        }
+        CampaignMessage::whereKey($message->id)->whereNull('clicked_at')
+            ->update(['clicked_at' => now(), 'opened_at' => DB::raw('coalesce(opened_at, now())')]);
+    }
+
+    /**
+     * Chiffres par campagne, comptés sur ses envois.
+     *
+     * @param  list<string>  $campaignIds
+     * @return array<string, array{recipients_count: int, sent_count: int, failed_count: int, opened_count: int, clicked_count: int}>
+     */
+    public function counts(array $campaignIds): array
+    {
+        return CampaignMessage::toBase()->whereIn('campaign_id', $campaignIds)->groupBy('campaign_id')
+            ->selectRaw("campaign_id, count(*) as recipients_count, count(*) filter (where status = 'sent') as sent_count, count(*) filter (where status = 'failed') as failed_count, count(opened_at) as opened_count, count(clicked_at) as clicked_count")
+            ->get()->mapWithKeys(fn ($row) => [$row->campaign_id => array_map('intval', array_diff_key((array) $row, ['campaign_id' => 1]))])
+            ->all();
     }
 
     /** Passe un message de $from à $to (rien s'il n'est plus en $from) ; rend vrai s'il a changé. */
-    private function finish(Campaign $campaign, CampaignMessage $message, string $from, string $to): bool
+    private function move(CampaignMessage $message, string $from, string $to): bool
     {
-        $done = CampaignMessage::whereKey($message->id)->where('status', $from)
+        return CampaignMessage::whereKey($message->id)->where('status', $from)
             ->update(['status' => $to, 'sent_at' => $to === CampaignMessage::SENT ? now() : null]) === 1;
-        $counter = [CampaignMessage::SENT => 'sent_count', CampaignMessage::FAILED => 'failed_count'][$to] ?? null;
-        if ($done && $counter !== null) {
-            Campaign::whereKey($campaign->id)->increment($counter);
-        }
-
-        return $done;
     }
 
     private function completeIfDone(Campaign $campaign): void

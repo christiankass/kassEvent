@@ -17,6 +17,6 @@ final class CampaignLinks
             return (string) config('app.frontend_url');
         }
 
-        return config('app.frontend_url').'/e/'.$event->slug.'?'.http_build_query(['src' => 'email', 'cmp' => $campaign->id]);
+        return $event->publicUrl().'?'.http_build_query(['src' => 'email', 'cmp' => $campaign->id]);
     }
 }

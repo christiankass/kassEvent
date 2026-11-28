@@ -46,7 +46,7 @@ final class PublicCampaignTrackingController
             }
             $this->sender->clicked($found);
 
-            return CampaignLinks::eventUrl($found->campaign);
+            return CampaignLinks::eventUrl($found->campaign->load('event'));
         });
 
         return redirect()->away($url ?? (string) config('app.frontend_url'));
@@ -54,8 +54,8 @@ final class PublicCampaignTrackingController
 
     private function find(string $campaign, string $message): ?CampaignMessage
     {
-        return CampaignMessage::with('campaign.event')->where('campaign_id', $campaign)
-            ->whereHas('campaign', fn ($query) => $query->whereIn('status', [Campaign::SENDING, Campaign::SENT]))
-            ->find($message);
+        $found = CampaignMessage::with('campaign')->where('campaign_id', $campaign)->find($message);
+
+        return in_array($found?->campaign->status, [Campaign::SENDING, Campaign::SENT], true) ? $found : null;
     }
 }

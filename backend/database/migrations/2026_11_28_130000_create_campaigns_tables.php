@@ -10,9 +10,10 @@ use Illuminate\Support\Facades\Schema;
  * Campagnes e-mail (module Campaigns).
  *
  * - campaigns : un message écrit par l'organisateur, envoyé aux contacts qui ont donné leur accord
- *   (tous, acheteurs ou invités), tout de suite ou à une date choisie. Compteurs d'envoi, d'ouvertures et de clics.
+ *   (tous, acheteurs ou invités), tout de suite ou à une date choisie.
  * - campaign_messages : un envoi par contact, figé au départ de la campagne. Aucune donnée personnelle
  *   copiée : l'adresse est relue sur le contact au moment de l'envoi (un contact supprimé n'est plus écrit).
+ *   Les chiffres de la campagne (envoyés, ouvertures, clics) se comptent sur ces lignes.
  * - Permission campaigns.manage (propriétaire, administrateur, responsable d'événements).
  */
 return new class extends Migration
@@ -32,11 +33,6 @@ return new class extends Migration
             $table->timestamp('scheduled_at')->nullable();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('sent_at')->nullable();
-            $table->unsignedInteger('recipients_count')->default(0);
-            $table->unsignedInteger('sent_count')->default(0);
-            $table->unsignedInteger('failed_count')->default(0);
-            $table->unsignedInteger('opened_count')->default(0);
-            $table->unsignedInteger('clicked_count')->default(0);
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 

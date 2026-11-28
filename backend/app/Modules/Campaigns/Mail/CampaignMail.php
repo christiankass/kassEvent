@@ -33,9 +33,15 @@ final class CampaignMail extends Mailable
         return new Envelope(subject: $this->test ? __('campaigns.mail.test', ['subject' => $subject]) : $subject);
     }
 
+    /** Vrai envoi à un contact (pas un essai ni un aperçu) : suivi et désinscription réels. */
+    private function live(): bool
+    {
+        return $this->contact !== null && $this->message !== null;
+    }
+
     public function headers(): Headers
     {
-        if ($this->contact === null || $this->message === null) {
+        if (! $this->live()) {
             return new Headers;
         }
 
@@ -62,14 +68,14 @@ final class CampaignMail extends Mailable
             'when' => $event?->starts_at->timezone($event->timezone)->locale(app()->getLocale())->translatedFormat('l j F Y, H:i'),
             'button' => $event ? ($campaign->button_label ?: __('campaigns.mail.button')) : null,
             'url' => $event ? $this->buttonUrl() : null,
-            'unsubscribe' => $this->contact && $this->message ? $this->contact->unsubscribeUrl() : null,
-            'pixel' => $this->message ? route('api.v1.public.campaigns.open', ['campaign' => $campaign->id, 'message' => $this->message->id]) : null,
+            'unsubscribe' => $this->live() ? $this->contact->unsubscribeUrl() : null,
+            'pixel' => $this->live() ? route('api.v1.public.campaigns.open', ['campaign' => $campaign->id, 'message' => $this->message->id]) : null,
         ]);
     }
 
     private function buttonUrl(): string
     {
-        return $this->message
+        return $this->live()
             ? route('api.v1.public.campaigns.click', ['campaign' => $this->campaign->id, 'message' => $this->message->id])
             : CampaignLinks::eventUrl($this->campaign);
     }

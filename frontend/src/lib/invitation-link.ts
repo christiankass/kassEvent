@@ -3,7 +3,8 @@
  * (invitation → connexion ou inscription → invitation). Les chemins sont reconstruits
  * à partir de valeurs vérifiées : jamais de redirection vers une adresse reçue telle quelle.
  */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from "./uuid";
+
 const TOKEN = /^[A-Za-z0-9]{48}$/;
 
 export type InvitationLink = { organisation: string; jeton: string };
@@ -13,7 +14,7 @@ type Params = { get(name: string): string | null };
 export function readInvitationLink(params: Params): InvitationLink | null {
   const organisation = params.get("organisation");
   const jeton = params.get("jeton");
-  return organisation && jeton && UUID.test(organisation) && TOKEN.test(jeton) ? { organisation, jeton } : null;
+  return organisation && jeton && isUuid(organisation) && TOKEN.test(jeton) ? { organisation, jeton } : null;
 }
 
 /** La page de l'invitation. */

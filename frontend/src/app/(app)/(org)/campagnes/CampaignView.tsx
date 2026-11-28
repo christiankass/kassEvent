@@ -320,7 +320,7 @@ export function CampaignView({ id }: { id?: string }) {
             {e.schedule}
           </Button>
         </div>
-        {(scheduled || campaign) && (
+        {campaign && (
           <div className={styles.actions}>
             {scheduled && (
               <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>

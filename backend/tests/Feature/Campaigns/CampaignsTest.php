@@ -8,6 +8,7 @@ use App\Modules\Campaigns\Jobs\SendCampaignMessages;
 use App\Modules\Campaigns\Mail\CampaignMail;
 use App\Modules\Campaigns\Models\Campaign;
 use App\Modules\Campaigns\Models\CampaignMessage;
+use App\Modules\Campaigns\Support\CampaignSender;
 use App\Modules\Tenancy\Models\Organization;
 use App\Modules\Tenancy\Support\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -213,7 +214,7 @@ class CampaignsTest extends TestCase
         $this->inTenant(function () use ($campaign) {
             $found = Campaign::find($campaign['id']);
             $this->assertSame(Campaign::SENT, $found->status);
-            $this->assertSame(2, $found->failed_count);
+            $this->assertSame(2, app(CampaignSender::class)->counts([$found->id])[$found->id]['failed_count']);
         });
     }
 

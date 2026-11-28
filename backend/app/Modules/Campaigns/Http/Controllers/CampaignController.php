@@ -23,14 +23,17 @@ use Illuminate\Validation\ValidationException;
  */
 final class CampaignController
 {
+    private const EDITABLE = [Campaign::DRAFT, Campaign::SCHEDULED];
+
     public function __construct(private readonly ContactBook $contacts, private readonly CampaignSender $sender) {}
 
     public function index(): JsonResponse
     {
         $campaigns = Campaign::with('event:id,title')->latest()->limit(100)->get();
+        $counts = $this->sender->counts($campaigns->modelKeys());
 
         return response()->json([
-            'data' => $campaigns->map(fn (Campaign $campaign) => $this->summary($campaign)),
+            'data' => $campaigns->map(fn (Campaign $campaign) => $this->summary($campaign, $counts[$campaign->id] ?? [])),
             'audiences' => $this->contacts->emailAudienceCounts(),
             // Sans service d'envoi configuré, les e-mails restent dans le journal du serveur.
             'demo' => in_array(config('mail.default'), ['log', 'array'], true),
@@ -56,14 +59,14 @@ final class CampaignController
     public function update(Request $request, string $id): JsonResponse
     {
         $data = $this->validated($request);
-        $campaign = $this->whileEditable($id, fn (Campaign $campaign) => $campaign->fill($data)->save());
+        $campaign = $this->locked($id, self::EDITABLE, 'campaigns.locked', fn (Campaign $campaign) => $campaign->fill($data)->save());
 
         return response()->json(['data' => $this->detail($campaign)]);
     }
 
     public function destroy(string $id): Response
     {
-        $this->whileEditable($id, fn (Campaign $campaign) => $campaign->delete());
+        $this->locked($id, self::EDITABLE, 'campaigns.locked', fn (Campaign $campaign) => $campaign->delete());
 
         return response()->noContent();
     }
@@ -75,7 +78,7 @@ final class CampaignController
         $data = $request->validate([
             'scheduled_at' => ['nullable', 'date', 'after:now', 'before:'.now()->addDays(90)->toDateTimeString()],
         ]);
-        if ($campaign->event_id !== null && ! $campaign->event?->isPublished()) {
+        if ($campaign->eventUnavailable()) {
             throw ValidationException::withMessages(['event_id' => __('campaigns.event_unpublished')]);
         }
         if ($this->contacts->emailAudience($campaign->audience)->doesntExist()) {
@@ -83,7 +86,7 @@ final class CampaignController
         }
 
         if (isset($data['scheduled_at'])) {
-            $this->whileEditable($id, fn (Campaign $locked) => $locked->forceFill(['status' => Campaign::SCHEDULED, 'scheduled_at' => $data['scheduled_at']])->save());
+            $this->locked($id, self::EDITABLE, 'campaigns.locked', fn (Campaign $locked) => $locked->forceFill(['status' => Campaign::SCHEDULED, 'scheduled_at' => $data['scheduled_at']])->save());
         } elseif (! $this->sender->start($campaign)) {
             throw ValidationException::withMessages(['status' => __('campaigns.locked')]);
         }
@@ -94,16 +97,7 @@ final class CampaignController
     /** Programmée : revient en brouillon. */
     public function cancel(string $id): JsonResponse
     {
-        $campaign = DB::transaction(function () use ($id) {
-            $campaign = Campaign::lockForUpdate()->findOrFail($id);
-            if ($campaign->status !== Campaign::SCHEDULED) {
-                throw ValidationException::withMessages(['status' => __('campaigns.not_scheduled')]);
-            }
-
-            $campaign->forceFill(['status' => Campaign::DRAFT, 'scheduled_at' => null])->save();
-
-            return $campaign;
-        });
+        $campaign = $this->locked($id, [Campaign::SCHEDULED], 'campaigns.not_scheduled', fn (Campaign $campaign) => $campaign->backToDraft());
 
         return response()->json(['data' => $this->detail($campaign)]);
     }
@@ -130,17 +124,18 @@ final class CampaignController
     }
 
     /**
-     * Change une campagne encore modifiable, sous verrou : le lanceur de campagnes programmées ne peut
-     * pas la faire partir entre la vérification et l'écriture.
+     * Change une campagne sous verrou, si elle est dans l'un des $statuses (sinon 422 $error) : le
+     * lanceur de campagnes programmées ne peut pas la faire partir entre la vérification et l'écriture.
      *
+     * @param  list<string>  $statuses
      * @param  callable(Campaign): mixed  $change
      */
-    private function whileEditable(string $id, callable $change): Campaign
+    private function locked(string $id, array $statuses, string $error, callable $change): Campaign
     {
-        return DB::transaction(function () use ($id, $change) {
+        return DB::transaction(function () use ($id, $statuses, $error, $change) {
             $campaign = Campaign::lockForUpdate()->findOrFail($id);
-            if (! $campaign->isEditable()) {
-                throw ValidationException::withMessages(['status' => __('campaigns.locked')]);
+            if (! in_array($campaign->status, $statuses, true)) {
+                throw ValidationException::withMessages(['status' => __($error)]);
             }
             $change($campaign);
 
@@ -167,7 +162,8 @@ final class CampaignController
     }
 
     /** @return array<string, mixed> */
-    private function summary(Campaign $campaign): array
+    /** @param  array<string, int>  $counts  chiffres de CampaignSender::counts() */
+    private function summary(Campaign $campaign, array $counts): array
     {
         return [
             'id' => $campaign->id,
@@ -178,11 +174,8 @@ final class CampaignController
             'scheduled_at' => $campaign->scheduled_at?->toIso8601String(),
             'sent_at' => $campaign->sent_at?->toIso8601String(),
             'created_at' => $campaign->created_at?->toIso8601String(),
-            'recipients_count' => $campaign->recipients_count,
-            'sent_count' => $campaign->sent_count,
-            'failed_count' => $campaign->failed_count,
-            'opened_count' => $campaign->opened_count,
-            'clicked_count' => $campaign->clicked_count,
+            'recipients_count' => 0, 'sent_count' => 0, 'failed_count' => 0, 'opened_count' => 0, 'clicked_count' => 0,
+            ...$counts,
         ];
     }
 
@@ -196,7 +189,7 @@ final class CampaignController
             ->map(fn ($row) => ['currency' => $row->currency, 'orders' => (int) $row->orders, 'revenue' => (int) $row->revenue]);
 
         return [
-            ...$this->summary($campaign),
+            ...$this->summary($campaign, $this->sender->counts([$campaign->id])[$campaign->id] ?? []),
             'body' => $campaign->body,
             'button_label' => $campaign->button_label,
             'event_id' => $campaign->event_id,

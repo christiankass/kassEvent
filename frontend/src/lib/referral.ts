@@ -5,6 +5,7 @@
  * Aucune donnée sur la personne : seulement le nom du canal.
  */
 import { api } from "./api";
+import { isUuid } from "./uuid";
 
 export const SOURCES = [
   "whatsapp",
@@ -63,8 +64,6 @@ function normalize(value: string | null): Source | null {
   return (SOURCES as readonly string[]).includes(source) ? (source as Source) : "other";
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 type Saved = { source?: string; at?: number; campaign?: string };
 
 function saved(slug: string): Saved | null {
@@ -85,7 +84,7 @@ export function storedReferral(slug: string): Source {
 /** Campagne e-mail dont le bouton a mené à cette page (?src=email&cmp=…), tant que l'e-mail reste la source retenue. */
 export function storedCampaign(slug: string): string | null {
   const value = saved(slug);
-  return value?.source === "email" && value.campaign && UUID.test(value.campaign) ? value.campaign : null;
+  return value?.source === "email" && isUuid(value.campaign) ? value.campaign : null;
 }
 
 /**
@@ -95,7 +94,8 @@ export function storedCampaign(slug: string): string | null {
 export function recordVisit(slug: string): void {
   const params = new URLSearchParams(window.location.search);
   const source = normalize(params.get("src")) ?? fromReferrer(document.referrer);
-  const campaign = source === "email" && UUID.test(params.get("cmp") ?? "") ? params.get("cmp") : null;
+  const cmp = params.get("cmp");
+  const campaign = source === "email" && isUuid(cmp) ? cmp : null;
   try {
     if (source) window.localStorage.setItem(storageKey(slug), JSON.stringify({ source, at: Date.now(), ...(campaign ? { campaign } : {}) }));
     const flag = `kassevent:visit:${slug}`;
