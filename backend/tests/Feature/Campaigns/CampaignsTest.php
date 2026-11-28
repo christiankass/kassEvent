@@ -183,6 +183,40 @@ class CampaignsTest extends TestCase
         $this->inTenant(fn () => $this->assertSame(Campaign::SENT, Campaign::find($campaign['id'])->status));
     }
 
+    public function test_a_scheduled_campaign_whose_event_was_unpublished_goes_back_to_draft(): void
+    {
+        $campaign = $this->draft();
+        $this->postJson("/api/v1/campaigns/{$campaign['id']}/send", ['scheduled_at' => now()->addHour()->toIso8601String()], $this->headers())->assertOk();
+        $this->postJson("/api/v1/events/{$this->event['id']}/unpublish", [], $this->headers())->assertOk();
+        $this->leave();
+
+        $this->travel(2)->hours();
+        $this->artisan('campaigns:dispatch')->assertSuccessful();
+        Mail::assertNotSent(CampaignMail::class);
+        $this->inTenant(fn () => $this->assertSame(Campaign::DRAFT, Campaign::find($campaign['id'])->status));
+    }
+
+    public function test_a_batch_that_keeps_failing_is_counted_as_failed_and_the_campaign_ends(): void
+    {
+        $campaign = $this->draft();
+        Queue::fake();
+        $this->postJson("/api/v1/campaigns/{$campaign['id']}/send", [], $this->headers())->assertOk();
+        $job = null;
+        Queue::assertPushed(SendCampaignMessages::class, function ($pushed) use (&$job) {
+            $job = $pushed;
+
+            return true;
+        });
+        $this->leave();
+
+        $job->failed();
+        $this->inTenant(function () use ($campaign) {
+            $found = Campaign::find($campaign['id']);
+            $this->assertSame(Campaign::SENT, $found->status);
+            $this->assertSame(2, $found->failed_count);
+        });
+    }
+
     public function test_campaigns_are_isolated_and_need_the_permission(): void
     {
         $campaign = $this->draft();

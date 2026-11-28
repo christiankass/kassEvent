@@ -15,6 +15,9 @@ final class SendCampaignMessages implements ShouldQueue
 
     public int $tries = 3;
 
+    /** 50 e-mails par lot : de la marge si le service d'envoi est lent. */
+    public int $timeout = 300;
+
     /** @var list<int> */
     public array $backoff = [60, 300];
 
@@ -30,6 +33,17 @@ final class SendCampaignMessages implements ShouldQueue
             $campaign = Campaign::find($this->campaignId);
             if ($campaign?->status === Campaign::SENDING) {
                 $sender->deliver($campaign, $this->messageIds);
+            }
+        });
+    }
+
+    /** Essais épuisés : le lot est compté en échec, la campagne peut se terminer. */
+    public function failed(): void
+    {
+        app(TenantContext::class)->run($this->organizationId, function () {
+            $campaign = Campaign::find($this->campaignId);
+            if ($campaign !== null) {
+                app(CampaignSender::class)->abandon($campaign, $this->messageIds);
             }
         });
     }

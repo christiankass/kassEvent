@@ -21,13 +21,21 @@ final class CampaignSender
 
     public function __construct(private readonly ContactBook $contacts) {}
 
-    /** Lance une campagne en brouillon ou programmée (sans effet sur une campagne déjà partie). */
-    public function start(Campaign $campaign): void
+    /**
+     * Lance une campagne en brouillon ou programmée ; rend faux sans effet pour une campagne déjà partie.
+     * Son événement n'est plus publié (programmée puis dépubliée) : elle revient en brouillon sans partir.
+     */
+    public function start(Campaign $campaign): bool
     {
         $started = DB::transaction(function () use ($campaign) {
-            $campaign = Campaign::lockForUpdate()->find($campaign->id);
+            $campaign = Campaign::with('event')->lockForUpdate()->find($campaign->id);
             if ($campaign === null || ! $campaign->isEditable()) {
-                return null;
+                return false;
+            }
+            if ($campaign->event_id !== null && ! $campaign->event?->isPublished()) {
+                $campaign->forceFill(['status' => Campaign::DRAFT, 'scheduled_at' => null])->save();
+
+                return false;
             }
 
             CampaignMessage::insertUsing(
@@ -46,40 +54,67 @@ final class CampaignSender
             return $campaign;
         });
 
-        if ($started?->status === Campaign::SENDING) {
+        if ($started === false) {
+            return false;
+        }
+        if ($started->status === Campaign::SENDING) {
             $started->messages()->orderBy('id')->pluck('id')->chunk(self::BATCH)->each(
-                fn ($ids) => SendCampaignMessages::dispatch($started->organization_id, $started->id, $ids->values()->all()),
+                fn ($ids) => SendCampaignMessages::dispatch($started->organization_id, $started->id, $ids->values()->all())->afterCommit(),
             );
         }
+
+        return true;
     }
 
     /**
      * Envoie les messages encore en file parmi $ids. Un contact désinscrit (ou supprimé) entre-temps est
-     * sauté ; un échec d'envoi est compté sans bloquer les autres.
+     * sauté ; un échec d'envoi est compté sans bloquer les autres. Chaque message est réservé avant
+     * l'envoi : un lot relancé après un arrêt brutal ne renvoie jamais un e-mail peut-être déjà parti.
      *
      * @param  list<string>  $ids
      */
     public function deliver(Campaign $campaign, array $ids): void
     {
         $campaign->loadMissing(['organization', 'event']);
+        // Réservés par un essai précédent interrompu en plein envoi : comptés en échec, jamais renvoyés.
+        $this->abandon($campaign, $ids, [CampaignMessage::SENDING]);
         $messages = $campaign->messages()->with('contact')->whereIn('id', $ids)->where('status', CampaignMessage::QUEUED)->get();
 
         foreach ($messages as $message) {
+            if (! $this->finish($campaign, $message, CampaignMessage::QUEUED, CampaignMessage::SENDING)) {
+                continue; // pris par un autre lot
+            }
             $contact = $message->contact;
             if ($contact === null || $contact->email === null || ! $contact->isReachable()) {
-                $this->finish($campaign, $message, CampaignMessage::SKIPPED);
+                $this->finish($campaign, $message, CampaignMessage::SENDING, CampaignMessage::SKIPPED);
 
                 continue;
             }
             try {
                 Mail::to($contact->email, $contact->name)->locale($contact->locale)->send(new CampaignMail($campaign, $contact, $message));
-                $this->finish($campaign, $message, CampaignMessage::SENT);
+                $this->finish($campaign, $message, CampaignMessage::SENDING, CampaignMessage::SENT);
             } catch (Throwable $e) {
                 report($e);
-                $this->finish($campaign, $message, CampaignMessage::FAILED);
+                $this->finish($campaign, $message, CampaignMessage::SENDING, CampaignMessage::FAILED);
             }
         }
 
+        $this->completeIfDone($campaign);
+    }
+
+    /**
+     * Lot abandonné (essais épuisés) : ses messages encore en file ou réservés sont comptés en échec,
+     * pour que la campagne se termine quand même.
+     *
+     * @param  list<string>  $ids
+     * @param  list<string>  $statuses
+     */
+    public function abandon(Campaign $campaign, array $ids, array $statuses = [CampaignMessage::QUEUED, CampaignMessage::SENDING]): void
+    {
+        $failed = $campaign->messages()->whereIn('id', $ids)->whereIn('status', $statuses)->update(['status' => CampaignMessage::FAILED]);
+        if ($failed > 0) {
+            Campaign::whereKey($campaign->id)->increment('failed_count', $failed);
+        }
         $this->completeIfDone($campaign);
     }
 
@@ -100,19 +135,22 @@ final class CampaignSender
         }
     }
 
-    private function finish(Campaign $campaign, CampaignMessage $message, string $status): void
+    /** Passe un message de $from à $to (rien s'il n'est plus en $from) ; rend vrai s'il a changé. */
+    private function finish(Campaign $campaign, CampaignMessage $message, string $from, string $to): bool
     {
-        $done = CampaignMessage::whereKey($message->id)->where('status', CampaignMessage::QUEUED)
-            ->update(['status' => $status, 'sent_at' => $status === CampaignMessage::SENT ? now() : null]);
-        $counter = [CampaignMessage::SENT => 'sent_count', CampaignMessage::FAILED => 'failed_count'][$status] ?? null;
-        if ($done === 1 && $counter !== null) {
+        $done = CampaignMessage::whereKey($message->id)->where('status', $from)
+            ->update(['status' => $to, 'sent_at' => $to === CampaignMessage::SENT ? now() : null]) === 1;
+        $counter = [CampaignMessage::SENT => 'sent_count', CampaignMessage::FAILED => 'failed_count'][$to] ?? null;
+        if ($done && $counter !== null) {
             Campaign::whereKey($campaign->id)->increment($counter);
         }
+
+        return $done;
     }
 
     private function completeIfDone(Campaign $campaign): void
     {
-        if (! $campaign->messages()->where('status', CampaignMessage::QUEUED)->exists()) {
+        if (! $campaign->messages()->whereIn('status', [CampaignMessage::QUEUED, CampaignMessage::SENDING])->exists()) {
             Campaign::whereKey($campaign->id)->where('status', Campaign::SENDING)
                 ->update(['status' => Campaign::SENT, 'sent_at' => now()]);
         }

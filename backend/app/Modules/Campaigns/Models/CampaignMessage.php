@@ -8,12 +8,15 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** L'envoi d'une campagne à un contact (en file, parti, échoué, ou sauté s'il s'est désinscrit entre-temps). */
+/** L'envoi d'une campagne à un contact (en file, en cours, parti, échoué, ou sauté s'il s'est désinscrit entre-temps). */
 class CampaignMessage extends Model
 {
     use BelongsToOrganization, HasUuids;
 
     public const QUEUED = 'queued';
+
+    /** Réservé par un lot, en cours d'envoi. */
+    public const SENDING = 'sending';
 
     public const SENT = 'sent';
 

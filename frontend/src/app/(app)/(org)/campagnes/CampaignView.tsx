@@ -67,7 +67,8 @@ export function CampaignView({ id }: { id?: string }) {
       .then(([campaigns, { data }, found]) => {
         if (cancelled) return;
         setIndex(campaigns);
-        setEvents(data.filter((event) => event.status === "published"));
+        // Événements publiés, plus celui du brouillon s'il ne l'est plus (sinon le choix paraîtrait vide).
+        setEvents(data.filter((event) => event.status === "published" || event.id === found?.event_id));
         if (found) {
           setCampaign(found);
           setDraft(toDraft(found));
@@ -126,8 +127,9 @@ export function CampaignView({ id }: { id?: string }) {
         setPreview(null);
         return null;
       }
-      const saved = await save();
-      const { data } = await api<{ data: { html: string } }>(`/campaigns/${saved.id}/preview`, { organizationId });
+      // Campagne partie : plus rien à enregistrer, on montre l'e-mail tel qu'il est parti.
+      const shown = campaign && !isEditable(campaign.status) ? campaign : await save();
+      const { data } = await api<{ data: { html: string } }>(`/campaigns/${shown.id}/preview`, { organizationId });
       setPreview(data.html);
       return null;
     });
@@ -261,7 +263,7 @@ export function CampaignView({ id }: { id?: string }) {
           <option value="">{e.noEvent}</option>
           {events.map((event) => (
             <option key={event.id} value={event.id}>
-              {event.title}
+              {event.status === "published" ? event.title : format(e.unpublished, { title: event.title })}
             </option>
           ))}
         </Select>

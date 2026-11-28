@@ -50,7 +50,7 @@ return new class extends Migration
             $table->foreignUuid('organization_id')->constrained()->cascadeOnDelete();
             $table->foreignUuid('campaign_id')->constrained()->cascadeOnDelete();
             $table->foreignUuid('contact_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('status', 20)->default('queued'); // queued, sent, failed, skipped
+            $table->string('status', 20)->default('queued'); // queued, sending, sent, failed, skipped
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('opened_at')->nullable();
             $table->timestamp('clicked_at')->nullable();

@@ -12,6 +12,7 @@ use App\Modules\Ticketing\Models\Order;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -54,15 +55,15 @@ final class CampaignController
 
     public function update(Request $request, string $id): JsonResponse
     {
-        $campaign = $this->editable($id);
-        $campaign->fill($this->validated($request))->save();
+        $data = $this->validated($request);
+        $campaign = $this->whileEditable($id, fn (Campaign $campaign) => $campaign->fill($data)->save());
 
         return response()->json(['data' => $this->detail($campaign)]);
     }
 
     public function destroy(string $id): Response
     {
-        $this->editable($id)->delete();
+        $this->whileEditable($id, fn (Campaign $campaign) => $campaign->delete());
 
         return response()->noContent();
     }
@@ -70,7 +71,7 @@ final class CampaignController
     /** Envoi tout de suite, ou programmé (scheduled_at). */
     public function send(Request $request, string $id): JsonResponse
     {
-        $campaign = $this->editable($id);
+        $campaign = Campaign::findOrFail($id);
         $data = $request->validate([
             'scheduled_at' => ['nullable', 'date', 'after:now', 'before:'.now()->addDays(90)->toDateTimeString()],
         ]);
@@ -82,9 +83,9 @@ final class CampaignController
         }
 
         if (isset($data['scheduled_at'])) {
-            $campaign->forceFill(['status' => Campaign::SCHEDULED, 'scheduled_at' => $data['scheduled_at']])->save();
-        } else {
-            $this->sender->start($campaign);
+            $this->whileEditable($id, fn (Campaign $locked) => $locked->forceFill(['status' => Campaign::SCHEDULED, 'scheduled_at' => $data['scheduled_at']])->save());
+        } elseif (! $this->sender->start($campaign)) {
+            throw ValidationException::withMessages(['status' => __('campaigns.locked')]);
         }
 
         return response()->json(['data' => $this->detail($campaign->refresh())]);
@@ -93,11 +94,16 @@ final class CampaignController
     /** Programmée : revient en brouillon. */
     public function cancel(string $id): JsonResponse
     {
-        $campaign = Campaign::findOrFail($id);
-        if ($campaign->status !== Campaign::SCHEDULED) {
-            throw ValidationException::withMessages(['status' => __('campaigns.not_scheduled')]);
-        }
-        $campaign->forceFill(['status' => Campaign::DRAFT, 'scheduled_at' => null])->save();
+        $campaign = DB::transaction(function () use ($id) {
+            $campaign = Campaign::lockForUpdate()->findOrFail($id);
+            if ($campaign->status !== Campaign::SCHEDULED) {
+                throw ValidationException::withMessages(['status' => __('campaigns.not_scheduled')]);
+            }
+
+            $campaign->forceFill(['status' => Campaign::DRAFT, 'scheduled_at' => null])->save();
+
+            return $campaign;
+        });
 
         return response()->json(['data' => $this->detail($campaign)]);
     }
@@ -123,14 +129,23 @@ final class CampaignController
         return response()->json(['data' => ['html' => (new CampaignMail($campaign))->render()]]);
     }
 
-    private function editable(string $id): Campaign
+    /**
+     * Change une campagne encore modifiable, sous verrou : le lanceur de campagnes programmées ne peut
+     * pas la faire partir entre la vérification et l'écriture.
+     *
+     * @param  callable(Campaign): mixed  $change
+     */
+    private function whileEditable(string $id, callable $change): Campaign
     {
-        $campaign = Campaign::findOrFail($id);
-        if (! $campaign->isEditable()) {
-            throw ValidationException::withMessages(['status' => __('campaigns.locked')]);
-        }
+        return DB::transaction(function () use ($id, $change) {
+            $campaign = Campaign::lockForUpdate()->findOrFail($id);
+            if (! $campaign->isEditable()) {
+                throw ValidationException::withMessages(['status' => __('campaigns.locked')]);
+            }
+            $change($campaign);
 
-        return $campaign;
+            return $campaign;
+        });
     }
 
     /** @return array<string, mixed> */
