@@ -23,6 +23,8 @@ return [
         'templates' => [
             'ticket' => env('WHATSAPP_TEMPLATE_TICKET', 'kassevent_billet'),
             'invitation' => env('WHATSAPP_TEMPLATE_INVITATION', 'kassevent_invitation'),
+            // Annonces des campagnes (catégorie « Marketing ») : voir app/Modules/Communication/README.md.
+            'announcement' => env('WHATSAPP_TEMPLATE_ANNOUNCEMENT', 'kassevent_annonce'),
         ],
     ],
 

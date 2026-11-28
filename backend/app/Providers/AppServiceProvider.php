@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Models\User;
 use App\Modules\Audience\Support\ContactBook;
 use App\Modules\Campaigns\Console\DispatchCampaigns;
+use App\Modules\Campaigns\Support\CampaignSender;
+use App\Modules\Communication\Events\WhatsAppButtonPressed;
+use App\Modules\Communication\Events\WhatsAppStatusReceived;
 use App\Modules\Communication\Support\DeliveryService;
 use App\Modules\Contributions\Actions\ConfirmContribution;
 use App\Modules\Contributions\Events\ContributionPaid;
@@ -116,6 +119,9 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(TicketsIssued::class, [DeliveryService::class, 'onTicketsIssued']);
         // L'acheteur entre au carnet de contacts de l'organisation (module Audience).
         Event::listen(TicketsIssued::class, [ContactBook::class, 'onTicketsIssued']);
+        // Annonces WhatsApp des campagnes : « lu », refus après coup, bouton « Ne plus recevoir ».
+        Event::listen(WhatsAppStatusReceived::class, [CampaignSender::class, 'onWhatsAppStatus']);
+        Event::listen(WhatsAppButtonPressed::class, [CampaignSender::class, 'onWhatsAppButton']);
 
         if ($this->app->runningInConsole()) {
             $this->commands([RunPayouts::class, ListBankTransfers::class, CompletePayout::class, DispatchCampaigns::class]);

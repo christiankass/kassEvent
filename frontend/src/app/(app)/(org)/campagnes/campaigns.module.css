@@ -110,3 +110,39 @@ dd.sales.sales {
 .pill {
   align-self: flex-start;
 }
+
+/* Aperçu WhatsApp : la bulle du modèle « annonce », sur le fond beige de l'application. */
+.whatsapp {
+  margin: 0;
+  padding: 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #efe7dc;
+}
+
+.bubble {
+  max-width: 340px;
+  border-radius: 4px 12px 12px 12px;
+  background: #fff;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.08);
+  overflow: hidden;
+}
+
+.bubble p {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 15px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bubbleButton {
+  display: block;
+  padding: 10px 12px;
+  border-top: 1px solid #e6e1da;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #027eb5;
+}

@@ -6,6 +6,7 @@ use App\Modules\Audience\Support\ContactBook;
 use App\Modules\Campaigns\Mail\CampaignMail;
 use App\Modules\Campaigns\Models\Campaign;
 use App\Modules\Campaigns\Support\CampaignSender;
+use App\Modules\Communication\Support\WhatsAppAnnouncer;
 use App\Modules\Events\Models\Event;
 use App\Modules\Tenancy\Support\TenantKeys;
 use App\Modules\Ticketing\Models\Order;
@@ -34,9 +35,13 @@ final class CampaignController
 
         return response()->json([
             'data' => $campaigns->map(fn (Campaign $campaign) => $this->summary($campaign, $counts[$campaign->id] ?? [])),
-            'audiences' => $this->contacts->emailAudienceCounts(),
-            // Sans service d'envoi configuré, les e-mails restent dans le journal du serveur.
-            'demo' => in_array(config('mail.default'), ['log', 'array'], true),
+            'audiences' => $this->contacts->audienceCounts(),
+            'channels' => [
+                // Sans service d'envoi configuré, les e-mails restent dans le journal du serveur.
+                'email' => ['available' => true, 'demo' => in_array(config('mail.default'), ['log', 'array'], true)],
+                // Sans compte WhatsApp Business, les annonces sont simulées (jamais en production).
+                'whatsapp' => ['available' => WhatsAppAnnouncer::available(), 'demo' => WhatsAppAnnouncer::simulated()],
+            ],
         ]);
     }
 
@@ -58,7 +63,7 @@ final class CampaignController
 
     public function update(Request $request, string $id): JsonResponse
     {
-        $data = $this->validated($request);
+        $data = $this->validated($request, Campaign::findOrFail($id, ['id', 'channel']));
         $campaign = $this->locked($id, self::EDITABLE, 'campaigns.locked', fn (Campaign $campaign) => $campaign->fill($data)->save());
 
         return response()->json(['data' => $this->detail($campaign)]);
@@ -81,7 +86,7 @@ final class CampaignController
         if ($campaign->eventUnavailable()) {
             throw ValidationException::withMessages(['event_id' => __('campaigns.event_unpublished')]);
         }
-        if ($this->contacts->emailAudience($campaign->audience)->doesntExist()) {
+        if ($this->contacts->audience($campaign->channel, $campaign->audience)->doesntExist()) {
             throw ValidationException::withMessages(['audience' => __('campaigns.no_recipients')]);
         }
 
@@ -106,6 +111,9 @@ final class CampaignController
     public function test(Request $request, string $id): JsonResponse
     {
         $campaign = Campaign::with(['organization', 'event'])->findOrFail($id);
+        if ($campaign->channel !== Campaign::EMAIL) {
+            throw ValidationException::withMessages(['channel' => __('campaigns.test_email_only')]);
+        }
         $email = $request->user()->email;
         if (! $email) {
             throw ValidationException::withMessages(['email' => __('campaigns.no_email')]);
@@ -144,21 +152,34 @@ final class CampaignController
     }
 
     /** @return array<string, mixed> */
-    private function validated(Request $request): array
+    private function validated(Request $request, ?Campaign $campaign = null): array
     {
+        // Sans « channel » dans la requête, une modification garde le canal enregistré.
+        $whatsapp = ($request->input('channel') ?? $campaign?->channel) === Campaign::WHATSAPP;
         $data = $request->validate([
+            'channel' => ['sometimes', Rule::in(Campaign::CHANNELS)],
             'subject' => ['required', 'string', 'max:150'],
-            'body' => ['required', 'string', 'max:5000'],
-            'event_id' => ['nullable', 'uuid'],
+            // WhatsApp : texte d'une variable de modèle (une ligne, longueur limitée par Meta).
+            'body' => ['required', 'string', 'max:'.($whatsapp ? WhatsAppAnnouncer::MAX_TEXT : 5000)],
+            // WhatsApp : l'annonce porte toujours le bouton « Voir l'événement ».
+            'event_id' => [$whatsapp ? 'required' : 'nullable', 'uuid'],
             'button_label' => ['nullable', 'string', 'max:40'],
             'audience' => ['required', Rule::in(Campaign::AUDIENCES)],
         ]);
+        if ($whatsapp && ! WhatsAppAnnouncer::available()) {
+            throw ValidationException::withMessages(['channel' => __('campaigns.whatsapp_unavailable')]);
+        }
         // Événement de l'organisation seulement (le scope ne voit pas ceux des autres).
         if (($data['event_id'] ?? null) !== null && ! Event::whereKey($data['event_id'])->exists()) {
             throw ValidationException::withMessages(['event_id' => __('validation.exists', ['attribute' => 'event'])]);
         }
 
-        return [...$data, 'subject' => trim($data['subject']), 'button_label' => trim((string) ($data['button_label'] ?? '')) ?: null];
+        return [
+            ...$data,
+            'subject' => trim($data['subject']),
+            // Le bouton d'une annonce WhatsApp est écrit dans le modèle approuvé : pas de texte libre.
+            'button_label' => $whatsapp ? null : (trim((string) ($data['button_label'] ?? '')) ?: null),
+        ];
     }
 
     /** @return array<string, mixed> */
@@ -168,6 +189,7 @@ final class CampaignController
         return [
             'id' => $campaign->id,
             'subject' => $campaign->subject,
+            'channel' => $campaign->channel,
             'status' => $campaign->status,
             'audience' => $campaign->audience,
             'event' => $campaign->event ? ['id' => $campaign->event->id, 'title' => $campaign->event->title] : null,

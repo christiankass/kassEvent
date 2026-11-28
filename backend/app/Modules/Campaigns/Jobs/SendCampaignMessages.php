@@ -15,8 +15,8 @@ final class SendCampaignMessages implements ShouldQueue
 
     public int $tries = 3;
 
-    /** 50 e-mails par lot : de la marge si le service d'envoi est lent. */
-    public int $timeout = 300;
+    /** Sous le retry_after de la file (90 s) : un lot lent n'est jamais repris pendant qu'il tourne encore. */
+    public int $timeout = 80;
 
     /** @var list<int> */
     public array $backoff = [60, 300];

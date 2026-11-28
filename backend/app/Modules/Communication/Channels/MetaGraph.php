@@ -2,6 +2,7 @@
 
 namespace App\Modules\Communication\Channels;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
@@ -18,6 +19,18 @@ final class MetaGraph
      * destinataire. Signalée (journal d'erreurs) et retentée, jamais imputée à l'acheteur.
      */
     private const CONFIGURATION = [3, 10, 190, 200];
+
+    /** Texte d'une variable de modèle : Meta refuse les retours à la ligne et les longueurs excessives. */
+    public static function param(string $text, int $limit): string
+    {
+        return mb_substr(trim(preg_replace('/\s+/u', ' ', $text)), 0, $limit);
+    }
+
+    /** Coupure ou erreur serveur : Meta a peut-être reçu (et facturé) le message, il ne faut pas le renvoyer. */
+    public static function mayHaveDelivered(\Throwable $e): bool
+    {
+        return $e instanceof ConnectionException || ($e instanceof RequestException && $e->response->serverError());
+    }
 
     public static function client(string $token): PendingRequest
     {

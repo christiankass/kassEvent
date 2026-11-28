@@ -10,8 +10,10 @@ return [
         'test' => '[Essai] :subject',
     ],
     'locked' => 'Cette campagne est déjà partie : elle ne peut plus être modifiée.',
-    'no_recipients' => 'Aucun contact joignable par e-mail pour ce public : rien à envoyer.',
+    'no_recipients' => 'Aucun contact joignable sur ce canal pour ce public : rien à envoyer.',
     'event_unpublished' => 'Publiez l\'événement avant d\'envoyer : le bouton de l\'e-mail mènerait à une page fermée.',
     'not_scheduled' => 'Cette campagne n\'est pas programmée.',
+    'test_email_only' => 'Les essais ne partent que par e-mail.',
+    'whatsapp_unavailable' => 'WhatsApp n\'est pas disponible sur cette plateforme pour l\'instant.',
     'no_email' => 'Votre compte n\'a pas d\'adresse e-mail.',
 ];

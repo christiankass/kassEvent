@@ -58,27 +58,40 @@ final class ContactBook
         ));
     }
 
+    /** Canal d'une campagne => colonne de coordonnée nécessaire. */
+    private const CHANNEL_FIELDS = ['email' => 'email', 'whatsapp' => 'phone'];
+
+    /** Colonne de coordonnée qu'un canal de campagne utilise (email ou phone). */
+    public static function field(string $channel): string
+    {
+        return self::CHANNEL_FIELDS[$channel];
+    }
+
     /**
-     * Contacts qu'une campagne e-mail peut écrire : joignables, avec une adresse, parmi tous, les
-     * acheteurs ou les invités.
+     * Contacts qu'une campagne peut écrire sur ce canal (e-mail ou WhatsApp) : joignables, avec la
+     * coordonnée du canal, parmi tous, les acheteurs ou les invités.
      *
      * @return Builder<Contact>
      */
-    public function emailAudience(string $audience): Builder
+    public function audience(string $channel, string $audience): Builder
     {
-        return Contact::query()->reachable()->whereNotNull('email')
+        return Contact::query()->reachable()->whereNotNull(self::CHANNEL_FIELDS[$channel])
             ->when($audience === 'buyers', fn (Builder $query) => $query->where('orders_count', '>', 0))
             ->when($audience === 'guests', fn (Builder $query) => $query->where('invitations_count', '>', 0));
     }
 
-    /** @return array{all: int, buyers: int, guests: int} nombre de contacts joignables par e-mail, par public */
-    public function emailAudienceCounts(): array
+    /** @return array<string, array{all: int, buyers: int, guests: int}> contacts joignables par canal et par public */
+    public function audienceCounts(): array
     {
-        $counts = $this->emailAudience('all')->toBase()
-            ->selectRaw('count(*) as "all", count(*) filter (where orders_count > 0) as buyers, count(*) filter (where invitations_count > 0) as guests')
-            ->first();
+        $filters = [];
+        foreach (self::CHANNEL_FIELDS as $channel => $field) {
+            $filters[] = "count({$field}) as {$channel}_all, count({$field}) filter (where orders_count > 0) as {$channel}_buyers, count({$field}) filter (where invitations_count > 0) as {$channel}_guests";
+        }
+        $row = (array) Contact::query()->reachable()->toBase()->selectRaw(implode(', ', $filters))->first();
 
-        return array_map('intval', (array) $counts);
+        return collect(self::CHANNEL_FIELDS)->map(fn ($field, $channel) => [
+            'all' => (int) $row["{$channel}_all"], 'buyers' => (int) $row["{$channel}_buyers"], 'guests' => (int) $row["{$channel}_guests"],
+        ])->all();
     }
 
     public function unsubscribe(Contact $contact): void

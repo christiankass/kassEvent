@@ -1,7 +1,7 @@
 /** Textes du carnet de contacts, de la case d'accord et de la désinscription (fusionnés dans dictionaries.ts). */
 export const audienceFr = {
   audience: {
-    consent: "Recevoir les nouvelles de {organization} (prochains événements, offres). Vous pourrez vous désinscrire à tout moment.",
+    consent: "Recevoir les nouvelles de {organization} par e-mail ou WhatsApp (prochains événements, offres). Vous pourrez vous désinscrire à tout moment.",
     nav: "Contacts",
     title: "Contacts",
     lede: "Les personnes qui ont acheté un billet ou répondu à une invitation. Seules celles qui ont accepté de recevoir vos nouvelles pourront recevoir vos campagnes.",
@@ -36,7 +36,7 @@ export const audienceFr = {
 
 export const audienceEn: typeof audienceFr = {
   audience: {
-    consent: "Get news from {organization} (upcoming events, offers). You can unsubscribe at any time.",
+    consent: "Get news from {organization} by email or WhatsApp (upcoming events, offers). You can unsubscribe at any time.",
     nav: "Contacts",
     title: "Contacts",
     lede: "People who bought a ticket or answered an invitation. Only those who agreed to get your news can receive your campaigns.",

@@ -96,7 +96,8 @@ class CampaignsTest extends TestCase
     public function test_a_campaign_goes_only_to_contacts_who_agreed_and_is_tracked(): void
     {
         $this->getJson('/api/v1/campaigns', $this->headers())->assertOk()
-            ->assertJsonPath('audiences', ['all' => 2, 'buyers' => 1, 'guests' => 1])->assertJsonPath('demo', true);
+            ->assertJsonPath('audiences.email', ['all' => 2, 'buyers' => 1, 'guests' => 1])->assertJsonPath('channels.email.demo', true)
+            ->assertJsonPath('audiences.whatsapp.all', 0)->assertJsonPath('channels.whatsapp.demo', true);
 
         $campaign = $this->draft();
         $html = $this->getJson("/api/v1/campaigns/{$campaign['id']}/preview", $this->headers())->assertOk()->json('data.html');
@@ -225,7 +226,7 @@ class CampaignsTest extends TestCase
         $intruder = $this->userWithTwoFactor();
         $other = $this->createOrganization($intruder, 'Autre');
         Sanctum::actingAs($intruder);
-        $this->getJson('/api/v1/campaigns', $this->headers($other))->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('audiences.all', 0);
+        $this->getJson('/api/v1/campaigns', $this->headers($other))->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('audiences.email.all', 0);
         $this->getJson("/api/v1/campaigns/{$campaign['id']}", $this->headers($other))->assertNotFound();
         $this->postJson("/api/v1/campaigns/{$campaign['id']}/send", [], $this->headers($other))->assertNotFound();
         $this->postJson('/api/v1/campaigns', ['subject' => 'x', 'body' => 'y', 'audience' => 'all', 'event_id' => $this->event['id']], $this->headers($other))->assertUnprocessable();
@@ -237,6 +238,48 @@ class CampaignsTest extends TestCase
         });
         Sanctum::actingAs($agent);
         $this->getJson('/api/v1/campaigns', $this->headers())->assertForbidden();
+    }
+
+    public function test_a_whatsapp_announcement_goes_to_numbers_and_is_tracked_by_meta_notifications(): void
+    {
+        $this->buy('Junior', 'junior@example.com', true, ['whatsapp' => '0812345678']);
+        $this->buy('Sans WhatsApp', 'sans@example.com', true, ['whatsapp' => '0810000000']);
+        $this->buy('Pas d\'accord', 'non@example.com', false, ['whatsapp' => '0899999999']);
+        Sanctum::actingAs($this->owner);
+
+        // L'annonce porte toujours le bouton de l'événement ; texte limité à une variable de modèle.
+        $this->postJson('/api/v1/campaigns', ['channel' => 'whatsapp', 'subject' => 'x', 'body' => 'y', 'audience' => 'all'], $this->headers())
+            ->assertUnprocessable()->assertJsonValidationErrors('event_id');
+        $this->postJson('/api/v1/campaigns', ['channel' => 'whatsapp', 'subject' => 'x', 'body' => str_repeat('a', 901), 'audience' => 'all', 'event_id' => $this->event['id']], $this->headers())
+            ->assertUnprocessable()->assertJsonValidationErrors('body');
+
+        $campaign = $this->draft(['channel' => 'whatsapp', 'button_label' => 'Ignoré']);
+        $this->assertSame('whatsapp', $campaign['channel']);
+        $this->assertNull($campaign['button_label']);
+        $this->postJson("/api/v1/campaigns/{$campaign['id']}/test", [], $this->headers())->assertUnprocessable();
+        $this->postJson("/api/v1/campaigns/{$campaign['id']}/send", [], $this->headers())->assertOk()
+            ->assertJsonPath('data.status', 'sent')->assertJsonPath('data.recipients_count', 2)
+            ->assertJsonPath('data.sent_count', 1)->assertJsonPath('data.failed_count', 1);
+        Mail::assertNotSent(CampaignMail::class);
+
+        $message = $this->inTenant(fn () => CampaignMessage::where('status', 'sent')->first());
+        $this->leave();
+        config(['messaging.app_secret' => 'meta-secret']);
+        $notify = function (array $value) {
+            $payload = json_encode(['object' => 'whatsapp_business_account', 'entry' => [['changes' => [['value' => $value]]]]]);
+
+            return $this->call('POST', '/api/v1/webhooks/meta', [], [], [], [
+                'CONTENT_TYPE' => 'application/json', 'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $payload, 'meta-secret'),
+            ], $payload)->assertOk();
+        };
+        $ref = "{$campaign['id']}:{$message->id}";
+        $notify(['statuses' => [['id' => 'wamid.1', 'status' => 'read', 'biz_opaque_callback_data' => "cmp:{$ref}"]]]);
+        $notify(['statuses' => [['id' => 'wamid.1', 'status' => 'read', 'biz_opaque_callback_data' => 'cmp:'.fake()->uuid().':'.fake()->uuid()]]]);
+        $notify(['messages' => [['from' => '243812345678', 'type' => 'button', 'button' => ['payload' => "stop:{$ref}", 'text' => 'Ne plus recevoir']]]]);
+
+        Sanctum::actingAs($this->owner);
+        $this->getJson("/api/v1/campaigns/{$campaign['id']}", $this->headers())->assertJsonPath('data.opened_count', 1);
+        $this->inTenant(fn () => $this->assertNotNull(Contact::where('email', 'junior@example.com')->first()->unsubscribed_at));
     }
 
     public function test_a_contact_unsubscribes_in_one_click_from_the_mail_app(): void

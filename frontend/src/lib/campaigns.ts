@@ -1,12 +1,17 @@
 import { percent } from "./stats";
 
-/** Campagnes e-mail de l'organisation (GET /campaigns, /campaigns/{id}). */
+/** Campagnes de l'organisation, par e-mail ou WhatsApp (GET /campaigns, /campaigns/{id}). */
+export const CHANNELS = ["email", "whatsapp"] as const;
+export type CampaignChannel = (typeof CHANNELS)[number];
+/** Longueur maximale du texte d'une annonce WhatsApp (variable d'un modèle Meta). */
+export const WHATSAPP_MAX = 900;
 export type CampaignStatus = "draft" | "scheduled" | "sending" | "sent";
 export const AUDIENCES = ["all", "buyers", "guests"] as const;
 export type CampaignAudience = (typeof AUDIENCES)[number];
 
 export type CampaignSummary = {
   id: string;
+  channel: CampaignChannel;
   subject: string;
   status: CampaignStatus;
   audience: CampaignAudience;
@@ -30,11 +35,12 @@ export type Campaign = CampaignSummary & {
 
 export type CampaignsIndex = {
   data: CampaignSummary[];
-  audiences: Record<CampaignAudience, number>;
-  demo: boolean;
+  audiences: Record<CampaignChannel, Record<CampaignAudience, number>>;
+  channels: Record<CampaignChannel, { available: boolean; demo: boolean }>;
 };
 
 export type CampaignDraft = {
+  channel: CampaignChannel;
   subject: string;
   body: string;
   event_id: string | null;

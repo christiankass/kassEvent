@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Campagne e-mail : brouillon, programmée (scheduled_at), en cours d'envoi, envoyée ou annulée.
- * Elle ne part qu'aux contacts joignables (accord donné, pas désinscrits) ayant une adresse e-mail.
+ * Campagne par e-mail ou WhatsApp : brouillon, programmée (scheduled_at), en cours d'envoi, envoyée ou annulée.
+ * Elle ne part qu'aux contacts joignables (accord donné, pas désinscrits) ayant la coordonnée du canal.
  */
 class Campaign extends Model
 {
@@ -24,6 +24,12 @@ class Campaign extends Model
     public const SENDING = 'sending';
 
     public const SENT = 'sent';
+
+    public const EMAIL = 'email';
+
+    public const WHATSAPP = 'whatsapp';
+
+    public const CHANNELS = [self::EMAIL, self::WHATSAPP];
 
     /** Destinataires possibles parmi les contacts joignables. */
     public const AUDIENCES = ['all', 'buyers', 'guests'];
@@ -68,5 +74,11 @@ class Campaign extends Model
     public function backToDraft(): void
     {
         $this->forceFill(['status' => self::DRAFT, 'scheduled_at' => null])->save();
+    }
+
+    /** Le message avec {nom} (ou {name}) remplacé par le nom du destinataire, pour tous les canaux. */
+    public function personalizedBody(string $name): string
+    {
+        return str_replace(['{nom}', '{name}'], $name, $this->body);
     }
 }
